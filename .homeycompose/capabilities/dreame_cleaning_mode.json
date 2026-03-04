@@ -1,0 +1,13 @@
+{
+  "type": "enum",
+  "title": { "en": "Cleaning Mode" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "sweeping", "title": { "en": "Sweeping" } },
+    { "id": "mopping", "title": { "en": "Mopping" } },
+    { "id": "sweeping_and_mopping", "title": { "en": "Sweeping & Mopping" } },
+    { "id": "mopping_after_sweeping", "title": { "en": "Vacuum then Mop" } }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "0.0.1": {
+    "en": "Initial release\n- Control robot vacuums via Dreame Home cloud API\n- Cleaning modes: Sweeping, Mopping, Sweeping & Mopping\n- Suction level, water volume, and cleaning route control\n- CleanGenius intelligent cleaning with auto-start\n- Dock features: Auto Empty, Self Clean, Drying\n- Consumable monitoring with low alerts\n- Battery, cleaned area, cleaning time sensors\n- Flow cards for automations\n- Configurable polling interval",
+    "nl": "Eerste release\n- Bedien robotstofzuigers via Dreame Home cloud API\n- Reinigingsmodi: Stofzuigen, Dweilen, Stofzuigen & Dweilen\n- Zuigkracht, watervolume en reinigingsroute bediening\n- CleanGenius intelligente reiniging met automatische start\n- Dock functies: Automatisch Legen, Zelfreiniging, Drogen\n- Verbruiksartikelen monitoring met lage voorraad waarschuwingen\n- Batterij, gereinigd oppervlak, reinigingstijd sensoren\n- Flow cards voor automatiseringen\n- Configureerbaar poll-interval"
+  }
+}

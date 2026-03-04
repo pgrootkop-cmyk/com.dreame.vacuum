@@ -1,0 +1,16 @@
+{
+  "type": "enum",
+  "title": { "en": "Dock Status" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "values": [
+    { "id": "idle", "title": { "en": "Idle" } },
+    { "id": "washing", "title": { "en": "Washing Mops" } },
+    { "id": "drying", "title": { "en": "Drying" } },
+    { "id": "returning_to_wash", "title": { "en": "Returning to Wash" } },
+    { "id": "paused", "title": { "en": "Paused" } },
+    { "id": "clean_add_water", "title": { "en": "Add Water" } },
+    { "id": "adding_water", "title": { "en": "Adding Water" } }
+  ]
+}

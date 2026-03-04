@@ -1,0 +1,17 @@
+{
+  "title": { "en": "Set CleanGenius mode" },
+  "titleFormatted": { "en": "Set CleanGenius to [[level]]" },
+  "hint": { "en": "Set the CleanGenius cleaning intelligence mode" },
+  "args": [
+    {
+      "type": "dropdown",
+      "name": "level",
+      "title": { "en": "Level" },
+      "values": [
+        { "id": "off", "title": { "en": "Off" } },
+        { "id": "routine", "title": { "en": "Routine Cleaning" } },
+        { "id": "deep", "title": { "en": "Deep Cleaning" } }
+      ]
+    }
+  ]
+}

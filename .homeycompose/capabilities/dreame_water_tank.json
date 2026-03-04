@@ -1,0 +1,13 @@
+{
+  "type": "enum",
+  "title": { "en": "Water Tank" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "values": [
+    { "id": "installed", "title": { "en": "OK" } },
+    { "id": "not_installed", "title": { "en": "Not Installed" } },
+    { "id": "low_water", "title": { "en": "Low Water" } },
+    { "id": "no_water", "title": { "en": "No Water" } }
+  ]
+}

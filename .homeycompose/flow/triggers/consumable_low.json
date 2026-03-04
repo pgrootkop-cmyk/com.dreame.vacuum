@@ -1,0 +1,19 @@
+{
+  "title": { "en": "A consumable is running low" },
+  "titleFormatted": { "en": "A consumable is running low" },
+  "hint": { "en": "Triggers when a consumable drops below the alert threshold" },
+  "tokens": [
+    {
+      "name": "consumable",
+      "type": "string",
+      "title": { "en": "Consumable" },
+      "example": { "en": "Main Brush" }
+    },
+    {
+      "name": "percentage",
+      "type": "number",
+      "title": { "en": "Percentage" },
+      "example": { "en": "5" }
+    }
+  ]
+}

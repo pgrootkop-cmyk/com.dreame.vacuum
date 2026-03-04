@@ -1,0 +1,13 @@
+{
+  "type": "enum",
+  "title": { "en": "Cleaning Route" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "standard", "title": { "en": "Standard" } },
+    { "id": "intensive", "title": { "en": "Intensive" } },
+    { "id": "deep", "title": { "en": "Deep" } },
+    { "id": "quick", "title": { "en": "Quick" } }
+  ]
+}

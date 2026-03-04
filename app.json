@@ -1,0 +1,1530 @@
+{
+  "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
+  "id": "com.dreame.vacuum.cloud",
+  "version": "0.0.1",
+  "compatibility": ">=12.0.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "brandColor": "#292929",
+  "name": {
+    "en": "Dreame",
+    "nl": "Dreame"
+  },
+  "description": {
+    "en": "Smart Robot Vacuum Control",
+    "nl": "Slimme Robotstofzuiger Bediening"
+  },
+  "category": [
+    "appliances"
+  ],
+  "permissions": [],
+  "tags": {
+    "en": [
+      "Dreame",
+      "vacuum",
+      "robot vacuum",
+      "cleaning",
+      "mop",
+      "robot",
+      "CleanGenius",
+      "X40",
+      "L20",
+      "mopping",
+      "dock"
+    ],
+    "nl": [
+      "Dreame",
+      "stofzuiger",
+      "robotstofzuiger",
+      "schoonmaken",
+      "dweil",
+      "robot",
+      "CleanGenius",
+      "X40",
+      "L20",
+      "dweilen",
+      "dock"
+    ]
+  },
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Pjotr Grootkop",
+    "email": "piet@kerkhofs.org"
+  },
+  "source": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud",
+  "homepage": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud",
+  "support": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues",
+  "bugs": {
+    "url": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues"
+  },
+  "flow": {
+    "triggers": [
+      {
+        "title": {
+          "en": "A consumable is running low"
+        },
+        "titleFormatted": {
+          "en": "A consumable is running low"
+        },
+        "hint": {
+          "en": "Triggers when a consumable drops below the alert threshold"
+        },
+        "tokens": [
+          {
+            "name": "consumable",
+            "type": "string",
+            "title": {
+              "en": "Consumable"
+            },
+            "example": {
+              "en": "Main Brush"
+            }
+          },
+          {
+            "name": "percentage",
+            "type": "number",
+            "title": {
+              "en": "Percentage"
+            },
+            "example": {
+              "en": "5"
+            }
+          }
+        ],
+        "id": "consumable_low"
+      },
+      {
+        "title": {
+          "en": "An error occurred"
+        },
+        "hint": {
+          "en": "Triggers when the vacuum reports an error"
+        },
+        "tokens": [
+          {
+            "name": "error",
+            "type": "string",
+            "title": {
+              "en": "Error"
+            },
+            "example": {
+              "en": "Brush stuck"
+            }
+          }
+        ],
+        "id": "dreame_error_occurred"
+      },
+      {
+        "title": {
+          "en": "Clean water tank is low"
+        },
+        "titleFormatted": {
+          "en": "Clean water tank is low"
+        },
+        "hint": {
+          "en": "Triggers when the dock's clean water tank is low or empty"
+        },
+        "tokens": [
+          {
+            "name": "status",
+            "type": "string",
+            "title": {
+              "en": "Status"
+            },
+            "example": {
+              "en": "Low Water"
+            }
+          }
+        ],
+        "id": "low_water_warning"
+      }
+    ],
+    "conditions": [
+      {
+        "title": {
+          "en": "Carpet boost !{{is|is not}} on"
+        },
+        "titleFormatted": {
+          "en": "Carpet boost !{{is|is not}} on"
+        },
+        "hint": {
+          "en": "Check if carpet boost is enabled"
+        },
+        "id": "carpet_boost_is_on"
+      },
+      {
+        "title": {
+          "en": "Do Not Disturb !{{is|is not}} on"
+        },
+        "titleFormatted": {
+          "en": "Do Not Disturb !{{is|is not}} on"
+        },
+        "hint": {
+          "en": "Check if Do Not Disturb mode is enabled"
+        },
+        "id": "dnd_is_on"
+      },
+      {
+        "title": {
+          "en": "Cleaning mode !{{is|is not}} ..."
+        },
+        "titleFormatted": {
+          "en": "Cleaning mode !{{is|is not}} [[mode]]"
+        },
+        "hint": {
+          "en": "Check the current cleaning mode"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "mode",
+            "title": {
+              "en": "Mode"
+            },
+            "values": [
+              {
+                "id": "sweeping",
+                "title": {
+                  "en": "Sweeping"
+                }
+              },
+              {
+                "id": "mopping",
+                "title": {
+                  "en": "Mopping"
+                }
+              },
+              {
+                "id": "sweeping_and_mopping",
+                "title": {
+                  "en": "Sweeping & Mopping"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "dreame_cleaning_mode_is"
+      },
+      {
+        "title": {
+          "en": "Suction level !{{is|is not}} ..."
+        },
+        "titleFormatted": {
+          "en": "Suction level !{{is|is not}} [[level]]"
+        },
+        "hint": {
+          "en": "Check the current suction level"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "level",
+            "title": {
+              "en": "Level"
+            },
+            "values": [
+              {
+                "id": "quiet",
+                "title": {
+                  "en": "Quiet"
+                }
+              },
+              {
+                "id": "standard",
+                "title": {
+                  "en": "Standard"
+                }
+              },
+              {
+                "id": "strong",
+                "title": {
+                  "en": "Strong"
+                }
+              },
+              {
+                "id": "turbo",
+                "title": {
+                  "en": "Turbo"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "dreame_suction_level_is"
+      }
+    ],
+    "actions": [
+      {
+        "title": {
+          "en": "Reset filter life"
+        },
+        "titleFormatted": {
+          "en": "Reset filter life counter"
+        },
+        "hint": {
+          "en": "Reset after replacing the filter"
+        },
+        "id": "reset_filter"
+      },
+      {
+        "title": {
+          "en": "Reset main brush life"
+        },
+        "titleFormatted": {
+          "en": "Reset main brush life counter"
+        },
+        "hint": {
+          "en": "Reset after replacing the main brush"
+        },
+        "id": "reset_main_brush"
+      },
+      {
+        "title": {
+          "en": "Reset mop pad life"
+        },
+        "titleFormatted": {
+          "en": "Reset mop pad life counter"
+        },
+        "hint": {
+          "en": "Reset after replacing the mop pad"
+        },
+        "id": "reset_mop_pad"
+      },
+      {
+        "title": {
+          "en": "Reset sensor life"
+        },
+        "titleFormatted": {
+          "en": "Reset sensor life counter"
+        },
+        "hint": {
+          "en": "Reset after cleaning the sensors"
+        },
+        "id": "reset_sensor"
+      },
+      {
+        "title": {
+          "en": "Reset side brush life"
+        },
+        "titleFormatted": {
+          "en": "Reset side brush life counter"
+        },
+        "hint": {
+          "en": "Reset after replacing the side brush"
+        },
+        "id": "reset_side_brush"
+      },
+      {
+        "title": {
+          "en": "Set CleanGenius mode"
+        },
+        "titleFormatted": {
+          "en": "Set CleanGenius to [[level]]"
+        },
+        "hint": {
+          "en": "Set the CleanGenius cleaning intelligence mode"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "level",
+            "title": {
+              "en": "Level"
+            },
+            "values": [
+              {
+                "id": "off",
+                "title": {
+                  "en": "Off"
+                }
+              },
+              {
+                "id": "routine",
+                "title": {
+                  "en": "Routine Cleaning"
+                }
+              },
+              {
+                "id": "deep",
+                "title": {
+                  "en": "Deep Cleaning"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_cleangenius"
+      },
+      {
+        "title": {
+          "en": "Set CleanGenius cleaning method"
+        },
+        "titleFormatted": {
+          "en": "Set CleanGenius method to [[method]]"
+        },
+        "hint": {
+          "en": "Choose how CleanGenius cleans (only works when CleanGenius is on)"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "method",
+            "title": {
+              "en": "Method"
+            },
+            "values": [
+              {
+                "id": "vacuum_and_mop",
+                "title": {
+                  "en": "Vacuum & Mop"
+                }
+              },
+              {
+                "id": "mop_after_vacuum",
+                "title": {
+                  "en": "Vacuum then Mop"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_cleangenius_mode"
+      },
+      {
+        "title": {
+          "en": "Set cleaning route"
+        },
+        "titleFormatted": {
+          "en": "Set cleaning route to [[route]]"
+        },
+        "hint": {
+          "en": "Set the cleaning route pattern"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "route",
+            "title": {
+              "en": "Route"
+            },
+            "values": [
+              {
+                "id": "standard",
+                "title": {
+                  "en": "Standard"
+                }
+              },
+              {
+                "id": "intensive",
+                "title": {
+                  "en": "Intensive"
+                }
+              },
+              {
+                "id": "deep",
+                "title": {
+                  "en": "Deep"
+                }
+              },
+              {
+                "id": "quick",
+                "title": {
+                  "en": "Quick"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_cleaning_route"
+      },
+      {
+        "title": {
+          "en": "Set cleaning mode"
+        },
+        "titleFormatted": {
+          "en": "Set cleaning mode to [[mode]]"
+        },
+        "hint": {
+          "en": "Change the cleaning mode of the vacuum"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "mode",
+            "title": {
+              "en": "Mode"
+            },
+            "values": [
+              {
+                "id": "sweeping",
+                "title": {
+                  "en": "Sweeping"
+                }
+              },
+              {
+                "id": "mopping",
+                "title": {
+                  "en": "Mopping"
+                }
+              },
+              {
+                "id": "sweeping_and_mopping",
+                "title": {
+                  "en": "Sweeping & Mopping"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_dreame_cleaning_mode"
+      },
+      {
+        "title": {
+          "en": "Set suction level"
+        },
+        "titleFormatted": {
+          "en": "Set suction level to [[level]]"
+        },
+        "hint": {
+          "en": "Change the suction power of the vacuum"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "level",
+            "title": {
+              "en": "Level"
+            },
+            "values": [
+              {
+                "id": "quiet",
+                "title": {
+                  "en": "Quiet"
+                }
+              },
+              {
+                "id": "standard",
+                "title": {
+                  "en": "Standard"
+                }
+              },
+              {
+                "id": "strong",
+                "title": {
+                  "en": "Strong"
+                }
+              },
+              {
+                "id": "turbo",
+                "title": {
+                  "en": "Turbo"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_dreame_suction_level"
+      },
+      {
+        "title": {
+          "en": "Set water volume"
+        },
+        "titleFormatted": {
+          "en": "Set water volume to [[volume]]"
+        },
+        "hint": {
+          "en": "Change the water volume for mopping"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "volume",
+            "title": {
+              "en": "Volume"
+            },
+            "values": [
+              {
+                "id": "low",
+                "title": {
+                  "en": "Low"
+                }
+              },
+              {
+                "id": "medium",
+                "title": {
+                  "en": "Medium"
+                }
+              },
+              {
+                "id": "high",
+                "title": {
+                  "en": "High"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_dreame_water_volume"
+      },
+      {
+        "title": {
+          "en": "Set mop wash frequency"
+        },
+        "titleFormatted": {
+          "en": "Set mop wash frequency to [[frequency]]"
+        },
+        "hint": {
+          "en": "How often the mop returns to the station for washing"
+        },
+        "args": [
+          {
+            "type": "dropdown",
+            "name": "frequency",
+            "title": {
+              "en": "Frequency"
+            },
+            "values": [
+              {
+                "id": "by_room",
+                "title": {
+                  "en": "After each room"
+                }
+              },
+              {
+                "id": "5m2",
+                "title": {
+                  "en": "Every 5 m²"
+                }
+              },
+              {
+                "id": "10m2",
+                "title": {
+                  "en": "Every 10 m²"
+                }
+              },
+              {
+                "id": "15m2",
+                "title": {
+                  "en": "Every 15 m²"
+                }
+              },
+              {
+                "id": "20m2",
+                "title": {
+                  "en": "Every 20 m²"
+                }
+              },
+              {
+                "id": "25m2",
+                "title": {
+                  "en": "Every 25 m²"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_mop_wash_frequency"
+      },
+      {
+        "title": {
+          "en": "Start auto empty"
+        },
+        "titleFormatted": {
+          "en": "Empty dust bin into dock"
+        },
+        "hint": {
+          "en": "Start emptying the robot's dust bin into the dock bag"
+        },
+        "id": "start_auto_empty"
+      },
+      {
+        "title": {
+          "en": "Start mop drying"
+        },
+        "titleFormatted": {
+          "en": "Start hot air mop drying"
+        },
+        "hint": {
+          "en": "Start the dock's hot air drying cycle"
+        },
+        "id": "start_drying"
+      },
+      {
+        "title": {
+          "en": "Clean a specific room"
+        },
+        "titleFormatted": {
+          "en": "Clean room [[room_id]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+        },
+        "hint": {
+          "en": "Start cleaning a specific room by its segment ID"
+        },
+        "args": [
+          {
+            "type": "number",
+            "name": "room_id",
+            "title": {
+              "en": "Room ID"
+            },
+            "min": 1,
+            "max": 50,
+            "step": 1
+          },
+          {
+            "type": "dropdown",
+            "name": "suction",
+            "title": {
+              "en": "Suction"
+            },
+            "values": [
+              {
+                "id": "quiet",
+                "title": {
+                  "en": "Quiet"
+                }
+              },
+              {
+                "id": "standard",
+                "title": {
+                  "en": "Standard"
+                }
+              },
+              {
+                "id": "strong",
+                "title": {
+                  "en": "Strong"
+                }
+              },
+              {
+                "id": "turbo",
+                "title": {
+                  "en": "Turbo"
+                }
+              }
+            ]
+          },
+          {
+            "type": "dropdown",
+            "name": "water",
+            "title": {
+              "en": "Water Volume"
+            },
+            "values": [
+              {
+                "id": "low",
+                "title": {
+                  "en": "Low"
+                }
+              },
+              {
+                "id": "medium",
+                "title": {
+                  "en": "Medium"
+                }
+              },
+              {
+                "id": "high",
+                "title": {
+                  "en": "High"
+                }
+              }
+            ]
+          },
+          {
+            "type": "number",
+            "name": "repeats",
+            "title": {
+              "en": "Repeats"
+            },
+            "min": 1,
+            "max": 3,
+            "step": 1
+          }
+        ],
+        "id": "start_room_cleaning"
+      },
+      {
+        "title": {
+          "en": "Start dock self-clean"
+        },
+        "titleFormatted": {
+          "en": "Start dock mop washing cycle"
+        },
+        "hint": {
+          "en": "Start the dock's mop pad washing cycle"
+        },
+        "id": "start_self_clean"
+      },
+      {
+        "title": {
+          "en": "Play locate sound"
+        },
+        "titleFormatted": {
+          "en": "Play locate sound"
+        },
+        "hint": {
+          "en": "The device will play a sound so you can find it"
+        },
+        "id": "vacuum_locate"
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "name": {
+        "en": "Dreame Vacuum"
+      },
+      "class": "vacuumcleaner",
+      "images": {
+        "small": "/drivers/vacuum/assets/small.png",
+        "large": "/drivers/vacuum/assets/large.png",
+        "xlarge": "/drivers/vacuum/assets/xlarge.png"
+      },
+      "capabilities": [
+        "onoff",
+        "vacuumcleaner_state",
+        "measure_battery",
+        "dreame_suction_level",
+        "dreame_cleaning_mode",
+        "dreame_water_volume",
+        "dreame_cleaned_area",
+        "dreame_cleaning_time",
+        "dreame_cleaning_progress",
+        "dreame_carpet_boost",
+        "dreame_dnd",
+        "dreame_cleangenius",
+        "dreame_cleaning_route",
+        "dreame_mop_wash_frequency",
+        "dreame_self_wash_status",
+        "dreame_dust_collection",
+        "dreame_water_tank",
+        "dreame_dirty_water_tank",
+        "dreame_dust_bag",
+        "dreame_main_brush_left",
+        "dreame_side_brush_left",
+        "dreame_filter_left",
+        "dreame_mop_pad_left",
+        "dreame_sensor_dirty_left",
+        "dreame_error"
+      ],
+      "energy": {
+        "batteries": [
+          "INTERNAL"
+        ]
+      },
+      "capabilitiesOptions": {
+        "vacuumcleaner_state": {
+          "values": [
+            {
+              "id": "cleaning",
+              "title": {
+                "en": "Cleaning"
+              }
+            },
+            {
+              "id": "stopped",
+              "title": {
+                "en": "Stopped"
+              }
+            },
+            {
+              "id": "docked",
+              "title": {
+                "en": "Docked"
+              }
+            },
+            {
+              "id": "charging",
+              "title": {
+                "en": "Charging"
+              }
+            }
+          ]
+        }
+      },
+      "pair": [
+        {
+          "id": "login_credentials",
+          "template": "login_credentials",
+          "options": {
+            "title": {
+              "en": "Dreame Account"
+            },
+            "usernameLabel": {
+              "en": "Email"
+            },
+            "usernamePlaceholder": {
+              "en": "you@example.com"
+            },
+            "passwordLabel": {
+              "en": "Password"
+            },
+            "passwordPlaceholder": {
+              "en": "Password"
+            }
+          }
+        },
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "options": {
+            "title": {
+              "en": "Select Vacuum"
+            }
+          },
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices",
+          "options": {
+            "title": {
+              "en": "Devices Added"
+            }
+          }
+        }
+      ],
+      "repair": [
+        {
+          "id": "login_credentials",
+          "template": "login_credentials",
+          "options": {
+            "title": {
+              "en": "Reconnect Dreame Account"
+            },
+            "usernameLabel": {
+              "en": "Email"
+            },
+            "usernamePlaceholder": {
+              "en": "you@example.com"
+            },
+            "passwordLabel": {
+              "en": "Password"
+            },
+            "passwordPlaceholder": {
+              "en": "Password"
+            }
+          }
+        }
+      ],
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "General"
+          },
+          "children": [
+            {
+              "id": "poll_interval",
+              "type": "number",
+              "label": {
+                "en": "Poll interval (seconds)"
+              },
+              "value": 5,
+              "min": 5,
+              "max": 300,
+              "hint": {
+                "en": "How often to poll the vacuum for status updates"
+              }
+            },
+            {
+              "id": "consumable_threshold",
+              "type": "number",
+              "label": {
+                "en": "Consumable alert threshold (%)"
+              },
+              "value": 10,
+              "min": 5,
+              "max": 50,
+              "hint": {
+                "en": "Trigger a flow when consumable life drops below this percentage"
+              }
+            },
+            {
+              "id": "country",
+              "type": "dropdown",
+              "label": {
+                "en": "Server region"
+              },
+              "value": "eu",
+              "hint": {
+                "en": "The Dreame server region for your account"
+              },
+              "values": [
+                {
+                  "id": "cn",
+                  "label": {
+                    "en": "China"
+                  }
+                },
+                {
+                  "id": "de",
+                  "label": {
+                    "en": "Germany (EU)"
+                  }
+                },
+                {
+                  "id": "us",
+                  "label": {
+                    "en": "United States"
+                  }
+                },
+                {
+                  "id": "sg",
+                  "label": {
+                    "en": "Singapore"
+                  }
+                },
+                {
+                  "id": "kr",
+                  "label": {
+                    "en": "South Korea"
+                  }
+                },
+                {
+                  "id": "eu",
+                  "label": {
+                    "en": "Europe"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "id": "vacuum"
+    }
+  ],
+  "capabilities": {
+    "dreame_carpet_boost": {
+      "type": "boolean",
+      "title": {
+        "en": "Carpet Boost"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
+    },
+    "dreame_cleaned_area": {
+      "type": "number",
+      "title": {
+        "en": "Cleaned Area"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "m²"
+      },
+      "insights": true
+    },
+    "dreame_cleangenius": {
+      "type": "enum",
+      "title": {
+        "en": "CleanGenius"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "off",
+          "title": {
+            "en": "Off"
+          }
+        },
+        {
+          "id": "routine",
+          "title": {
+            "en": "Routine Cleaning"
+          }
+        },
+        {
+          "id": "deep",
+          "title": {
+            "en": "Deep Cleaning"
+          }
+        }
+      ]
+    },
+    "dreame_cleaning_mode": {
+      "type": "enum",
+      "title": {
+        "en": "Cleaning Mode"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "sweeping",
+          "title": {
+            "en": "Sweeping"
+          }
+        },
+        {
+          "id": "mopping",
+          "title": {
+            "en": "Mopping"
+          }
+        },
+        {
+          "id": "sweeping_and_mopping",
+          "title": {
+            "en": "Sweeping & Mopping"
+          }
+        },
+        {
+          "id": "mopping_after_sweeping",
+          "title": {
+            "en": "Vacuum then Mop"
+          }
+        }
+      ]
+    },
+    "dreame_cleaning_progress": {
+      "type": "number",
+      "title": {
+        "en": "Cleaning Progress"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100
+    },
+    "dreame_cleaning_route": {
+      "type": "enum",
+      "title": {
+        "en": "Cleaning Route"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "intensive",
+          "title": {
+            "en": "Intensive"
+          }
+        },
+        {
+          "id": "deep",
+          "title": {
+            "en": "Deep"
+          }
+        },
+        {
+          "id": "quick",
+          "title": {
+            "en": "Quick"
+          }
+        }
+      ]
+    },
+    "dreame_cleaning_time": {
+      "type": "number",
+      "title": {
+        "en": "Cleaning Time"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "min"
+      },
+      "insights": true
+    },
+    "dreame_dirty_water_tank": {
+      "type": "enum",
+      "title": {
+        "en": "Dirty Water Tank"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "values": [
+        {
+          "id": "installed",
+          "title": {
+            "en": "OK"
+          }
+        },
+        {
+          "id": "not_installed_or_full",
+          "title": {
+            "en": "Not Installed or Full"
+          }
+        }
+      ]
+    },
+    "dreame_dnd": {
+      "type": "boolean",
+      "title": {
+        "en": "Do Not Disturb"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle"
+    },
+    "dreame_dust_bag": {
+      "type": "enum",
+      "title": {
+        "en": "Dust Bag"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "values": [
+        {
+          "id": "installed",
+          "title": {
+            "en": "OK"
+          }
+        },
+        {
+          "id": "not_installed",
+          "title": {
+            "en": "Not Installed"
+          }
+        },
+        {
+          "id": "full",
+          "title": {
+            "en": "Full"
+          }
+        }
+      ]
+    },
+    "dreame_dust_collection": {
+      "type": "enum",
+      "title": {
+        "en": "Auto Empty"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "values": [
+        {
+          "id": "idle",
+          "title": {
+            "en": "Idle"
+          }
+        },
+        {
+          "id": "active",
+          "title": {
+            "en": "Emptying"
+          }
+        },
+        {
+          "id": "not_performed",
+          "title": {
+            "en": "Not Performed"
+          }
+        }
+      ]
+    },
+    "dreame_error": {
+      "type": "string",
+      "title": {
+        "en": "Error"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "dreame_filter_left": {
+      "type": "number",
+      "title": {
+        "en": "Filter"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "insights": true
+    },
+    "dreame_main_brush_left": {
+      "type": "number",
+      "title": {
+        "en": "Main Brush"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "insights": true
+    },
+    "dreame_mop_pad_left": {
+      "type": "number",
+      "title": {
+        "en": "Mop Pad"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "insights": true
+    },
+    "dreame_mop_wash_frequency": {
+      "type": "enum",
+      "title": {
+        "en": "Mop Wash Frequency"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "by_room",
+          "title": {
+            "en": "By Room"
+          }
+        },
+        {
+          "id": "5m2",
+          "title": {
+            "en": "Every 5 m²"
+          }
+        },
+        {
+          "id": "10m2",
+          "title": {
+            "en": "Every 10 m²"
+          }
+        },
+        {
+          "id": "15m2",
+          "title": {
+            "en": "Every 15 m²"
+          }
+        },
+        {
+          "id": "20m2",
+          "title": {
+            "en": "Every 20 m²"
+          }
+        },
+        {
+          "id": "25m2",
+          "title": {
+            "en": "Every 25 m²"
+          }
+        }
+      ]
+    },
+    "dreame_self_wash_status": {
+      "type": "enum",
+      "title": {
+        "en": "Dock Status"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "values": [
+        {
+          "id": "idle",
+          "title": {
+            "en": "Idle"
+          }
+        },
+        {
+          "id": "washing",
+          "title": {
+            "en": "Washing Mops"
+          }
+        },
+        {
+          "id": "drying",
+          "title": {
+            "en": "Drying"
+          }
+        },
+        {
+          "id": "returning_to_wash",
+          "title": {
+            "en": "Returning to Wash"
+          }
+        },
+        {
+          "id": "paused",
+          "title": {
+            "en": "Paused"
+          }
+        },
+        {
+          "id": "clean_add_water",
+          "title": {
+            "en": "Add Water"
+          }
+        },
+        {
+          "id": "adding_water",
+          "title": {
+            "en": "Adding Water"
+          }
+        }
+      ]
+    },
+    "dreame_sensor_dirty_left": {
+      "type": "number",
+      "title": {
+        "en": "Sensor"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "insights": true
+    },
+    "dreame_side_brush_left": {
+      "type": "number",
+      "title": {
+        "en": "Side Brush"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "insights": true
+    },
+    "dreame_suction_level": {
+      "type": "enum",
+      "title": {
+        "en": "Suction Level"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "quiet",
+          "title": {
+            "en": "Quiet"
+          }
+        },
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "strong",
+          "title": {
+            "en": "Strong"
+          }
+        },
+        {
+          "id": "turbo",
+          "title": {
+            "en": "Turbo"
+          }
+        }
+      ]
+    },
+    "dreame_water_tank": {
+      "type": "enum",
+      "title": {
+        "en": "Water Tank"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "values": [
+        {
+          "id": "installed",
+          "title": {
+            "en": "OK"
+          }
+        },
+        {
+          "id": "not_installed",
+          "title": {
+            "en": "Not Installed"
+          }
+        },
+        {
+          "id": "low_water",
+          "title": {
+            "en": "Low Water"
+          }
+        },
+        {
+          "id": "no_water",
+          "title": {
+            "en": "No Water"
+          }
+        }
+      ]
+    },
+    "dreame_water_volume": {
+      "type": "enum",
+      "title": {
+        "en": "Water Volume"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "low",
+          "title": {
+            "en": "Low"
+          }
+        },
+        {
+          "id": "medium",
+          "title": {
+            "en": "Medium"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High"
+          }
+        }
+      ]
+    }
+  }
+}

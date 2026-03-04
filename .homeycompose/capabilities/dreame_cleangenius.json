@@ -1,0 +1,12 @@
+{
+  "type": "enum",
+  "title": { "en": "CleanGenius" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "off", "title": { "en": "Off" } },
+    { "id": "routine", "title": { "en": "Routine Cleaning" } },
+    { "id": "deep", "title": { "en": "Deep Cleaning" } }
+  ]
+}

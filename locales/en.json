@@ -1,0 +1,12 @@
+{
+  "pair": {
+    "login": {
+      "title": "Connect to Dreame",
+      "hint": "Enter your Dreame Home app email and password. Only email/password login is supported — third-party login (Google, Apple, etc.) is not supported. Set a password in the Dreame Home app under Profile > Settings > Account and Security > Password."
+    }
+  },
+  "settings": {
+    "poll_interval": "Poll interval",
+    "country": "Server region"
+  }
+}

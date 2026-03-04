@@ -1,0 +1,12 @@
+{
+  "type": "enum",
+  "title": { "en": "Dust Bag" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "values": [
+    { "id": "installed", "title": { "en": "OK" } },
+    { "id": "not_installed", "title": { "en": "Not Installed" } },
+    { "id": "full", "title": { "en": "Full" } }
+  ]
+}

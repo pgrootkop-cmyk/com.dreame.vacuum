@@ -1,0 +1,13 @@
+{
+  "type": "enum",
+  "title": { "en": "Suction Level" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "quiet", "title": { "en": "Quiet" } },
+    { "id": "standard", "title": { "en": "Standard" } },
+    { "id": "strong", "title": { "en": "Strong" } },
+    { "id": "turbo", "title": { "en": "Turbo" } }
+  ]
+}

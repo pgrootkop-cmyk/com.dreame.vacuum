@@ -1,0 +1,12 @@
+{
+  "type": "enum",
+  "title": { "en": "Water Volume" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "low", "title": { "en": "Low" } },
+    { "id": "medium", "title": { "en": "Medium" } },
+    { "id": "high", "title": { "en": "High" } }
+  ]
+}

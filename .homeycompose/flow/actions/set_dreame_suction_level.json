@@ -1,0 +1,18 @@
+{
+  "title": { "en": "Set suction level" },
+  "titleFormatted": { "en": "Set suction level to [[level]]" },
+  "hint": { "en": "Change the suction power of the vacuum" },
+  "args": [
+    {
+      "type": "dropdown",
+      "name": "level",
+      "title": { "en": "Level" },
+      "values": [
+        { "id": "quiet", "title": { "en": "Quiet" } },
+        { "id": "standard", "title": { "en": "Standard" } },
+        { "id": "strong", "title": { "en": "Strong" } },
+        { "id": "turbo", "title": { "en": "Turbo" } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "type": "enum",
+  "title": { "en": "Auto Empty" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "values": [
+    { "id": "idle", "title": { "en": "Idle" } },
+    { "id": "active", "title": { "en": "Emptying" } },
+    { "id": "not_performed", "title": { "en": "Not Performed" } }
+  ]
+}

@@ -1,0 +1,7 @@
+node_modules/
+.homeybuild/
+env.json
+.claude/
+.claude-flow/
+.mcp.json
+CLAUDE.md

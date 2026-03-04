@@ -1,0 +1,22 @@
+{
+  "name": "com.dreame.vacuum.cloud",
+  "version": "0.0.1",
+  "description": "Control Dreame Robot Vacuums via the Dreame Home cloud API",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "author": {
+    "name": "p.grootkop"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "homey": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

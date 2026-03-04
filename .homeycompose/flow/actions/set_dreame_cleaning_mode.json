@@ -1,0 +1,17 @@
+{
+  "title": { "en": "Set cleaning mode" },
+  "titleFormatted": { "en": "Set cleaning mode to [[mode]]" },
+  "hint": { "en": "Change the cleaning mode of the vacuum" },
+  "args": [
+    {
+      "type": "dropdown",
+      "name": "mode",
+      "title": { "en": "Mode" },
+      "values": [
+        { "id": "sweeping", "title": { "en": "Sweeping" } },
+        { "id": "mopping", "title": { "en": "Mopping" } },
+        { "id": "sweeping_and_mopping", "title": { "en": "Sweeping & Mopping" } }
+      ]
+    }
+  ]
+}

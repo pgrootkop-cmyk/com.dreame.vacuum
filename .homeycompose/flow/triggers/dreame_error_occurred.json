@@ -1,0 +1,12 @@
+{
+  "title": { "en": "An error occurred" },
+  "hint": { "en": "Triggers when the vacuum reports an error" },
+  "tokens": [
+    {
+      "name": "error",
+      "type": "string",
+      "title": { "en": "Error" },
+      "example": { "en": "Brush stuck" }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "type": "enum",
+  "title": { "en": "Dirty Water Tank" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "values": [
+    { "id": "installed", "title": { "en": "OK" } },
+    { "id": "not_installed_or_full", "title": { "en": "Not Installed or Full" } }
+  ]
+}

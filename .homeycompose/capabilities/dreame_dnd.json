@@ -1,0 +1,7 @@
+{
+  "type": "boolean",
+  "title": { "en": "Do Not Disturb" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle"
+}

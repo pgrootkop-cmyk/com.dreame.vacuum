@@ -1,0 +1,12 @@
+.git
+.gitignore
+.github
+.claude
+.claude-flow
+.mcp.json
+CLAUDE.md
+README.md
+*.sketch
+*.log
+node_modules
+.homeybuild

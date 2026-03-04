@@ -1,0 +1,8 @@
+{
+  "type": "boolean",
+  "title": { "en": "Carpet Boost" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle",
+  "insights": true
+}

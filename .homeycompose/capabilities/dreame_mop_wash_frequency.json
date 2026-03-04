@@ -1,0 +1,15 @@
+{
+  "type": "enum",
+  "title": { "en": "Mop Wash Frequency" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "by_room", "title": { "en": "By Room" } },
+    { "id": "5m2", "title": { "en": "Every 5 m²" } },
+    { "id": "10m2", "title": { "en": "Every 10 m²" } },
+    { "id": "15m2", "title": { "en": "Every 15 m²" } },
+    { "id": "20m2", "title": { "en": "Every 20 m²" } },
+    { "id": "25m2", "title": { "en": "Every 25 m²" } }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "type": "number",
+  "title": { "en": "Cleaned Area" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "units": { "en": "m²" },
+  "insights": true
+}

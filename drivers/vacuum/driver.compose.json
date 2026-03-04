@@ -1,0 +1,131 @@
+{
+  "name": { "en": "Dreame Vacuum" },
+  "class": "vacuumcleaner",
+  "images": {
+    "small": "{{driverAssetsPath}}/small.png",
+    "large": "{{driverAssetsPath}}/large.png",
+    "xlarge": "{{driverAssetsPath}}/xlarge.png"
+  },
+  "capabilities": [
+    "onoff",
+    "vacuumcleaner_state",
+    "measure_battery",
+    "dreame_suction_level",
+    "dreame_cleaning_mode",
+    "dreame_water_volume",
+    "dreame_cleaned_area",
+    "dreame_cleaning_time",
+    "dreame_cleaning_progress",
+    "dreame_carpet_boost",
+    "dreame_dnd",
+    "dreame_cleangenius",
+    "dreame_cleaning_route",
+    "dreame_mop_wash_frequency",
+    "dreame_self_wash_status",
+    "dreame_dust_collection",
+    "dreame_water_tank",
+    "dreame_dirty_water_tank",
+    "dreame_dust_bag",
+    "dreame_main_brush_left",
+    "dreame_side_brush_left",
+    "dreame_filter_left",
+    "dreame_mop_pad_left",
+    "dreame_sensor_dirty_left",
+    "dreame_error"
+  ],
+  "energy": {
+    "batteries": ["INTERNAL"]
+  },
+  "capabilitiesOptions": {
+    "vacuumcleaner_state": {
+      "values": [
+        { "id": "cleaning", "title": { "en": "Cleaning" } },
+        { "id": "stopped", "title": { "en": "Stopped" } },
+        { "id": "docked", "title": { "en": "Docked" } },
+        { "id": "charging", "title": { "en": "Charging" } }
+      ]
+    }
+  },
+  "pair": [
+    {
+      "id": "login_credentials",
+      "template": "login_credentials",
+      "options": {
+        "title": { "en": "Dreame Account" },
+        "usernameLabel": { "en": "Email" },
+        "usernamePlaceholder": { "en": "you@example.com" },
+        "passwordLabel": { "en": "Password" },
+        "passwordPlaceholder": { "en": "Password" }
+      }
+    },
+    {
+      "id": "list_devices",
+      "template": "list_devices",
+      "options": {
+        "title": { "en": "Select Vacuum" }
+      },
+      "navigation": { "next": "add_devices" }
+    },
+    {
+      "id": "add_devices",
+      "template": "add_devices",
+      "options": {
+        "title": { "en": "Devices Added" }
+      }
+    }
+  ],
+  "repair": [
+    {
+      "id": "login_credentials",
+      "template": "login_credentials",
+      "options": {
+        "title": { "en": "Reconnect Dreame Account" },
+        "usernameLabel": { "en": "Email" },
+        "usernamePlaceholder": { "en": "you@example.com" },
+        "passwordLabel": { "en": "Password" },
+        "passwordPlaceholder": { "en": "Password" }
+      }
+    }
+  ],
+  "settings": [
+    {
+      "type": "group",
+      "label": { "en": "General" },
+      "children": [
+        {
+          "id": "poll_interval",
+          "type": "number",
+          "label": { "en": "Poll interval (seconds)" },
+          "value": 5,
+          "min": 5,
+          "max": 300,
+          "hint": { "en": "How often to poll the vacuum for status updates" }
+        },
+        {
+          "id": "consumable_threshold",
+          "type": "number",
+          "label": { "en": "Consumable alert threshold (%)" },
+          "value": 10,
+          "min": 5,
+          "max": 50,
+          "hint": { "en": "Trigger a flow when consumable life drops below this percentage" }
+        },
+        {
+          "id": "country",
+          "type": "dropdown",
+          "label": { "en": "Server region" },
+          "value": "eu",
+          "hint": { "en": "The Dreame server region for your account" },
+          "values": [
+            { "id": "cn", "label": { "en": "China" } },
+            { "id": "de", "label": { "en": "Germany (EU)" } },
+            { "id": "us", "label": { "en": "United States" } },
+            { "id": "sg", "label": { "en": "Singapore" } },
+            { "id": "kr", "label": { "en": "South Korea" } },
+            { "id": "eu", "label": { "en": "Europe" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

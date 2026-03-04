@@ -1,0 +1,12 @@
+{
+  "pair": {
+    "login": {
+      "title": "Verbinden met Dreame",
+      "hint": "Voer je Dreame Home app e-mailadres en wachtwoord in. Alleen inloggen met e-mail/wachtwoord wordt ondersteund — inloggen via derden (Google, Apple, etc.) wordt niet ondersteund. Stel een wachtwoord in via Dreame Home app: Profiel > Instellingen > Account en Beveiliging > Wachtwoord."
+    }
+  },
+  "settings": {
+    "poll_interval": "Poll-interval",
+    "country": "Serverregio"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "title": { "en": "Set cleaning route" },
+  "titleFormatted": { "en": "Set cleaning route to [[route]]" },
+  "hint": { "en": "Set the cleaning route pattern" },
+  "args": [
+    {
+      "type": "dropdown",
+      "name": "route",
+      "title": { "en": "Route" },
+      "values": [
+        { "id": "standard", "title": { "en": "Standard" } },
+        { "id": "intensive", "title": { "en": "Intensive" } },
+        { "id": "deep", "title": { "en": "Deep" } },
+        { "id": "quick", "title": { "en": "Quick" } }
+      ]
+    }
+  ]
+}

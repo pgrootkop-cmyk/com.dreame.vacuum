@@ -1,0 +1,45 @@
+Bedien je Dreame robotstofzuiger met Homey via de Dreame Home cloud API.
+
+Heb je een Matter-compatibele Dreame stofzuiger? Probeer dan eerst Dreame Matter Cleaner (https://homey.app/nl-be/app/com.dreame.cleaner.pro/Dreame-Matter-Cleaner/) — deze biedt lokale bediening zonder cloudafhankelijkheid. Deze app is vooral bedoeld voor oudere of niet-Matter Dreame stofzuigers die alleen via de Dreame Home cloud API bediend kunnen worden.
+
+**Gebruik**
+- Installeer deze app op je Homey
+- Voeg een apparaat toe en selecteer Dreame > Robotstofzuiger
+- Log in met je Dreame Home accountgegevens
+- Selecteer je robotstofzuiger uit de lijst
+
+Alleen inloggen met e-mail/wachtwoord wordt ondersteund. Inloggen via derden (Google, Apple, etc.) wordt niet ondersteund.
+
+Als je je hebt aangemeld via Google, Apple of een andere derde partij, moet je eerst een wachtwoord instellen: open de Dreame Home app, ga naar Profiel > Instellingen > Account en Beveiliging > Wachtwoord, en stel een nieuw wachtwoord in. Gebruik je e-mailadres en dit wachtwoord om te koppelen in Homey.
+
+We raden aan een apart Dreame Home account te gebruiken voor Homey om mogelijke sessieconflicten te voorkomen.
+
+**Ondersteunde functies**
+- Schoonmaken: Start, Stop, Pauze, Terug naar Dock
+- Reinigingsmodi: Stofzuigen, Dweilen, Stofzuigen & Dweilen
+- Zuigkracht: Stil, Standaard, Sterk, Turbo
+- Watervolume: Laag, Midden, Hoog
+- CleanGenius: Uit, Routine Reiniging, Dieptereiniging
+- Reinigingsroute: Standaard, Intensief, Snel
+- Dweilwasfrequentie: Per kamer, Per 15 min, Per 10 min
+- Dock functies: Automatisch Legen, Zelfreiniging, Drogen
+- Verbruiksartikelen: Hoofdborstel, Zijborstel, Filter, Dweilpad, Sensor
+- Sensoren: Batterij, Gereinigd Oppervlak, Reinigingstijd, Foutstatus
+- Flow cards: Triggers, Condities en Acties voor alle functies
+
+**Niet ondersteund**
+Sommige functies uit de Dreame Home app of Tasshack/dreame-vacuum (Home Assistant) kunnen niet worden geïmplementeerd op Homey:
+- Live kaart / kamerselectie: Homey heeft geen UI voor interactieve kaarten. Kamer-reiniging op ID is beschikbaar via Flow cards.
+- Live camerabeeld: Homey ondersteunt geen realtime videostreams.
+- Opgeslagen kaarten / kaart bewerken: Geen kaartweergave UI op Homey.
+- Virtuele muren / no-go zones: Vereist een kaartcanvas om zones te tekenen.
+- Meubel-/obstakeldetectie: Vereist een beeld-/kaartoverlay.
+- Reinigingsgeschiedenis / statistieken: Geen historische grafieken op Homey. Huidige sessiegegevens (oppervlak, tijd) zijn beschikbaar.
+- Aangepaste kamerschema's: Gebruik Homey Flows voor tijdgebaseerde automatiseringen.
+- Realtime MQTT events: Deze app gebruikt cloud-polling (standaard 15s). Tasshack gebruikt lokale MQTT voor directe updates, wat niet mogelijk is voor Homey cloud apps.
+- OTA firmware-updates: Niet relevant voor een Homey app.
+
+Homey blinkt uit in automatiseringen (Flow cards), apparaatbediening en statusmonitoring. Gebruik de Dreame Home app naast Homey voor kaartfuncties, camera of visuele AI.
+
+**Ondersteunde apparaten**
+Werkt met Dreame robotstofzuigers die te bedienen zijn via de Dreame Home app, waaronder de X40, X30, L20, L10 en andere modellen.

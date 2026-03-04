@@ -1,0 +1,65 @@
+{
+  "id": "com.dreame.vacuum.cloud",
+  "version": "0.0.1",
+  "compatibility": ">=12.0.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "brandColor": "#292929",
+  "name": {
+    "en": "Dreame",
+    "nl": "Dreame"
+  },
+  "description": {
+    "en": "Smart Robot Vacuum Control",
+    "nl": "Slimme Robotstofzuiger Bediening"
+  },
+  "category": [
+    "appliances"
+  ],
+  "permissions": [],
+  "tags": {
+    "en": [
+      "Dreame",
+      "vacuum",
+      "robot vacuum",
+      "cleaning",
+      "mop",
+      "robot",
+      "CleanGenius",
+      "X40",
+      "L20",
+      "mopping",
+      "dock"
+    ],
+    "nl": [
+      "Dreame",
+      "stofzuiger",
+      "robotstofzuiger",
+      "schoonmaken",
+      "dweil",
+      "robot",
+      "CleanGenius",
+      "X40",
+      "L20",
+      "dweilen",
+      "dock"
+    ]
+  },
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Pjotr Grootkop",
+    "email": "piet@kerkhofs.org"
+  },
+  "source": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud",
+  "homepage": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud",
+  "support": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues",
+  "bugs": {
+    "url": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues"
+  }
+}

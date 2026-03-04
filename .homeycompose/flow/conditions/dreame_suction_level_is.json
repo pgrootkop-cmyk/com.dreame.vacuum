@@ -1,0 +1,18 @@
+{
+  "title": { "en": "Suction level !{{is|is not}} ..." },
+  "titleFormatted": { "en": "Suction level !{{is|is not}} [[level]]" },
+  "hint": { "en": "Check the current suction level" },
+  "args": [
+    {
+      "type": "dropdown",
+      "name": "level",
+      "title": { "en": "Level" },
+      "values": [
+        { "id": "quiet", "title": { "en": "Quiet" } },
+        { "id": "standard", "title": { "en": "Standard" } },
+        { "id": "strong", "title": { "en": "Strong" } },
+        { "id": "turbo", "title": { "en": "Turbo" } }
+      ]
+    }
+  ]
+}
