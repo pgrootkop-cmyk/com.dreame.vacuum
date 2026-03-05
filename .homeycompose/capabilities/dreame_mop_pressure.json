@@ -1,0 +1,11 @@
+{
+  "type": "enum",
+  "title": { "en": "Mop Pressure" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "light", "title": { "en": "Light" } },
+    { "id": "normal", "title": { "en": "Normal" } }
+  ]
+}

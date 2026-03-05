@@ -1,19 +1,62 @@
 {
-  "title": { "en": "Set mop wash frequency" },
-  "titleFormatted": { "en": "Set mop wash frequency to [[frequency]]" },
-  "hint": { "en": "How often the mop returns to the station for washing" },
+  "title": {
+    "en": "Set mop wash frequency"
+  },
+  "titleFormatted": {
+    "en": "Set mop wash frequency to [[frequency]]"
+  },
+  "hint": {
+    "en": "How often the mop returns to the station for washing"
+  },
   "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
     {
       "type": "dropdown",
       "name": "frequency",
-      "title": { "en": "Frequency" },
+      "title": {
+        "en": "Frequency"
+      },
       "values": [
-        { "id": "by_room", "title": { "en": "After each room" } },
-        { "id": "5m2", "title": { "en": "Every 5 m²" } },
-        { "id": "10m2", "title": { "en": "Every 10 m²" } },
-        { "id": "15m2", "title": { "en": "Every 15 m²" } },
-        { "id": "20m2", "title": { "en": "Every 20 m²" } },
-        { "id": "25m2", "title": { "en": "Every 25 m²" } }
+        {
+          "id": "by_room",
+          "title": {
+            "en": "By Room"
+          }
+        },
+        {
+          "id": "5m2",
+          "title": {
+            "en": "Every 5 m²"
+          }
+        },
+        {
+          "id": "10m2",
+          "title": {
+            "en": "Every 10 m²"
+          }
+        },
+        {
+          "id": "15m2",
+          "title": {
+            "en": "Every 15 m²"
+          }
+        },
+        {
+          "id": "20m2",
+          "title": {
+            "en": "Every 20 m²"
+          }
+        },
+        {
+          "id": "25m2",
+          "title": {
+            "en": "Every 25 m²"
+          }
+        }
       ]
     }
   ]

@@ -1,0 +1,45 @@
+{
+  "title": {
+    "en": "CleanGenius !{{is|is not}} ..."
+  },
+  "titleFormatted": {
+    "en": "CleanGenius !{{is|is not}} [[level]]"
+  },
+  "hint": {
+    "en": "Check the current CleanGenius level"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "level",
+      "title": {
+        "en": "Level"
+      },
+      "values": [
+        {
+          "id": "off",
+          "title": {
+            "en": "Off"
+          }
+        },
+        {
+          "id": "routine",
+          "title": {
+            "en": "Routine Cleaning"
+          }
+        },
+        {
+          "id": "deep",
+          "title": {
+            "en": "Deep Cleaning"
+          }
+        }
+      ]
+    }
+  ]
+}

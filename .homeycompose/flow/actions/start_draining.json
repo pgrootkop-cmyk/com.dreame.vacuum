@@ -1,0 +1,15 @@
+{
+  "title": {
+    "en": "Start station drainage"
+  },
+  "hint": {
+    "en": "Drain dirty water from the station"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

@@ -1,16 +1,44 @@
 {
-  "title": { "en": "Set water volume" },
-  "titleFormatted": { "en": "Set water volume to [[volume]]" },
-  "hint": { "en": "Change the water volume for mopping" },
+  "title": {
+    "en": "Set water volume"
+  },
+  "titleFormatted": {
+    "en": "Set water volume to [[volume]]"
+  },
+  "hint": {
+    "en": "Change the water volume for mopping"
+  },
   "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
     {
       "type": "dropdown",
       "name": "volume",
-      "title": { "en": "Volume" },
+      "title": {
+        "en": "Volume"
+      },
       "values": [
-        { "id": "low", "title": { "en": "Low" } },
-        { "id": "medium", "title": { "en": "Medium" } },
-        { "id": "high", "title": { "en": "High" } }
+        {
+          "id": "low",
+          "title": {
+            "en": "Low"
+          }
+        },
+        {
+          "id": "medium",
+          "title": {
+            "en": "Medium"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High"
+          }
+        }
       ]
     }
   ]

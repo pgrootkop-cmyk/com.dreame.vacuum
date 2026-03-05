@@ -1,0 +1,45 @@
+{
+  "title": {
+    "en": "Set carpet sensitivity"
+  },
+  "titleFormatted": {
+    "en": "Set carpet sensitivity to [[sensitivity]]"
+  },
+  "hint": {
+    "en": "Change how sensitively the vacuum detects carpets"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "sensitivity",
+      "title": {
+        "en": "Sensitivity"
+      },
+      "values": [
+        {
+          "id": "low",
+          "title": {
+            "en": "Low"
+          }
+        },
+        {
+          "id": "medium",
+          "title": {
+            "en": "Medium"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High"
+          }
+        }
+      ]
+    }
+  ]
+}

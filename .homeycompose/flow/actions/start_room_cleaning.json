@@ -1,12 +1,25 @@
 {
-  "title": { "en": "Clean a specific room" },
-  "titleFormatted": { "en": "Clean room [[room_id]] at [[suction]] suction, [[water]] water, [[repeats]]x" },
-  "hint": { "en": "Start cleaning a specific room by its segment ID" },
+  "title": {
+    "en": "Clean a specific room"
+  },
+  "titleFormatted": {
+    "en": "Clean room [[room_id]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+  },
+  "hint": {
+    "en": "Start cleaning a specific room by its segment ID. To find room IDs: in the Dreame app, rooms are numbered in the order they were discovered during mapping (1, 2, 3, ...). You can also try IDs one by one to see which room the vacuum goes to."
+  },
   "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
     {
       "type": "number",
       "name": "room_id",
-      "title": { "en": "Room ID" },
+      "title": {
+        "en": "Room ID"
+      },
       "min": 1,
       "max": 50,
       "step": 1
@@ -14,28 +27,69 @@
     {
       "type": "dropdown",
       "name": "suction",
-      "title": { "en": "Suction" },
+      "title": {
+        "en": "Suction"
+      },
       "values": [
-        { "id": "quiet", "title": { "en": "Quiet" } },
-        { "id": "standard", "title": { "en": "Standard" } },
-        { "id": "strong", "title": { "en": "Strong" } },
-        { "id": "turbo", "title": { "en": "Turbo" } }
+        {
+          "id": "quiet",
+          "title": {
+            "en": "Quiet"
+          }
+        },
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "strong",
+          "title": {
+            "en": "Strong"
+          }
+        },
+        {
+          "id": "turbo",
+          "title": {
+            "en": "Turbo"
+          }
+        }
       ]
     },
     {
       "type": "dropdown",
       "name": "water",
-      "title": { "en": "Water Volume" },
+      "title": {
+        "en": "Water Volume"
+      },
       "values": [
-        { "id": "low", "title": { "en": "Low" } },
-        { "id": "medium", "title": { "en": "Medium" } },
-        { "id": "high", "title": { "en": "High" } }
+        {
+          "id": "low",
+          "title": {
+            "en": "Low"
+          }
+        },
+        {
+          "id": "medium",
+          "title": {
+            "en": "Medium"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High"
+          }
+        }
       ]
     },
     {
       "type": "number",
       "name": "repeats",
-      "title": { "en": "Repeats" },
+      "title": {
+        "en": "Repeats"
+      },
       "min": 1,
       "max": 3,
       "step": 1

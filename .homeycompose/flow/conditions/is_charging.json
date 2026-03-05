@@ -1,0 +1,18 @@
+{
+  "title": {
+    "en": "Vacuum !{{is|is not}} charging"
+  },
+  "titleFormatted": {
+    "en": "Vacuum !{{is|is not}} charging"
+  },
+  "hint": {
+    "en": "Check if the vacuum is currently charging"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

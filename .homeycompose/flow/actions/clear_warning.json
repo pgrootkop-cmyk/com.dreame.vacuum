@@ -1,0 +1,15 @@
+{
+  "title": {
+    "en": "Clear warning/error"
+  },
+  "hint": {
+    "en": "Dismiss the current warning or error"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

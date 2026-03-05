@@ -1,0 +1,11 @@
+{
+  "type": "number",
+  "title": { "en": "Volume" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "slider",
+  "units": { "en": "%" },
+  "min": 0,
+  "max": 100,
+  "step": 10
+}

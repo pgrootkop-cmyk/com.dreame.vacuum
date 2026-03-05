@@ -1,17 +1,50 @@
 {
-  "title": { "en": "Suction level !{{is|is not}} ..." },
-  "titleFormatted": { "en": "Suction level !{{is|is not}} [[level]]" },
-  "hint": { "en": "Check the current suction level" },
+  "title": {
+    "en": "Suction level !{{is|is not}} ..."
+  },
+  "titleFormatted": {
+    "en": "Suction level !{{is|is not}} [[level]]"
+  },
+  "hint": {
+    "en": "Check the current suction level"
+  },
   "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
     {
       "type": "dropdown",
       "name": "level",
-      "title": { "en": "Level" },
+      "title": {
+        "en": "Level"
+      },
       "values": [
-        { "id": "quiet", "title": { "en": "Quiet" } },
-        { "id": "standard", "title": { "en": "Standard" } },
-        { "id": "strong", "title": { "en": "Strong" } },
-        { "id": "turbo", "title": { "en": "Turbo" } }
+        {
+          "id": "quiet",
+          "title": {
+            "en": "Quiet"
+          }
+        },
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "strong",
+          "title": {
+            "en": "Strong"
+          }
+        },
+        {
+          "id": "turbo",
+          "title": {
+            "en": "Turbo"
+          }
+        }
       ]
     }
   ]

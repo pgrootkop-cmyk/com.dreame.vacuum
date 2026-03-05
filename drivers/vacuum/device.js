@@ -21,6 +21,7 @@ const PROP = {
   MOP_PAD_LEFT:     { siid: 18, piid: 1 },
 
   // Dock/Station
+  SELF_WASH_BASE:   { siid: 4, piid: 34 },
   SELF_WASH_STATUS: { siid: 4, piid: 25 },
   AUTO_EMPTY_STATUS:{ siid: 15, piid: 5 },
   LOW_WATER_WARNING:{ siid: 4, piid: 41 },
@@ -32,6 +33,10 @@ const PROP = {
   // Toggles
   CARPET_BOOST:     { siid: 4, piid: 12 },
   DND_ENABLED:      { siid: 5, piid: 1 },
+  CHILD_LOCK:       { siid: 4, piid: 27 },
+  RESUME_CLEANING:  { siid: 4, piid: 11 },
+  TIGHT_MOPPING:    { siid: 4, piid: 29 },
+  SILENT_DRYING:    { siid: 28, piid: 27 },
 
   // Auto-switch settings (JSON key-value store for CleanGenius, route, etc.)
   AUTO_SWITCH_SETTINGS: { siid: 4, piid: 50 },
@@ -39,6 +44,28 @@ const PROP = {
   CLEANGENIUS_MODE: { siid: 28, piid: 5 },
   // Task type (standard/custom/smart/etc.)
   TASK_TYPE: { siid: 4, piid: 58 },
+
+  // Enum settings
+  CARPET_SENSITIVITY:   { siid: 4, piid: 28 },
+  CARPET_CLEANING:      { siid: 4, piid: 36 },
+  MOP_WASH_LEVEL:       { siid: 4, piid: 46 },
+  DRYING_TIME:          { siid: 4, piid: 40 },
+  VOLUME:               { siid: 7, piid: 1 },
+  WATER_TEMPERATURE:    { siid: 28, piid: 8 },
+  AUTO_EMPTY_FREQUENCY: { siid: 15, piid: 2 },
+  MOP_PRESSURE:         { siid: 28, piid: 86 },
+
+  // Read-only status
+  CHARGING_STATUS:      { siid: 3, piid: 2 },
+  DRYING_PROGRESS:      { siid: 4, piid: 64 },
+  DRAINAGE_STATUS:      { siid: 4, piid: 60 },
+  DETERGENT_STATUS:     { siid: 27, piid: 4 },
+  HOT_WATER_STATUS:     { siid: 27, piid: 15 },
+  DOCK_CLEANING_STATUS: { siid: 4, piid: 61 },
+
+  // Lifetime stats
+  FIRST_CLEANING_DATE: { siid: 12, piid: 1 },
+  TOTAL_CLEANED_AREA:  { siid: 12, piid: 4 },
 };
 
 // SIID/AIID action constants
@@ -55,6 +82,8 @@ const ACTION = {
   RESET_FILTER:     { siid: 11, aiid: 1 },
   RESET_SENSOR:     { siid: 16, aiid: 1 },
   RESET_MOP_PAD:    { siid: 18, aiid: 1 },
+  CLEAR_WARNING:    { siid: 4, aiid: 3 },
+  START_WASHING:    { siid: 4, aiid: 4 },
 };
 
 // Dreame state → Homey vacuumcleaner_state mapping
@@ -145,6 +174,68 @@ const CLEANING_ROUTE_REVERSE = { 1: 'standard', 2: 'intensive', 3: 'deep', 4: 'q
 const MOP_WASH_FREQ_MAP = { by_room: 0, '5m2': 5, '10m2': 10, '15m2': 15, '20m2': 20, '25m2': 25 };
 const MOP_WASH_FREQ_REVERSE = { 0: 'by_room', 5: '5m2', 10: '10m2', 15: '15m2', 20: '20m2', 25: '25m2' };
 
+// Carpet sensitivity mapping
+const CARPET_SENSITIVITY_MAP = { low: 1, medium: 2, high: 3 };
+const CARPET_SENSITIVITY_REVERSE = { 1: 'low', 2: 'medium', 3: 'high' };
+
+// Carpet cleaning mode
+const CARPET_CLEANING_MAP = { avoidance: 1, adaptation: 2, remove_mop: 3, vacuum_and_mop: 5, ignore: 6 };
+const CARPET_CLEANING_REVERSE = { 1: 'avoidance', 2: 'adaptation', 3: 'remove_mop', 5: 'vacuum_and_mop', 6: 'ignore' };
+
+// Mop wash level
+const MOP_WASH_LEVEL_MAP = { deep: 0, daily: 1, water_saving: 2 };
+const MOP_WASH_LEVEL_REVERSE = { 0: 'deep', 1: 'daily', 2: 'water_saving' };
+
+// Water temperature
+const WATER_TEMP_MAP = { normal: 0, mild: 1, warm: 2, hot: 3, max: 4 };
+const WATER_TEMP_REVERSE = { 0: 'normal', 1: 'mild', 2: 'warm', 3: 'hot', 4: 'max' };
+
+// Auto empty frequency
+const AUTO_EMPTY_FREQ_MAP = { standard: 0, high: 1, low: 2, intelligent: 4 };
+const AUTO_EMPTY_FREQ_REVERSE = { 0: 'standard', 1: 'high', 2: 'low', 4: 'intelligent' };
+
+// Mop pressure
+const MOP_PRESSURE_MAP = { light: 0, normal: 1 };
+const MOP_PRESSURE_REVERSE = { 0: 'light', 1: 'normal' };
+
+// Charging status
+const CHARGING_STATUS_MAP = { 1: 'charging', 2: 'not_charging', 3: 'completed', 5: 'returning' };
+
+// Drainage status
+const DRAINAGE_STATUS_MAP = { 0: 'idle', 1: 'draining', 2: 'completed', 3: 'failed' };
+
+// Detergent status
+const DETERGENT_STATUS_MAP = { 0: 'installed', 1: 'disabled', 2: 'low' };
+
+// Hot water status
+const HOT_WATER_STATUS_MAP = { 0: 'disabled', 1: 'enabled' };
+
+// Dock cleaning status
+const DOCK_CLEANING_STATUS_MAP = { 0: 'idle', 1: 'cleaning', 2: 'drying' };
+
+// Prop key to capability mapping for probe-based removal
+const PROP_TO_CAPABILITY = {
+  '4-27': 'dreame_child_lock',
+  '4-11': 'dreame_resume_cleaning',
+  '4-29': 'dreame_tight_mopping',
+  '28-27': 'dreame_silent_drying',
+  '4-28': 'dreame_carpet_sensitivity',
+  '4-36': 'dreame_carpet_cleaning',
+  '4-46': 'dreame_mop_wash_level',
+  '4-40': 'dreame_drying_time',
+  '7-1': 'dreame_volume',
+  '28-8': 'dreame_water_temperature',
+  '15-2': 'dreame_auto_empty_frequency',
+  '28-86': 'dreame_mop_pressure',
+  '3-2': 'dreame_charging_status',
+  '4-64': 'dreame_drying_progress',
+  '4-60': 'dreame_drainage_status',
+  '27-4': 'dreame_detergent_status',
+  '27-15': 'dreame_hot_water_status',
+  '4-61': 'dreame_dock_cleaning_status',
+  '12-4': 'dreame_total_cleaned_area',
+};
+
 // Grouped value encoding for self-wash-base cleaning mode (siid:4, piid:23)
 function splitGroupedMode(value) {
   return {
@@ -226,6 +317,8 @@ class DreameVacuumDevice extends Homey.Device {
     this._pollInterval = null;
     this._lastCommandTime = 0;
     this._pollCycle = 0;
+    this._forceNextPoll = false;
+    this._lastTriggeredError = null;
     this._consumableLowNotified = {};
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
@@ -242,6 +335,23 @@ class DreameVacuumDevice extends Homey.Device {
     for (const cap of requiredCapabilities) {
       if (!this.hasCapability(cap)) {
         this.log(`Adding missing capability: ${cap}`);
+        await this.addCapability(cap);
+      }
+    }
+
+    // Probeable capabilities: added initially, removed after probe if unsupported
+    const probeableCapabilities = [
+      'dreame_child_lock', 'dreame_resume_cleaning', 'dreame_tight_mopping',
+      'dreame_silent_drying', 'dreame_carpet_sensitivity', 'dreame_carpet_cleaning',
+      'dreame_mop_wash_level', 'dreame_drying_time', 'dreame_volume',
+      'dreame_water_temperature', 'dreame_auto_empty_frequency', 'dreame_mop_pressure',
+      'dreame_charging_status', 'dreame_drying_progress', 'dreame_drainage_status',
+      'dreame_detergent_status', 'dreame_hot_water_status', 'dreame_dock_cleaning_status',
+      'dreame_total_cleaned_area',
+    ];
+    for (const cap of probeableCapabilities) {
+      if (!this.hasCapability(cap)) {
+        this.log(`Adding probeable capability: ${cap}`);
         await this.addCapability(cap);
       }
     }
@@ -266,6 +376,44 @@ class DreameVacuumDevice extends Homey.Device {
     }
     if (this.hasCapability('dreame_mop_wash_frequency')) {
       this.registerCapabilityListener('dreame_mop_wash_frequency', this._onMopWashFrequency.bind(this));
+    }
+
+    // Listeners for new probeable writable capabilities
+    if (this.hasCapability('dreame_child_lock')) {
+      this.registerCapabilityListener('dreame_child_lock', this._onChildLock.bind(this));
+    }
+    if (this.hasCapability('dreame_resume_cleaning')) {
+      this.registerCapabilityListener('dreame_resume_cleaning', this._onResumeCleaning.bind(this));
+    }
+    if (this.hasCapability('dreame_tight_mopping')) {
+      this.registerCapabilityListener('dreame_tight_mopping', this._onTightMopping.bind(this));
+    }
+    if (this.hasCapability('dreame_silent_drying')) {
+      this.registerCapabilityListener('dreame_silent_drying', this._onSilentDrying.bind(this));
+    }
+    if (this.hasCapability('dreame_carpet_sensitivity')) {
+      this.registerCapabilityListener('dreame_carpet_sensitivity', this._onCarpetSensitivity.bind(this));
+    }
+    if (this.hasCapability('dreame_carpet_cleaning')) {
+      this.registerCapabilityListener('dreame_carpet_cleaning', this._onCarpetCleaning.bind(this));
+    }
+    if (this.hasCapability('dreame_mop_wash_level')) {
+      this.registerCapabilityListener('dreame_mop_wash_level', this._onMopWashLevel.bind(this));
+    }
+    if (this.hasCapability('dreame_drying_time')) {
+      this.registerCapabilityListener('dreame_drying_time', this._onDryingTime.bind(this));
+    }
+    if (this.hasCapability('dreame_volume')) {
+      this.registerCapabilityListener('dreame_volume', this._onVolume.bind(this));
+    }
+    if (this.hasCapability('dreame_water_temperature')) {
+      this.registerCapabilityListener('dreame_water_temperature', this._onWaterTemperature.bind(this));
+    }
+    if (this.hasCapability('dreame_auto_empty_frequency')) {
+      this.registerCapabilityListener('dreame_auto_empty_frequency', this._onAutoEmptyFrequency.bind(this));
+    }
+    if (this.hasCapability('dreame_mop_pressure')) {
+      this.registerCapabilityListener('dreame_mop_pressure', this._onMopPressure.bind(this));
     }
 
     // Fetch bindDomain if not stored
@@ -361,6 +509,20 @@ class DreameVacuumDevice extends Homey.Device {
       if (!this._unsupportedProps.has('28-5')) props.push(PROP.CLEANGENIUS_MODE);
       if (!this._unsupportedProps.has('4-58')) props.push(PROP.TASK_TYPE);
 
+      // Probeable toggle/enum/status properties (polled every cycle)
+      const probeableEvery = [
+        PROP.CHILD_LOCK, PROP.RESUME_CLEANING, PROP.TIGHT_MOPPING, PROP.SILENT_DRYING,
+        PROP.CARPET_SENSITIVITY, PROP.CARPET_CLEANING, PROP.MOP_WASH_LEVEL,
+        PROP.DRYING_TIME, PROP.VOLUME, PROP.WATER_TEMPERATURE,
+        PROP.AUTO_EMPTY_FREQUENCY, PROP.MOP_PRESSURE,
+        PROP.CHARGING_STATUS, PROP.DRYING_PROGRESS, PROP.DRAINAGE_STATUS,
+        PROP.DETERGENT_STATUS, PROP.HOT_WATER_STATUS, PROP.DOCK_CLEANING_STATUS,
+      ];
+      for (const p of probeableEvery) {
+        const pk = `${p.siid}-${p.piid}`;
+        if (!this._unsupportedProps.has(pk)) props.push(p);
+      }
+
       // Poll consumables + dock sensors less frequently (every 12th cycle = ~60s)
       this._pollCycle = (this._pollCycle + 1) % 12;
       if (this._pollCycle === 1) {
@@ -376,6 +538,15 @@ class DreameVacuumDevice extends Homey.Device {
           PROP.DIRTY_WATER_TANK,
           PROP.LOW_WATER_WARNING,
         );
+
+        // Probeable consumables + lifetime stats (every 12th cycle)
+        const probeableInfrequent = [
+          PROP.FIRST_CLEANING_DATE, PROP.TOTAL_CLEANED_AREA,
+        ];
+        for (const p of probeableInfrequent) {
+          const pk = `${p.siid}-${p.piid}`;
+          if (!this._unsupportedProps.has(pk)) props.push(p);
+        }
       }
 
       const results = await api.getProperties(this._did, this._bindDomain, props);
@@ -420,11 +591,14 @@ class DreameVacuumDevice extends Homey.Device {
                 await this.setCapabilityValue('dreame_error', errorText).catch(this.error);
               }
 
-              // Only trigger flow card for real errors
-              if (isRealError) {
+              // Only trigger flow card for real errors, and only on change
+              if (isRealError && this._lastTriggeredError !== value) {
+                this._lastTriggeredError = value;
                 const errorText = ERROR_CODES[value] || `Unknown error (${value})`;
                 const errorCard = this.homey.flow.getDeviceTriggerCard('dreame_error_occurred');
                 await errorCard.trigger(this, { error: errorText }).catch(e => this.error('Trigger error:', e));
+              } else if (!isRealError) {
+                this._lastTriggeredError = null;
               }
             }
             break;
@@ -616,6 +790,107 @@ class DreameVacuumDevice extends Homey.Device {
           case '4-58': // TASK_TYPE
             this._taskType = value;
             break;
+
+          case '4-27': // CHILD_LOCK
+            await this.setCapabilityValue('dreame_child_lock', !!value).catch(this.error);
+            break;
+
+          case '4-11': // RESUME_CLEANING
+            await this.setCapabilityValue('dreame_resume_cleaning', !!value).catch(this.error);
+            break;
+
+          case '4-29': // TIGHT_MOPPING
+            await this.setCapabilityValue('dreame_tight_mopping', !!value).catch(this.error);
+            break;
+
+          case '28-27': // SILENT_DRYING
+            await this.setCapabilityValue('dreame_silent_drying', !!value).catch(this.error);
+            break;
+
+          case '4-28': // CARPET_SENSITIVITY
+            if (CARPET_SENSITIVITY_REVERSE[value] !== undefined) {
+              await this.setCapabilityValue('dreame_carpet_sensitivity', CARPET_SENSITIVITY_REVERSE[value]).catch(this.error);
+            }
+            break;
+
+          case '4-36': // CARPET_CLEANING
+            if (CARPET_CLEANING_REVERSE[value] !== undefined) {
+              await this.setCapabilityValue('dreame_carpet_cleaning', CARPET_CLEANING_REVERSE[value]).catch(this.error);
+            }
+            break;
+
+          case '4-46': // MOP_WASH_LEVEL
+            if (MOP_WASH_LEVEL_REVERSE[value] !== undefined) {
+              await this.setCapabilityValue('dreame_mop_wash_level', MOP_WASH_LEVEL_REVERSE[value]).catch(this.error);
+            }
+            break;
+
+          case '4-40': // DRYING_TIME
+            await this.setCapabilityValue('dreame_drying_time', value).catch(this.error);
+            break;
+
+          case '7-1': // VOLUME
+            await this.setCapabilityValue('dreame_volume', value).catch(this.error);
+            break;
+
+          case '28-8': // WATER_TEMPERATURE
+            if (WATER_TEMP_REVERSE[value] !== undefined) {
+              await this.setCapabilityValue('dreame_water_temperature', WATER_TEMP_REVERSE[value]).catch(this.error);
+            }
+            break;
+
+          case '15-2': // AUTO_EMPTY_FREQUENCY
+            if (AUTO_EMPTY_FREQ_REVERSE[value] !== undefined) {
+              await this.setCapabilityValue('dreame_auto_empty_frequency', AUTO_EMPTY_FREQ_REVERSE[value]).catch(this.error);
+            }
+            break;
+
+          case '28-86': // MOP_PRESSURE
+            if (MOP_PRESSURE_REVERSE[value] !== undefined) {
+              await this.setCapabilityValue('dreame_mop_pressure', MOP_PRESSURE_REVERSE[value]).catch(this.error);
+            }
+            break;
+
+          case '3-2': // CHARGING_STATUS
+            if (CHARGING_STATUS_MAP[value] !== undefined) {
+              await this.setCapabilityValue('dreame_charging_status', CHARGING_STATUS_MAP[value]).catch(this.error);
+            }
+            break;
+
+          case '4-64': // DRYING_PROGRESS
+            await this.setCapabilityValue('dreame_drying_progress', value || 0).catch(this.error);
+            break;
+
+          case '4-60': // DRAINAGE_STATUS
+            if (DRAINAGE_STATUS_MAP[value] !== undefined) {
+              await this.setCapabilityValue('dreame_drainage_status', DRAINAGE_STATUS_MAP[value]).catch(this.error);
+            }
+            break;
+
+          case '27-4': // DETERGENT_STATUS
+            if (DETERGENT_STATUS_MAP[value] !== undefined) {
+              await this.setCapabilityValue('dreame_detergent_status', DETERGENT_STATUS_MAP[value]).catch(this.error);
+            }
+            break;
+
+          case '27-15': // HOT_WATER_STATUS
+            if (HOT_WATER_STATUS_MAP[value] !== undefined) {
+              await this.setCapabilityValue('dreame_hot_water_status', HOT_WATER_STATUS_MAP[value]).catch(this.error);
+            }
+            break;
+
+          case '4-61': // DOCK_CLEANING_STATUS
+            if (DOCK_CLEANING_STATUS_MAP[value] !== undefined) {
+              await this.setCapabilityValue('dreame_dock_cleaning_status', DOCK_CLEANING_STATUS_MAP[value]).catch(this.error);
+            }
+            break;
+
+          case '12-1': // FIRST_CLEANING_DATE (read-only, not mapped to capability)
+            break;
+
+          case '12-4': // TOTAL_CLEANED_AREA
+            await this.setCapabilityValue('dreame_total_cleaned_area', value).catch(this.error);
+            break;
         }
       }
 
@@ -635,6 +910,14 @@ class DreameVacuumDevice extends Homey.Device {
         }
         if (this._unsupportedProps.has('28-5')) {
           // No CleanGenius mode support (handled via flow cards only)
+        }
+
+        // Remove probeable capabilities for unsupported props
+        for (const [propKey, capName] of Object.entries(PROP_TO_CAPABILITY)) {
+          if (this._unsupportedProps.has(propKey) && this.hasCapability(capName)) {
+            this.log(`Removing unsupported capability: ${capName} (prop ${propKey})`);
+            await this.removeCapability(capName);
+          }
         }
       }
 
@@ -814,6 +1097,7 @@ class DreameVacuumDevice extends Homey.Device {
     const dreameValue = CLEANGENIUS_MAP[value];
     if (dreameValue === undefined) throw new Error(`Invalid CleanGenius level: ${value}`);
     await this._setAutoSwitchProperty('SmartHost', dreameValue);
+    await this.setCapabilityValue('dreame_cleangenius', value);
 
     // Auto-start: selecting Routine or Deep while idle starts cleaning
     if (dreameValue > 0 && this._isIdle()) {
@@ -911,8 +1195,7 @@ class DreameVacuumDevice extends Homey.Device {
 
   async _onCarpetBoost(value) {
     this._lastCommandTime = Date.now();
-    const api = this.homey.app.getApi();
-    if (!api) throw new Error('API not initialized');
+    const api = this._getApi();
     await api.setProperties(this._did, this._bindDomain, [
       { siid: PROP.CARPET_BOOST.siid, piid: PROP.CARPET_BOOST.piid, value: value ? 1 : 0 },
     ]);
@@ -920,42 +1203,232 @@ class DreameVacuumDevice extends Homey.Device {
 
   async _onDnd(value) {
     this._lastCommandTime = Date.now();
-    const api = this.homey.app.getApi();
-    if (!api) throw new Error('API not initialized');
+    const api = this._getApi();
     await api.setProperties(this._did, this._bindDomain, [
       { siid: PROP.DND_ENABLED.siid, piid: PROP.DND_ENABLED.piid, value: value ? 1 : 0 },
     ]);
   }
 
+  // Toggle capability listeners
+
+  async _onChildLock(value) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.CHILD_LOCK.siid, piid: PROP.CHILD_LOCK.piid, value: value ? 1 : 0 },
+    ]);
+  }
+
+  async _onResumeCleaning(value) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.RESUME_CLEANING.siid, piid: PROP.RESUME_CLEANING.piid, value: value ? 1 : 0 },
+    ]);
+  }
+
+  async _onTightMopping(value) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.TIGHT_MOPPING.siid, piid: PROP.TIGHT_MOPPING.piid, value: value ? 1 : 0 },
+    ]);
+  }
+
+  async _onSilentDrying(value) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.SILENT_DRYING.siid, piid: PROP.SILENT_DRYING.piid, value: value ? 1 : 0 },
+    ]);
+  }
+
+  // Enum capability listeners
+
+  async _onCarpetSensitivity(value) {
+    await this.setCarpetSensitivity(value);
+    this._forceRefresh();
+  }
+
+  async _onCarpetCleaning(value) {
+    await this.setCarpetCleaning(value);
+    this._forceRefresh();
+  }
+
+  async _onMopWashLevel(value) {
+    await this.setMopWashLevel(value);
+    this._forceRefresh();
+  }
+
+  async _onDryingTime(value) {
+    await this.setDryingTime(value);
+    this._forceRefresh();
+  }
+
+  async _onVolume(value) {
+    await this.setVolume(value);
+    this._forceRefresh();
+  }
+
+  async _onWaterTemperature(value) {
+    await this.setWaterTemperature(value);
+    this._forceRefresh();
+  }
+
+  async _onAutoEmptyFrequency(value) {
+    await this.setAutoEmptyFrequency(value);
+    this._forceRefresh();
+  }
+
+  async _onMopPressure(value) {
+    await this.setMopPressure(value);
+    this._forceRefresh();
+  }
+
+  // Public command methods for new settings
+
+  async setCarpetSensitivity(sensitivity) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const value = CARPET_SENSITIVITY_MAP[sensitivity];
+    if (value === undefined) throw new Error(`Invalid carpet sensitivity: ${sensitivity}`);
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.CARPET_SENSITIVITY.siid, piid: PROP.CARPET_SENSITIVITY.piid, value },
+    ]);
+    await this.setCapabilityValue('dreame_carpet_sensitivity', sensitivity);
+  }
+
+  async setCarpetCleaning(mode) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const value = CARPET_CLEANING_MAP[mode];
+    if (value === undefined) throw new Error(`Invalid carpet cleaning mode: ${mode}`);
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.CARPET_CLEANING.siid, piid: PROP.CARPET_CLEANING.piid, value },
+    ]);
+    await this.setCapabilityValue('dreame_carpet_cleaning', mode);
+  }
+
+  async setMopWashLevel(level) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const value = MOP_WASH_LEVEL_MAP[level];
+    if (value === undefined) throw new Error(`Invalid mop wash level: ${level}`);
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.MOP_WASH_LEVEL.siid, piid: PROP.MOP_WASH_LEVEL.piid, value },
+    ]);
+    await this.setCapabilityValue('dreame_mop_wash_level', level);
+  }
+
+  async setDryingTime(hours) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.DRYING_TIME.siid, piid: PROP.DRYING_TIME.piid, value: hours },
+    ]);
+    await this.setCapabilityValue('dreame_drying_time', hours);
+  }
+
+  async setVolume(volume) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.VOLUME.siid, piid: PROP.VOLUME.piid, value: volume },
+    ]);
+    await this.setCapabilityValue('dreame_volume', volume);
+  }
+
+  async setWaterTemperature(temp) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const value = WATER_TEMP_MAP[temp];
+    if (value === undefined) throw new Error(`Invalid water temperature: ${temp}`);
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.WATER_TEMPERATURE.siid, piid: PROP.WATER_TEMPERATURE.piid, value },
+    ]);
+    await this.setCapabilityValue('dreame_water_temperature', temp);
+  }
+
+  async setAutoEmptyFrequency(frequency) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const value = AUTO_EMPTY_FREQ_MAP[frequency];
+    if (value === undefined) throw new Error(`Invalid auto empty frequency: ${frequency}`);
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.AUTO_EMPTY_FREQUENCY.siid, piid: PROP.AUTO_EMPTY_FREQUENCY.piid, value },
+    ]);
+    await this.setCapabilityValue('dreame_auto_empty_frequency', frequency);
+  }
+
+  async setMopPressure(pressure) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const value = MOP_PRESSURE_MAP[pressure];
+    if (value === undefined) throw new Error(`Invalid mop pressure: ${pressure}`);
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.MOP_PRESSURE.siid, piid: PROP.MOP_PRESSURE.piid, value },
+    ]);
+    await this.setCapabilityValue('dreame_mop_pressure', pressure);
+  }
+
+  // Multi-room cleaning
+
+  async startMultiRoomCleaning(roomIds, repeats, suction, water) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const suctionValue = SUCTION_MAP[suction] !== undefined ? SUCTION_MAP[suction] : 1;
+    const waterValue = WATER_VOLUME_MAP[water] !== undefined ? WATER_VOLUME_MAP[water] : 2;
+    const repeatCount = Math.max(1, Math.min(3, repeats || 1));
+
+    const cleanlist = roomIds.map(id => [id, repeatCount, suctionValue, waterValue, 1]);
+    const params = JSON.stringify({ selects: cleanlist });
+
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 18 },
+      { piid: 10, value: params },
+    ]);
+  }
+
+  // Warning/dock actions
+
+  async clearWarning() {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.callAction(this._did, this._bindDomain, ACTION.CLEAR_WARNING.siid, ACTION.CLEAR_WARNING.aiid);
+  }
+
+  async startDraining() {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.callAction(this._did, this._bindDomain, ACTION.START_WASHING.siid, ACTION.START_WASHING.aiid, [
+      { piid: 1, value: '7,1' },
+    ]);
+  }
+
   async startSelfClean() {
     this._lastCommandTime = Date.now();
-    const api = this.homey.app.getApi();
-    if (!api) throw new Error('API not initialized');
-    // Self-clean uses a set_properties call to toggle washing
+    const api = this._getApi();
     await api.setProperties(this._did, this._bindDomain, [
-      { siid: 4, piid: 34, value: 1 },
+      { siid: PROP.SELF_WASH_BASE.siid, piid: PROP.SELF_WASH_BASE.piid, value: 1 },
     ]);
   }
 
   async startDrying() {
     this._lastCommandTime = Date.now();
-    const api = this.homey.app.getApi();
-    if (!api) throw new Error('API not initialized');
+    const api = this._getApi();
     await api.setProperties(this._did, this._bindDomain, [
-      { siid: 4, piid: 40, value: 1 },
+      { siid: PROP.SELF_WASH_BASE.siid, piid: PROP.SELF_WASH_BASE.piid, value: 2 },
     ]);
   }
 
   async startAutoEmpty() {
     this._lastCommandTime = Date.now();
-    const api = this.homey.app.getApi();
-    if (!api) throw new Error('API not initialized');
+    const api = this._getApi();
     await api.callAction(this._did, this._bindDomain, ACTION.START_AUTO_EMPTY.siid, ACTION.START_AUTO_EMPTY.aiid);
   }
 
   async resetConsumable(siid, aiid) {
-    const api = this.homey.app.getApi();
-    if (!api) throw new Error('API not initialized');
+    const api = this._getApi();
     await api.callAction(this._did, this._bindDomain, siid, aiid);
   }
 

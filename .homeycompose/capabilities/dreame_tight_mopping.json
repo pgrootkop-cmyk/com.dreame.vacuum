@@ -1,0 +1,9 @@
+{
+  "type": "boolean",
+  "title": { "en": "Tight Mopping" },
+  "hint": { "en": "Intensive edge mopping" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle",
+  "insights": true
+}

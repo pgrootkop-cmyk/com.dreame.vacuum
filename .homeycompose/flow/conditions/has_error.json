@@ -1,0 +1,18 @@
+{
+  "title": {
+    "en": "Vacuum !{{has|has no}} error"
+  },
+  "titleFormatted": {
+    "en": "Vacuum !{{has|has no}} error"
+  },
+  "hint": {
+    "en": "Check if the vacuum has an active error"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

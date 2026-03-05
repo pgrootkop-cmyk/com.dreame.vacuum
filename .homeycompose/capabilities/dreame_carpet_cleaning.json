@@ -1,0 +1,14 @@
+{
+  "type": "enum",
+  "title": { "en": "Carpet Cleaning" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "avoidance", "title": { "en": "Avoidance" } },
+    { "id": "adaptation", "title": { "en": "Adaptation" } },
+    { "id": "remove_mop", "title": { "en": "Remove Mop" } },
+    { "id": "vacuum_and_mop", "title": { "en": "Vacuum and Mop" } },
+    { "id": "ignore", "title": { "en": "Ignore" } }
+  ]
+}

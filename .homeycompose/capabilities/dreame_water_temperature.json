@@ -1,0 +1,14 @@
+{
+  "type": "enum",
+  "title": { "en": "Water Temperature" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "normal", "title": { "en": "Normal" } },
+    { "id": "mild", "title": { "en": "Mild" } },
+    { "id": "warm", "title": { "en": "Warm" } },
+    { "id": "hot", "title": { "en": "Hot" } },
+    { "id": "max", "title": { "en": "Max" } }
+  ]
+}
