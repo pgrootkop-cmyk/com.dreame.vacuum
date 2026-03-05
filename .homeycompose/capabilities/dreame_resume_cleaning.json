@@ -1,0 +1,9 @@
+{
+  "type": "boolean",
+  "title": { "en": "Resume Cleaning" },
+  "hint": { "en": "Resume cleaning after recharge" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle",
+  "insights": true
+}

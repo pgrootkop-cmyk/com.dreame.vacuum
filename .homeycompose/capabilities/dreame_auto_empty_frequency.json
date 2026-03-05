@@ -1,0 +1,13 @@
+{
+  "type": "enum",
+  "title": { "en": "Auto Empty Frequency" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "standard", "title": { "en": "Standard" } },
+    { "id": "high", "title": { "en": "High Frequency" } },
+    { "id": "low", "title": { "en": "Low Frequency" } },
+    { "id": "intelligent", "title": { "en": "Intelligent" } }
+  ]
+}

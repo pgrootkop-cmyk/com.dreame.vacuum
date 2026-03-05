@@ -1,0 +1,45 @@
+{
+  "title": {
+    "en": "Water volume !{{is|is not}} ..."
+  },
+  "titleFormatted": {
+    "en": "Water volume !{{is|is not}} [[volume]]"
+  },
+  "hint": {
+    "en": "Check the current water volume level"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "volume",
+      "title": {
+        "en": "Volume"
+      },
+      "values": [
+        {
+          "id": "low",
+          "title": {
+            "en": "Low"
+          }
+        },
+        {
+          "id": "medium",
+          "title": {
+            "en": "Medium"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "title": {
+    "en": "Set water temperature"
+  },
+  "titleFormatted": {
+    "en": "Set water temperature to [[temperature]]"
+  },
+  "hint": {
+    "en": "Change the water temperature used for mop washing"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "temperature",
+      "title": {
+        "en": "Temperature"
+      },
+      "values": [
+        {
+          "id": "normal",
+          "title": {
+            "en": "Normal"
+          }
+        },
+        {
+          "id": "mild",
+          "title": {
+            "en": "Mild"
+          }
+        },
+        {
+          "id": "warm",
+          "title": {
+            "en": "Warm"
+          }
+        },
+        {
+          "id": "hot",
+          "title": {
+            "en": "Hot"
+          }
+        },
+        {
+          "id": "max",
+          "title": {
+            "en": "Max"
+          }
+        }
+      ]
+    }
+  ]
+}

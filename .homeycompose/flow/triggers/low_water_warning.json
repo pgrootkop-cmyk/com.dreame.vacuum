@@ -1,13 +1,30 @@
 {
-  "title": { "en": "Clean water tank is low" },
-  "titleFormatted": { "en": "Clean water tank is low" },
-  "hint": { "en": "Triggers when the dock's clean water tank is low or empty" },
+  "title": {
+    "en": "Clean water tank is low"
+  },
+  "titleFormatted": {
+    "en": "Clean water tank is low"
+  },
+  "hint": {
+    "en": "Triggers when the dock's clean water tank is low or empty"
+  },
   "tokens": [
     {
       "name": "status",
       "type": "string",
-      "title": { "en": "Status" },
-      "example": { "en": "Low Water" }
+      "title": {
+        "en": "Status"
+      },
+      "example": {
+        "en": "Low Water"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
     }
   ]
 }

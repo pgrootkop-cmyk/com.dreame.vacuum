@@ -1,5 +1,18 @@
 {
-  "title": { "en": "Play locate sound" },
-  "titleFormatted": { "en": "Play locate sound" },
-  "hint": { "en": "The device will play a sound so you can find it" }
+  "title": {
+    "en": "Play locate sound"
+  },
+  "titleFormatted": {
+    "en": "Play locate sound"
+  },
+  "hint": {
+    "en": "The device will play a sound so you can find it"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
 }

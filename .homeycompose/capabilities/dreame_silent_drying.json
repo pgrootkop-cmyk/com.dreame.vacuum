@@ -1,0 +1,9 @@
+{
+  "type": "boolean",
+  "title": { "en": "Silent Drying" },
+  "hint": { "en": "Quieter drying mode" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle",
+  "insights": true
+}

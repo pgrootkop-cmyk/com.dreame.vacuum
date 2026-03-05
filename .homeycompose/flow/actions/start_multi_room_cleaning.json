@@ -1,0 +1,98 @@
+{
+  "title": {
+    "en": "Clean multiple rooms"
+  },
+  "titleFormatted": {
+    "en": "Clean rooms [[room_ids]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+  },
+  "hint": {
+    "en": "Clean multiple rooms. Enter room IDs separated by commas (e.g. 1,3,5). To find room IDs: in the Dreame app, rooms are numbered in discovery order (1, 2, 3, ...)."
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "text",
+      "name": "room_ids",
+      "title": {
+        "en": "Room IDs (comma-separated)"
+      },
+      "placeholder": {
+        "en": "1,3,5"
+      }
+    },
+    {
+      "type": "dropdown",
+      "name": "suction",
+      "title": {
+        "en": "Suction"
+      },
+      "values": [
+        {
+          "id": "quiet",
+          "title": {
+            "en": "Quiet"
+          }
+        },
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "strong",
+          "title": {
+            "en": "Strong"
+          }
+        },
+        {
+          "id": "turbo",
+          "title": {
+            "en": "Turbo"
+          }
+        }
+      ]
+    },
+    {
+      "type": "dropdown",
+      "name": "water",
+      "title": {
+        "en": "Water Volume"
+      },
+      "values": [
+        {
+          "id": "low",
+          "title": {
+            "en": "Low"
+          }
+        },
+        {
+          "id": "medium",
+          "title": {
+            "en": "Medium"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High"
+          }
+        }
+      ]
+    },
+    {
+      "type": "number",
+      "name": "repeats",
+      "title": {
+        "en": "Repeats"
+      },
+      "min": 1,
+      "max": 3,
+      "step": 1
+    }
+  ]
+}

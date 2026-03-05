@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Set drying time"
+  },
+  "titleFormatted": {
+    "en": "Set drying time to [[hours]] hours"
+  },
+  "hint": {
+    "en": "Change how long the mop is dried after washing"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "number",
+      "name": "hours",
+      "title": {
+        "en": "Hours"
+      },
+      "min": 2,
+      "max": 4,
+      "step": 1
+    }
+  ]
+}

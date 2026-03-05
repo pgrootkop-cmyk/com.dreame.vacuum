@@ -1,12 +1,27 @@
 {
-  "title": { "en": "An error occurred" },
-  "hint": { "en": "Triggers when the vacuum reports an error" },
+  "title": {
+    "en": "An error occurred"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum reports an error"
+  },
   "tokens": [
     {
       "name": "error",
       "type": "string",
-      "title": { "en": "Error" },
-      "example": { "en": "Brush stuck" }
+      "title": {
+        "en": "Error"
+      },
+      "example": {
+        "en": "Brush stuck"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
     }
   ]
 }

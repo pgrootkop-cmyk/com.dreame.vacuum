@@ -92,6 +92,64 @@ class DreameVacuumDriver extends Homey.Driver {
         return args.device.getCapabilityValue('dreame_dnd') === true;
       });
 
+    // State conditions
+    this.homey.flow.getConditionCard('is_cleaning')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('vacuumcleaner_state') === 'cleaning';
+      });
+
+    this.homey.flow.getConditionCard('is_docked')
+      .registerRunListener(async (args) => {
+        const state = args.device.getCapabilityValue('vacuumcleaner_state');
+        return state === 'docked' || state === 'charging';
+      });
+
+    this.homey.flow.getConditionCard('is_charging')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('vacuumcleaner_state') === 'charging';
+      });
+
+    this.homey.flow.getConditionCard('dreame_water_volume_is')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('dreame_water_volume') === args.volume;
+      });
+
+    this.homey.flow.getConditionCard('dreame_cleangenius_is')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('dreame_cleangenius') === args.level;
+      });
+
+    this.homey.flow.getConditionCard('dreame_cleaning_route_is')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('dreame_cleaning_route') === args.route;
+      });
+
+    this.homey.flow.getConditionCard('dreame_mop_wash_frequency_is')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('dreame_mop_wash_frequency') === args.frequency;
+      });
+
+    this.homey.flow.getConditionCard('battery_level_above')
+      .registerRunListener(async (args) => {
+        return (args.device.getCapabilityValue('measure_battery') || 0) > args.percentage;
+      });
+
+    this.homey.flow.getConditionCard('has_error')
+      .registerRunListener(async (args) => {
+        const error = args.device.getCapabilityValue('dreame_error');
+        return !!error && error !== 'None';
+      });
+
+    this.homey.flow.getConditionCard('water_tank_installed')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('dreame_water_tank') === 'installed';
+      });
+
+    this.homey.flow.getConditionCard('dust_bag_full')
+      .registerRunListener(async (args) => {
+        return args.device.getCapabilityValue('dreame_dust_bag') === 'full';
+      });
+
     // CleanGenius flow cards
     this.homey.flow.getActionCard('set_cleangenius')
       .registerRunListener(async (args) => {
@@ -117,6 +175,63 @@ class DreameVacuumDriver extends Homey.Driver {
       .registerRunListener(async (args) => {
         await args.device.startRoomCleaning(args.room_id, args.repeats, args.suction, args.water);
       });
+
+    this.homey.flow.getActionCard('set_carpet_sensitivity')
+      .registerRunListener(async (args) => {
+        await args.device.setCarpetSensitivity(args.sensitivity);
+      });
+
+    this.homey.flow.getActionCard('set_carpet_cleaning')
+      .registerRunListener(async (args) => {
+        await args.device.setCarpetCleaning(args.mode);
+      });
+
+    this.homey.flow.getActionCard('set_mop_wash_level')
+      .registerRunListener(async (args) => {
+        await args.device.setMopWashLevel(args.level);
+      });
+
+    this.homey.flow.getActionCard('set_water_temperature')
+      .registerRunListener(async (args) => {
+        await args.device.setWaterTemperature(args.temperature);
+      });
+
+    this.homey.flow.getActionCard('set_auto_empty_frequency')
+      .registerRunListener(async (args) => {
+        await args.device.setAutoEmptyFrequency(args.frequency);
+      });
+
+    this.homey.flow.getActionCard('set_mop_pressure')
+      .registerRunListener(async (args) => {
+        await args.device.setMopPressure(args.pressure);
+      });
+
+    this.homey.flow.getActionCard('set_drying_time')
+      .registerRunListener(async (args) => {
+        await args.device.setDryingTime(args.hours);
+      });
+
+    this.homey.flow.getActionCard('set_volume')
+      .registerRunListener(async (args) => {
+        await args.device.setVolume(args.volume);
+      });
+
+    this.homey.flow.getActionCard('start_multi_room_cleaning')
+      .registerRunListener(async (args) => {
+        const roomIds = args.room_ids.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
+        if (roomIds.length === 0) throw new Error('No valid room IDs provided');
+        await args.device.startMultiRoomCleaning(roomIds, args.repeats, args.suction, args.water);
+      });
+
+    this.homey.flow.getActionCard('start_draining')
+      .registerRunListener(async (args) => {
+        await args.device.startDraining();
+      });
+
+    this.homey.flow.getActionCard('clear_warning')
+      .registerRunListener(async (args) => {
+        await args.device.clearWarning();
+      });
   }
 
   async onPair(session) {
@@ -126,7 +241,7 @@ class DreameVacuumDriver extends Homey.Driver {
     session.setHandler('login', async (data) => {
       const username = data.username;
       const password = data.password;
-      country = this.homey.app.homey.settings.get('country') || 'eu';
+      country = this.homey.settings.get('country') || 'eu';
 
       this.log('Login attempt, country:', country);
       api = new DreameApi({ username, password, country });
@@ -179,7 +294,7 @@ class DreameVacuumDriver extends Homey.Driver {
     session.setHandler('login', async (data) => {
       const username = data.username;
       const password = data.password;
-      const country = this.homey.app.homey.settings.get('country') || 'eu';
+      const country = this.homey.settings.get('country') || 'eu';
 
       const api = new DreameApi({ username, password, country });
 

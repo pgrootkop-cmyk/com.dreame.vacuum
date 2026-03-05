@@ -1,0 +1,45 @@
+{
+  "title": {
+    "en": "Set mop wash level"
+  },
+  "titleFormatted": {
+    "en": "Set mop wash level to [[level]]"
+  },
+  "hint": {
+    "en": "Change how thoroughly the mop is washed at the station"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "level",
+      "title": {
+        "en": "Level"
+      },
+      "values": [
+        {
+          "id": "deep",
+          "title": {
+            "en": "Deep"
+          }
+        },
+        {
+          "id": "daily",
+          "title": {
+            "en": "Daily"
+          }
+        },
+        {
+          "id": "water_saving",
+          "title": {
+            "en": "Water Saving"
+          }
+        }
+      ]
+    }
+  ]
+}

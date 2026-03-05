@@ -1,5 +1,18 @@
 {
-  "title": { "en": "Reset filter life" },
-  "titleFormatted": { "en": "Reset filter life counter" },
-  "hint": { "en": "Reset after replacing the filter" }
+  "title": {
+    "en": "Reset filter life"
+  },
+  "titleFormatted": {
+    "en": "Reset filter life counter"
+  },
+  "hint": {
+    "en": "Reset after replacing the filter"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
 }

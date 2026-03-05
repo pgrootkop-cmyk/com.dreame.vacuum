@@ -1,0 +1,57 @@
+{
+  "title": {
+    "en": "Set carpet cleaning mode"
+  },
+  "titleFormatted": {
+    "en": "Set carpet cleaning to [[mode]]"
+  },
+  "hint": {
+    "en": "Change how the vacuum handles carpets during cleaning"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "mode",
+      "title": {
+        "en": "Mode"
+      },
+      "values": [
+        {
+          "id": "avoidance",
+          "title": {
+            "en": "Avoidance"
+          }
+        },
+        {
+          "id": "adaptation",
+          "title": {
+            "en": "Adaptation"
+          }
+        },
+        {
+          "id": "remove_mop",
+          "title": {
+            "en": "Remove Mop"
+          }
+        },
+        {
+          "id": "vacuum_and_mop",
+          "title": {
+            "en": "Vacuum and Mop"
+          }
+        },
+        {
+          "id": "ignore",
+          "title": {
+            "en": "Ignore"
+          }
+        }
+      ]
+    }
+  ]
+}

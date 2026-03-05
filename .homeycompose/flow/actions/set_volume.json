@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Set volume"
+  },
+  "titleFormatted": {
+    "en": "Set volume to [[volume]]%"
+  },
+  "hint": {
+    "en": "Change the speaker volume of the vacuum"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "number",
+      "name": "volume",
+      "title": {
+        "en": "Volume"
+      },
+      "min": 0,
+      "max": 100,
+      "step": 10
+    }
+  ]
+}
