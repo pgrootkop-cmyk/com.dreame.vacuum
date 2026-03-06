@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "platforms": [
@@ -97,6 +97,13 @@
             }
           }
         ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "consumable_low"
       },
       {
@@ -116,6 +123,13 @@
             "example": {
               "en": "Brush stuck"
             }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
           }
         ],
         "id": "dreame_error_occurred"
@@ -142,10 +156,46 @@
             }
           }
         ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "low_water_warning"
       }
     ],
     "conditions": [
+      {
+        "title": {
+          "en": "Battery !{{is|is not}} above ..."
+        },
+        "titleFormatted": {
+          "en": "Battery !{{is|is not}} above [[percentage]]%"
+        },
+        "hint": {
+          "en": "Check if the battery level is above a threshold"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "number",
+            "name": "percentage",
+            "title": {
+              "en": "Percentage"
+            },
+            "min": 0,
+            "max": 100,
+            "step": 5
+          }
+        ],
+        "id": "battery_level_above"
+      },
       {
         "title": {
           "en": "Carpet boost !{{is|is not}} on"
@@ -156,6 +206,13 @@
         "hint": {
           "en": "Check if carpet boost is enabled"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "carpet_boost_is_on"
       },
       {
@@ -168,7 +225,60 @@
         "hint": {
           "en": "Check if Do Not Disturb mode is enabled"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "dnd_is_on"
+      },
+      {
+        "title": {
+          "en": "CleanGenius !{{is|is not}} ..."
+        },
+        "titleFormatted": {
+          "en": "CleanGenius !{{is|is not}} [[level]]"
+        },
+        "hint": {
+          "en": "Check the current CleanGenius level"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "level",
+            "title": {
+              "en": "Level"
+            },
+            "values": [
+              {
+                "id": "off",
+                "title": {
+                  "en": "Off"
+                }
+              },
+              {
+                "id": "routine",
+                "title": {
+                  "en": "Routine Cleaning"
+                }
+              },
+              {
+                "id": "deep",
+                "title": {
+                  "en": "Deep Cleaning"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "dreame_cleangenius_is"
       },
       {
         "title": {
@@ -181,6 +291,11 @@
           "en": "Check the current cleaning mode"
         },
         "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
           {
             "type": "dropdown",
             "name": "mode",
@@ -205,11 +320,133 @@
                 "title": {
                   "en": "Sweeping & Mopping"
                 }
+              },
+              {
+                "id": "mopping_after_sweeping",
+                "title": {
+                  "en": "Vacuum then Mop"
+                }
               }
             ]
           }
         ],
         "id": "dreame_cleaning_mode_is"
+      },
+      {
+        "title": {
+          "en": "Cleaning route !{{is|is not}} ..."
+        },
+        "titleFormatted": {
+          "en": "Cleaning route !{{is|is not}} [[route]]"
+        },
+        "hint": {
+          "en": "Check the current cleaning route"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "route",
+            "title": {
+              "en": "Route"
+            },
+            "values": [
+              {
+                "id": "standard",
+                "title": {
+                  "en": "Standard"
+                }
+              },
+              {
+                "id": "intensive",
+                "title": {
+                  "en": "Intensive"
+                }
+              },
+              {
+                "id": "deep",
+                "title": {
+                  "en": "Deep"
+                }
+              },
+              {
+                "id": "quick",
+                "title": {
+                  "en": "Quick"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "dreame_cleaning_route_is"
+      },
+      {
+        "title": {
+          "en": "Mop wash frequency !{{is|is not}} ..."
+        },
+        "titleFormatted": {
+          "en": "Mop wash frequency !{{is|is not}} [[frequency]]"
+        },
+        "hint": {
+          "en": "Check the current mop wash frequency"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "frequency",
+            "title": {
+              "en": "Frequency"
+            },
+            "values": [
+              {
+                "id": "by_room",
+                "title": {
+                  "en": "By Room"
+                }
+              },
+              {
+                "id": "5m2",
+                "title": {
+                  "en": "Every 5 m²"
+                }
+              },
+              {
+                "id": "10m2",
+                "title": {
+                  "en": "Every 10 m²"
+                }
+              },
+              {
+                "id": "15m2",
+                "title": {
+                  "en": "Every 15 m²"
+                }
+              },
+              {
+                "id": "20m2",
+                "title": {
+                  "en": "Every 20 m²"
+                }
+              },
+              {
+                "id": "25m2",
+                "title": {
+                  "en": "Every 25 m²"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "dreame_mop_wash_frequency_is"
       },
       {
         "title": {
@@ -222,6 +459,11 @@
           "en": "Check the current suction level"
         },
         "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
           {
             "type": "dropdown",
             "name": "level",
@@ -257,9 +499,185 @@
           }
         ],
         "id": "dreame_suction_level_is"
+      },
+      {
+        "title": {
+          "en": "Water volume !{{is|is not}} ..."
+        },
+        "titleFormatted": {
+          "en": "Water volume !{{is|is not}} [[volume]]"
+        },
+        "hint": {
+          "en": "Check the current water volume level"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "volume",
+            "title": {
+              "en": "Volume"
+            },
+            "values": [
+              {
+                "id": "low",
+                "title": {
+                  "en": "Low"
+                }
+              },
+              {
+                "id": "medium",
+                "title": {
+                  "en": "Medium"
+                }
+              },
+              {
+                "id": "high",
+                "title": {
+                  "en": "High"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "dreame_water_volume_is"
+      },
+      {
+        "title": {
+          "en": "Dust bag !{{is|is not}} full"
+        },
+        "titleFormatted": {
+          "en": "Dust bag !{{is|is not}} full"
+        },
+        "hint": {
+          "en": "Check if the dust bag is full"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "dust_bag_full"
+      },
+      {
+        "title": {
+          "en": "Vacuum !{{has|has no}} error"
+        },
+        "titleFormatted": {
+          "en": "Vacuum !{{has|has no}} error"
+        },
+        "hint": {
+          "en": "Check if the vacuum has an active error"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "has_error"
+      },
+      {
+        "title": {
+          "en": "Vacuum !{{is|is not}} charging"
+        },
+        "titleFormatted": {
+          "en": "Vacuum !{{is|is not}} charging"
+        },
+        "hint": {
+          "en": "Check if the vacuum is currently charging"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "is_charging"
+      },
+      {
+        "title": {
+          "en": "Vacuum !{{is|is not}} cleaning"
+        },
+        "titleFormatted": {
+          "en": "Vacuum !{{is|is not}} cleaning"
+        },
+        "hint": {
+          "en": "Check if the vacuum is currently cleaning"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "is_cleaning"
+      },
+      {
+        "title": {
+          "en": "Vacuum !{{is|is not}} docked"
+        },
+        "titleFormatted": {
+          "en": "Vacuum !{{is|is not}} docked"
+        },
+        "hint": {
+          "en": "Check if the vacuum is docked at its station"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "is_docked"
+      },
+      {
+        "title": {
+          "en": "Water tank !{{is|is not}} installed"
+        },
+        "titleFormatted": {
+          "en": "Water tank !{{is|is not}} installed"
+        },
+        "hint": {
+          "en": "Check if the water tank is installed"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "water_tank_installed"
       }
     ],
     "actions": [
+      {
+        "title": {
+          "en": "Clear warning/error"
+        },
+        "hint": {
+          "en": "Dismiss the current warning or error"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "clear_warning"
+      },
       {
         "title": {
           "en": "Reset filter life"
@@ -270,6 +688,13 @@
         "hint": {
           "en": "Reset after replacing the filter"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "reset_filter"
       },
       {
@@ -282,6 +707,13 @@
         "hint": {
           "en": "Reset after replacing the main brush"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "reset_main_brush"
       },
       {
@@ -294,6 +726,13 @@
         "hint": {
           "en": "Reset after replacing the mop pad"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "reset_mop_pad"
       },
       {
@@ -306,6 +745,13 @@
         "hint": {
           "en": "Reset after cleaning the sensors"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "reset_sensor"
       },
       {
@@ -318,7 +764,170 @@
         "hint": {
           "en": "Reset after replacing the side brush"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "reset_side_brush"
+      },
+      {
+        "title": {
+          "en": "Set auto empty frequency"
+        },
+        "titleFormatted": {
+          "en": "Set auto empty frequency to [[frequency]]"
+        },
+        "hint": {
+          "en": "Change how often the dust bin is automatically emptied"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "frequency",
+            "title": {
+              "en": "Frequency"
+            },
+            "values": [
+              {
+                "id": "standard",
+                "title": {
+                  "en": "Standard"
+                }
+              },
+              {
+                "id": "high",
+                "title": {
+                  "en": "High Frequency"
+                }
+              },
+              {
+                "id": "low",
+                "title": {
+                  "en": "Low Frequency"
+                }
+              },
+              {
+                "id": "intelligent",
+                "title": {
+                  "en": "Intelligent"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_auto_empty_frequency"
+      },
+      {
+        "title": {
+          "en": "Set carpet cleaning mode"
+        },
+        "titleFormatted": {
+          "en": "Set carpet cleaning to [[mode]]"
+        },
+        "hint": {
+          "en": "Change how the vacuum handles carpets during cleaning"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "mode",
+            "title": {
+              "en": "Mode"
+            },
+            "values": [
+              {
+                "id": "avoidance",
+                "title": {
+                  "en": "Avoidance"
+                }
+              },
+              {
+                "id": "adaptation",
+                "title": {
+                  "en": "Adaptation"
+                }
+              },
+              {
+                "id": "remove_mop",
+                "title": {
+                  "en": "Remove Mop"
+                }
+              },
+              {
+                "id": "vacuum_and_mop",
+                "title": {
+                  "en": "Vacuum and Mop"
+                }
+              },
+              {
+                "id": "ignore",
+                "title": {
+                  "en": "Ignore"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_carpet_cleaning"
+      },
+      {
+        "title": {
+          "en": "Set carpet sensitivity"
+        },
+        "titleFormatted": {
+          "en": "Set carpet sensitivity to [[sensitivity]]"
+        },
+        "hint": {
+          "en": "Change how sensitively the vacuum detects carpets"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "sensitivity",
+            "title": {
+              "en": "Sensitivity"
+            },
+            "values": [
+              {
+                "id": "low",
+                "title": {
+                  "en": "Low"
+                }
+              },
+              {
+                "id": "medium",
+                "title": {
+                  "en": "Medium"
+                }
+              },
+              {
+                "id": "high",
+                "title": {
+                  "en": "High"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_carpet_sensitivity"
       },
       {
         "title": {
@@ -331,6 +940,11 @@
           "en": "Set the CleanGenius cleaning intelligence mode"
         },
         "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
           {
             "type": "dropdown",
             "name": "level",
@@ -373,6 +987,11 @@
         },
         "args": [
           {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
             "type": "dropdown",
             "name": "method",
             "title": {
@@ -407,6 +1026,11 @@
           "en": "Set the cleaning route pattern"
         },
         "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
           {
             "type": "dropdown",
             "name": "route",
@@ -455,6 +1079,11 @@
         },
         "args": [
           {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
             "type": "dropdown",
             "name": "mode",
             "title": {
@@ -478,6 +1107,12 @@
                 "title": {
                   "en": "Sweeping & Mopping"
                 }
+              },
+              {
+                "id": "mopping_after_sweeping",
+                "title": {
+                  "en": "Vacuum then Mop"
+                }
               }
             ]
           }
@@ -495,6 +1130,11 @@
           "en": "Change the suction power of the vacuum"
         },
         "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
           {
             "type": "dropdown",
             "name": "level",
@@ -543,6 +1183,11 @@
         },
         "args": [
           {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
             "type": "dropdown",
             "name": "volume",
             "title": {
@@ -574,6 +1219,75 @@
       },
       {
         "title": {
+          "en": "Set drying time"
+        },
+        "titleFormatted": {
+          "en": "Set drying time to [[hours]] hours"
+        },
+        "hint": {
+          "en": "Change how long the mop is dried after washing"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "number",
+            "name": "hours",
+            "title": {
+              "en": "Hours"
+            },
+            "min": 2,
+            "max": 4,
+            "step": 1
+          }
+        ],
+        "id": "set_drying_time"
+      },
+      {
+        "title": {
+          "en": "Set mop pressure"
+        },
+        "titleFormatted": {
+          "en": "Set mop pressure to [[pressure]]"
+        },
+        "hint": {
+          "en": "Change the downward pressure applied by the mop"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "pressure",
+            "title": {
+              "en": "Pressure"
+            },
+            "values": [
+              {
+                "id": "light",
+                "title": {
+                  "en": "Light"
+                }
+              },
+              {
+                "id": "normal",
+                "title": {
+                  "en": "Normal"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_mop_pressure"
+      },
+      {
+        "title": {
           "en": "Set mop wash frequency"
         },
         "titleFormatted": {
@@ -584,6 +1298,11 @@
         },
         "args": [
           {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
             "type": "dropdown",
             "name": "frequency",
             "title": {
@@ -593,7 +1312,7 @@
               {
                 "id": "by_room",
                 "title": {
-                  "en": "After each room"
+                  "en": "By Room"
                 }
               },
               {
@@ -633,6 +1352,139 @@
       },
       {
         "title": {
+          "en": "Set mop wash level"
+        },
+        "titleFormatted": {
+          "en": "Set mop wash level to [[level]]"
+        },
+        "hint": {
+          "en": "Change how thoroughly the mop is washed at the station"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "level",
+            "title": {
+              "en": "Level"
+            },
+            "values": [
+              {
+                "id": "deep",
+                "title": {
+                  "en": "Deep"
+                }
+              },
+              {
+                "id": "daily",
+                "title": {
+                  "en": "Daily"
+                }
+              },
+              {
+                "id": "water_saving",
+                "title": {
+                  "en": "Water Saving"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_mop_wash_level"
+      },
+      {
+        "title": {
+          "en": "Set volume"
+        },
+        "titleFormatted": {
+          "en": "Set volume to [[volume]]%"
+        },
+        "hint": {
+          "en": "Change the speaker volume of the vacuum"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "number",
+            "name": "volume",
+            "title": {
+              "en": "Volume"
+            },
+            "min": 0,
+            "max": 100,
+            "step": 10
+          }
+        ],
+        "id": "set_volume"
+      },
+      {
+        "title": {
+          "en": "Set water temperature"
+        },
+        "titleFormatted": {
+          "en": "Set water temperature to [[temperature]]"
+        },
+        "hint": {
+          "en": "Change the water temperature used for mop washing"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "dropdown",
+            "name": "temperature",
+            "title": {
+              "en": "Temperature"
+            },
+            "values": [
+              {
+                "id": "normal",
+                "title": {
+                  "en": "Normal"
+                }
+              },
+              {
+                "id": "mild",
+                "title": {
+                  "en": "Mild"
+                }
+              },
+              {
+                "id": "warm",
+                "title": {
+                  "en": "Warm"
+                }
+              },
+              {
+                "id": "hot",
+                "title": {
+                  "en": "Hot"
+                }
+              },
+              {
+                "id": "max",
+                "title": {
+                  "en": "Max"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "set_water_temperature"
+      },
+      {
+        "title": {
           "en": "Start auto empty"
         },
         "titleFormatted": {
@@ -641,7 +1493,30 @@
         "hint": {
           "en": "Start emptying the robot's dust bin into the dock bag"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "start_auto_empty"
+      },
+      {
+        "title": {
+          "en": "Start station drainage"
+        },
+        "hint": {
+          "en": "Drain dirty water from the station"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "start_draining"
       },
       {
         "title": {
@@ -653,7 +1528,113 @@
         "hint": {
           "en": "Start the dock's hot air drying cycle"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "start_drying"
+      },
+      {
+        "title": {
+          "en": "Clean multiple rooms"
+        },
+        "titleFormatted": {
+          "en": "Clean rooms [[room_ids]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+        },
+        "hint": {
+          "en": "Clean multiple rooms. Enter room IDs separated by commas (e.g. 1,3,5). To find room IDs: in the Dreame app, rooms are numbered in discovery order (1, 2, 3, ...)."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "text",
+            "name": "room_ids",
+            "title": {
+              "en": "Room IDs (comma-separated)"
+            },
+            "placeholder": {
+              "en": "1,3,5"
+            }
+          },
+          {
+            "type": "dropdown",
+            "name": "suction",
+            "title": {
+              "en": "Suction"
+            },
+            "values": [
+              {
+                "id": "quiet",
+                "title": {
+                  "en": "Quiet"
+                }
+              },
+              {
+                "id": "standard",
+                "title": {
+                  "en": "Standard"
+                }
+              },
+              {
+                "id": "strong",
+                "title": {
+                  "en": "Strong"
+                }
+              },
+              {
+                "id": "turbo",
+                "title": {
+                  "en": "Turbo"
+                }
+              }
+            ]
+          },
+          {
+            "type": "dropdown",
+            "name": "water",
+            "title": {
+              "en": "Water Volume"
+            },
+            "values": [
+              {
+                "id": "low",
+                "title": {
+                  "en": "Low"
+                }
+              },
+              {
+                "id": "medium",
+                "title": {
+                  "en": "Medium"
+                }
+              },
+              {
+                "id": "high",
+                "title": {
+                  "en": "High"
+                }
+              }
+            ]
+          },
+          {
+            "type": "number",
+            "name": "repeats",
+            "title": {
+              "en": "Repeats"
+            },
+            "min": 1,
+            "max": 3,
+            "step": 1
+          }
+        ],
+        "id": "start_multi_room_cleaning"
       },
       {
         "title": {
@@ -663,9 +1644,14 @@
           "en": "Clean room [[room_id]] at [[suction]] suction, [[water]] water, [[repeats]]x"
         },
         "hint": {
-          "en": "Start cleaning a specific room by its segment ID"
+          "en": "Start cleaning a specific room by its segment ID. To find room IDs: in the Dreame app, rooms are numbered in the order they were discovered during mapping (1, 2, 3, ...). You can also try IDs one by one to see which room the vacuum goes to."
         },
         "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
           {
             "type": "number",
             "name": "room_id",
@@ -759,6 +1745,13 @@
         "hint": {
           "en": "Start the dock's mop pad washing cycle"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "start_self_clean"
       },
       {
@@ -771,6 +1764,13 @@
         "hint": {
           "en": "The device will play a sound so you can find it"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
         "id": "vacuum_locate"
       }
     ]
@@ -811,7 +1811,26 @@
         "dreame_filter_left",
         "dreame_mop_pad_left",
         "dreame_sensor_dirty_left",
-        "dreame_error"
+        "dreame_error",
+        "dreame_child_lock",
+        "dreame_resume_cleaning",
+        "dreame_tight_mopping",
+        "dreame_silent_drying",
+        "dreame_carpet_sensitivity",
+        "dreame_carpet_cleaning",
+        "dreame_mop_wash_level",
+        "dreame_drying_time",
+        "dreame_volume",
+        "dreame_water_temperature",
+        "dreame_auto_empty_frequency",
+        "dreame_mop_pressure",
+        "dreame_charging_status",
+        "dreame_drying_progress",
+        "dreame_drainage_status",
+        "dreame_detergent_status",
+        "dreame_hot_water_status",
+        "dreame_dock_cleaning_status",
+        "dreame_total_cleaned_area"
       ],
       "energy": {
         "batteries": [
@@ -1004,10 +2023,134 @@
     }
   ],
   "capabilities": {
+    "dreame_auto_empty_frequency": {
+      "type": "enum",
+      "title": {
+        "en": "Auto Empty Frequency"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High Frequency"
+          }
+        },
+        {
+          "id": "low",
+          "title": {
+            "en": "Low Frequency"
+          }
+        },
+        {
+          "id": "intelligent",
+          "title": {
+            "en": "Intelligent"
+          }
+        }
+      ]
+    },
     "dreame_carpet_boost": {
       "type": "boolean",
       "title": {
         "en": "Carpet Boost"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
+    },
+    "dreame_carpet_cleaning": {
+      "type": "enum",
+      "title": {
+        "en": "Carpet Cleaning"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "avoidance",
+          "title": {
+            "en": "Avoidance"
+          }
+        },
+        {
+          "id": "adaptation",
+          "title": {
+            "en": "Adaptation"
+          }
+        },
+        {
+          "id": "remove_mop",
+          "title": {
+            "en": "Remove Mop"
+          }
+        },
+        {
+          "id": "vacuum_and_mop",
+          "title": {
+            "en": "Vacuum and Mop"
+          }
+        },
+        {
+          "id": "ignore",
+          "title": {
+            "en": "Ignore"
+          }
+        }
+      ]
+    },
+    "dreame_carpet_sensitivity": {
+      "type": "enum",
+      "title": {
+        "en": "Carpet Sensitivity"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "low",
+          "title": {
+            "en": "Low"
+          }
+        },
+        {
+          "id": "medium",
+          "title": {
+            "en": "Medium"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High"
+          }
+        }
+      ]
+    },
+    "dreame_charging_status": {
+      "type": "string",
+      "title": {
+        "en": "Charging Status"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "dreame_child_lock": {
+      "type": "boolean",
+      "title": {
+        "en": "Child Lock"
       },
       "getable": true,
       "setable": true,
@@ -1153,6 +2296,15 @@
       },
       "insights": true
     },
+    "dreame_detergent_status": {
+      "type": "string",
+      "title": {
+        "en": "Detergent Status"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
     "dreame_dirty_water_tank": {
       "type": "enum",
       "title": {
@@ -1184,6 +2336,53 @@
       "getable": true,
       "setable": true,
       "uiComponent": "toggle"
+    },
+    "dreame_dock_cleaning_status": {
+      "type": "string",
+      "title": {
+        "en": "Dock Cleaning Status"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "dreame_drainage_status": {
+      "type": "string",
+      "title": {
+        "en": "Drainage Status"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
+    "dreame_drying_progress": {
+      "type": "number",
+      "title": {
+        "en": "Drying Progress"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100
+    },
+    "dreame_drying_time": {
+      "type": "number",
+      "title": {
+        "en": "Drying Time"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "slider",
+      "units": {
+        "en": "hours"
+      },
+      "min": 2,
+      "max": 4,
+      "step": 1
     },
     "dreame_dust_bag": {
       "type": "enum",
@@ -1267,6 +2466,15 @@
       "max": 100,
       "insights": true
     },
+    "dreame_hot_water_status": {
+      "type": "string",
+      "title": {
+        "en": "Hot Water Status"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
     "dreame_main_brush_left": {
       "type": "number",
       "title": {
@@ -1296,6 +2504,29 @@
       "min": 0,
       "max": 100,
       "insights": true
+    },
+    "dreame_mop_pressure": {
+      "type": "enum",
+      "title": {
+        "en": "Mop Pressure"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "light",
+          "title": {
+            "en": "Light"
+          }
+        },
+        {
+          "id": "normal",
+          "title": {
+            "en": "Normal"
+          }
+        }
+      ]
     },
     "dreame_mop_wash_frequency": {
       "type": "enum",
@@ -1343,6 +2574,48 @@
           }
         }
       ]
+    },
+    "dreame_mop_wash_level": {
+      "type": "enum",
+      "title": {
+        "en": "Mop Wash Level"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "deep",
+          "title": {
+            "en": "Deep"
+          }
+        },
+        {
+          "id": "daily",
+          "title": {
+            "en": "Daily"
+          }
+        },
+        {
+          "id": "water_saving",
+          "title": {
+            "en": "Water Saving"
+          }
+        }
+      ]
+    },
+    "dreame_resume_cleaning": {
+      "type": "boolean",
+      "title": {
+        "en": "Resume Cleaning"
+      },
+      "hint": {
+        "en": "Resume cleaning after recharge"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
     },
     "dreame_self_wash_status": {
       "type": "enum",
@@ -1427,6 +2700,19 @@
       "max": 100,
       "insights": true
     },
+    "dreame_silent_drying": {
+      "type": "boolean",
+      "title": {
+        "en": "Silent Drying"
+      },
+      "hint": {
+        "en": "Quieter drying mode"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
+    },
     "dreame_suction_level": {
       "type": "enum",
       "title": {
@@ -1462,6 +2748,46 @@
         }
       ]
     },
+    "dreame_tight_mopping": {
+      "type": "boolean",
+      "title": {
+        "en": "Tight Mopping"
+      },
+      "hint": {
+        "en": "Intensive edge mopping"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "insights": true
+    },
+    "dreame_total_cleaned_area": {
+      "type": "number",
+      "title": {
+        "en": "Total Cleaned Area"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "units": {
+        "en": "m²"
+      }
+    },
+    "dreame_volume": {
+      "type": "number",
+      "title": {
+        "en": "Volume"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "slider",
+      "units": {
+        "en": "%"
+      },
+      "min": 0,
+      "max": 100,
+      "step": 10
+    },
     "dreame_water_tank": {
       "type": "enum",
       "title": {
@@ -1493,6 +2819,47 @@
           "id": "no_water",
           "title": {
             "en": "No Water"
+          }
+        }
+      ]
+    },
+    "dreame_water_temperature": {
+      "type": "enum",
+      "title": {
+        "en": "Water Temperature"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "picker",
+      "values": [
+        {
+          "id": "normal",
+          "title": {
+            "en": "Normal"
+          }
+        },
+        {
+          "id": "mild",
+          "title": {
+            "en": "Mild"
+          }
+        },
+        {
+          "id": "warm",
+          "title": {
+            "en": "Warm"
+          }
+        },
+        {
+          "id": "hot",
+          "title": {
+            "en": "Hot"
+          }
+        },
+        {
+          "id": "max",
+          "title": {
+            "en": "Max"
           }
         }
       ]

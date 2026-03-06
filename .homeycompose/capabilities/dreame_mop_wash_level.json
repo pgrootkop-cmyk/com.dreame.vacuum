@@ -1,0 +1,12 @@
+{
+  "type": "enum",
+  "title": { "en": "Mop Wash Level" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "picker",
+  "values": [
+    { "id": "deep", "title": { "en": "Deep" } },
+    { "id": "daily", "title": { "en": "Daily" } },
+    { "id": "water_saving", "title": { "en": "Water Saving" } }
+  ]
+}

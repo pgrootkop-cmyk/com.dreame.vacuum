@@ -1,5 +1,18 @@
 {
-  "title": { "en": "Do Not Disturb !{{is|is not}} on" },
-  "titleFormatted": { "en": "Do Not Disturb !{{is|is not}} on" },
-  "hint": { "en": "Check if Do Not Disturb mode is enabled" }
+  "title": {
+    "en": "Do Not Disturb !{{is|is not}} on"
+  },
+  "titleFormatted": {
+    "en": "Do Not Disturb !{{is|is not}} on"
+  },
+  "hint": {
+    "en": "Check if Do Not Disturb mode is enabled"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
 }

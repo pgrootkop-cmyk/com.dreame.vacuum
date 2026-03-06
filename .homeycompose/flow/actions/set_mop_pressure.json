@@ -1,0 +1,39 @@
+{
+  "title": {
+    "en": "Set mop pressure"
+  },
+  "titleFormatted": {
+    "en": "Set mop pressure to [[pressure]]"
+  },
+  "hint": {
+    "en": "Change the downward pressure applied by the mop"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "pressure",
+      "title": {
+        "en": "Pressure"
+      },
+      "values": [
+        {
+          "id": "light",
+          "title": {
+            "en": "Light"
+          }
+        },
+        {
+          "id": "normal",
+          "title": {
+            "en": "Normal"
+          }
+        }
+      ]
+    }
+  ]
+}

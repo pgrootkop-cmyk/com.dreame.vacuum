@@ -34,16 +34,22 @@ If you signed up using Google, Apple, or another third-party login, you need to 
 | Feature | Details |
 |---------|---------|
 | **Cleaning** | Start, Stop, Pause, Return to Dock |
-| **Cleaning Modes** | Sweeping, Mopping, Sweeping & Mopping |
+| **Cleaning Modes** | Sweeping, Mopping, Sweeping & Mopping, Vacuum then Mop |
 | **Suction Level** | Quiet, Standard, Strong, Turbo |
 | **Water Volume** | Low, Medium, High |
-| **CleanGenius** | Off, Routine Cleaning, Deep Cleaning |
-| **Cleaning Route** | Standard, Intensive, Quick |
-| **Mop Wash Frequency** | Per room, Per 15 mins, Per 10 mins |
-| **Dock Features** | Auto Empty, Self Clean, Drying |
-| **Consumables** | Main Brush, Side Brush, Filter, Mop Pad, Sensor |
-| **Sensors** | Battery, Cleaned Area, Cleaning Time, Error Status |
-| **Flow Cards** | Triggers, Conditions, and Actions for all features |
+| **CleanGenius** | Off, Routine Cleaning, Deep Cleaning (with auto-start) |
+| **CleanGenius Mode** | Vacuum & Mop, Mop after Vacuum |
+| **Cleaning Route** | Standard, Intensive, Deep, Quick |
+| **Mop Wash Frequency** | By Room, every 5/10/15/20/25 m² |
+| **Dock Features** | Auto Empty, Self Clean, Drying, Draining |
+| **Consumables** | Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset) |
+| **Sensors** | Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error Status |
+| **Room Cleaning** | Single room or multi-room by ID with per-room suction/water/repeats |
+| **Carpet** | Carpet Boost toggle, Carpet Sensitivity (Low/Medium/High), Carpet Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore) |
+| **Dock Settings** | Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume |
+| **Toggles** | Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND |
+| **Status** | Charging Status, Dock Cleaning Status, Drying Progress, Drainage Status, Detergent Status, Hot Water Status, Water Tank, Dirty Water Tank, Dust Bag |
+| **Flow Cards** | 28 action cards, 14 condition cards, 3 trigger cards |
 
 ## Not Supported
 

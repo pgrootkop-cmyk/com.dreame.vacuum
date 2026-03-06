@@ -31,7 +31,26 @@
     "dreame_filter_left",
     "dreame_mop_pad_left",
     "dreame_sensor_dirty_left",
-    "dreame_error"
+    "dreame_error",
+    "dreame_child_lock",
+    "dreame_resume_cleaning",
+    "dreame_tight_mopping",
+    "dreame_silent_drying",
+    "dreame_carpet_sensitivity",
+    "dreame_carpet_cleaning",
+    "dreame_mop_wash_level",
+    "dreame_drying_time",
+    "dreame_volume",
+    "dreame_water_temperature",
+    "dreame_auto_empty_frequency",
+    "dreame_mop_pressure",
+    "dreame_charging_status",
+    "dreame_drying_progress",
+    "dreame_drainage_status",
+    "dreame_detergent_status",
+    "dreame_hot_water_status",
+    "dreame_dock_cleaning_status",
+    "dreame_total_cleaned_area"
   ],
   "energy": {
     "batteries": ["INTERNAL"]

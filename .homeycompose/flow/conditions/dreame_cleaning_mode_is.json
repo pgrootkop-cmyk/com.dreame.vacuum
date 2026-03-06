@@ -1,16 +1,50 @@
 {
-  "title": { "en": "Cleaning mode !{{is|is not}} ..." },
-  "titleFormatted": { "en": "Cleaning mode !{{is|is not}} [[mode]]" },
-  "hint": { "en": "Check the current cleaning mode" },
+  "title": {
+    "en": "Cleaning mode !{{is|is not}} ..."
+  },
+  "titleFormatted": {
+    "en": "Cleaning mode !{{is|is not}} [[mode]]"
+  },
+  "hint": {
+    "en": "Check the current cleaning mode"
+  },
   "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
     {
       "type": "dropdown",
       "name": "mode",
-      "title": { "en": "Mode" },
+      "title": {
+        "en": "Mode"
+      },
       "values": [
-        { "id": "sweeping", "title": { "en": "Sweeping" } },
-        { "id": "mopping", "title": { "en": "Mopping" } },
-        { "id": "sweeping_and_mopping", "title": { "en": "Sweeping & Mopping" } }
+        {
+          "id": "sweeping",
+          "title": {
+            "en": "Sweeping"
+          }
+        },
+        {
+          "id": "mopping",
+          "title": {
+            "en": "Mopping"
+          }
+        },
+        {
+          "id": "sweeping_and_mopping",
+          "title": {
+            "en": "Sweeping & Mopping"
+          }
+        },
+        {
+          "id": "mopping_after_sweeping",
+          "title": {
+            "en": "Vacuum then Mop"
+          }
+        }
       ]
     }
   ]

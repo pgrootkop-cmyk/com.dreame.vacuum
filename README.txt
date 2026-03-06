@@ -16,16 +16,21 @@ We recommend using a separate Dreame Home account for Homey to avoid potential s
 
 **Supported Features**
 - Cleaning: Start, Stop, Pause, Return to Dock
-- Cleaning Modes: Sweeping, Mopping, Sweeping & Mopping
+- Cleaning Modes: Sweeping, Mopping, Sweeping & Mopping, Vacuum then Mop
 - Suction Level: Quiet, Standard, Strong, Turbo
 - Water Volume: Low, Medium, High
-- CleanGenius: Off, Routine Cleaning, Deep Cleaning
-- Cleaning Route: Standard, Intensive, Quick
-- Mop Wash Frequency: Per room, Per 15 mins, Per 10 mins
-- Dock Features: Auto Empty, Self Clean, Drying
-- Consumable Monitoring: Main Brush, Side Brush, Filter, Mop Pad, Sensor
-- Sensors: Battery, Cleaned Area, Cleaning Time, Error Status
-- Flow Cards: Triggers, Conditions, and Actions for all features
+- CleanGenius: Off, Routine Cleaning, Deep Cleaning (with auto-start)
+- CleanGenius Mode: Vacuum & Mop, Mop after Vacuum
+- Cleaning Route: Standard, Intensive, Deep, Quick
+- Mop Wash Frequency: By Room, every 5/10/15/20/25 m²
+- Dock Features: Auto Empty, Self Clean, Drying, Draining
+- Consumable Monitoring: Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset via flow cards)
+- Room Cleaning: Single room or multi-room by ID with suction/water/repeats
+- Carpet: Boost toggle, Sensitivity (Low/Medium/High), Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore)
+- Dock Settings: Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume
+- Toggles: Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND
+- Status: Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error, Charging, Dock Cleaning, Drying Progress, Drainage, Detergent, Hot Water, Water Tank, Dirty Water Tank, Dust Bag
+- Flow Cards: 28 actions, 14 conditions, 3 triggers
 
 **Not Supported**
 Some features from the Dreame Home app or Tasshack/dreame-vacuum (Home Assistant) cannot be implemented on Homey:

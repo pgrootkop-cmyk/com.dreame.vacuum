@@ -1,0 +1,51 @@
+{
+  "title": {
+    "en": "Set auto empty frequency"
+  },
+  "titleFormatted": {
+    "en": "Set auto empty frequency to [[frequency]]"
+  },
+  "hint": {
+    "en": "Change how often the dust bin is automatically emptied"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "frequency",
+      "title": {
+        "en": "Frequency"
+      },
+      "values": [
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "high",
+          "title": {
+            "en": "High Frequency"
+          }
+        },
+        {
+          "id": "low",
+          "title": {
+            "en": "Low Frequency"
+          }
+        },
+        {
+          "id": "intelligent",
+          "title": {
+            "en": "Intelligent"
+          }
+        }
+      ]
+    }
+  ]
+}

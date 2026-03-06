@@ -1,15 +1,38 @@
 {
-  "title": { "en": "Set CleanGenius cleaning method" },
-  "titleFormatted": { "en": "Set CleanGenius method to [[method]]" },
-  "hint": { "en": "Choose how CleanGenius cleans (only works when CleanGenius is on)" },
+  "title": {
+    "en": "Set CleanGenius cleaning method"
+  },
+  "titleFormatted": {
+    "en": "Set CleanGenius method to [[method]]"
+  },
+  "hint": {
+    "en": "Choose how CleanGenius cleans (only works when CleanGenius is on)"
+  },
   "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
     {
       "type": "dropdown",
       "name": "method",
-      "title": { "en": "Method" },
+      "title": {
+        "en": "Method"
+      },
       "values": [
-        { "id": "vacuum_and_mop", "title": { "en": "Vacuum & Mop" } },
-        { "id": "mop_after_vacuum", "title": { "en": "Vacuum then Mop" } }
+        {
+          "id": "vacuum_and_mop",
+          "title": {
+            "en": "Vacuum & Mop"
+          }
+        },
+        {
+          "id": "mop_after_vacuum",
+          "title": {
+            "en": "Vacuum then Mop"
+          }
+        }
       ]
     }
   ]

@@ -1,0 +1,51 @@
+{
+  "title": {
+    "en": "Cleaning route !{{is|is not}} ..."
+  },
+  "titleFormatted": {
+    "en": "Cleaning route !{{is|is not}} [[route]]"
+  },
+  "hint": {
+    "en": "Check the current cleaning route"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "dropdown",
+      "name": "route",
+      "title": {
+        "en": "Route"
+      },
+      "values": [
+        {
+          "id": "standard",
+          "title": {
+            "en": "Standard"
+          }
+        },
+        {
+          "id": "intensive",
+          "title": {
+            "en": "Intensive"
+          }
+        },
+        {
+          "id": "deep",
+          "title": {
+            "en": "Deep"
+          }
+        },
+        {
+          "id": "quick",
+          "title": {
+            "en": "Quick"
+          }
+        }
+      ]
+    }
+  ]
+}

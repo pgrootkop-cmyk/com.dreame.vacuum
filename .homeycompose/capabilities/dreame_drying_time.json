@@ -1,0 +1,11 @@
+{
+  "type": "number",
+  "title": { "en": "Drying Time" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "slider",
+  "units": { "en": "hours" },
+  "min": 2,
+  "max": 4,
+  "step": 1
+}

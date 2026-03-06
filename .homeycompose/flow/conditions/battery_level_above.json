@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Battery !{{is|is not}} above ..."
+  },
+  "titleFormatted": {
+    "en": "Battery !{{is|is not}} above [[percentage]]%"
+  },
+  "hint": {
+    "en": "Check if the battery level is above a threshold"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "number",
+      "name": "percentage",
+      "title": {
+        "en": "Percentage"
+      },
+      "min": 0,
+      "max": 100,
+      "step": 5
+    }
+  ]
+}

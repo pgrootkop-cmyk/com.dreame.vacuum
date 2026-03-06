@@ -16,16 +16,21 @@ We raden aan een apart Dreame Home account te gebruiken voor Homey om mogelijke 
 
 **Ondersteunde functies**
 - Schoonmaken: Start, Stop, Pauze, Terug naar Dock
-- Reinigingsmodi: Stofzuigen, Dweilen, Stofzuigen & Dweilen
+- Reinigingsmodi: Stofzuigen, Dweilen, Stofzuigen & Dweilen, Stofzuigen dan Dweilen
 - Zuigkracht: Stil, Standaard, Sterk, Turbo
 - Watervolume: Laag, Midden, Hoog
-- CleanGenius: Uit, Routine Reiniging, Dieptereiniging
-- Reinigingsroute: Standaard, Intensief, Snel
-- Dweilwasfrequentie: Per kamer, Per 15 min, Per 10 min
-- Dock functies: Automatisch Legen, Zelfreiniging, Drogen
-- Verbruiksartikelen: Hoofdborstel, Zijborstel, Filter, Dweilpad, Sensor
-- Sensoren: Batterij, Gereinigd Oppervlak, Reinigingstijd, Foutstatus
-- Flow cards: Triggers, Condities en Acties voor alle functies
+- CleanGenius: Uit, Routine Reiniging, Dieptereiniging (met automatische start)
+- CleanGenius Modus: Stofzuigen & Dweilen, Dweilen na Stofzuigen
+- Reinigingsroute: Standaard, Intensief, Diep, Snel
+- Dweilwasfrequentie: Per kamer, elke 5/10/15/20/25 m²
+- Dock functies: Automatisch Legen, Zelfreiniging, Drogen, Afvoeren
+- Verbruiksartikelen: Hoofdborstel, Zijborstel, Filter, Dweilpad, Sensor (met reset via flow cards)
+- Kamerreinigen: Enkele of meerdere kamers op ID met zuigkracht/water/herhalingen
+- Tapijt: Boost schakelaar, Gevoeligheid (Laag/Midden/Hoog), Reinigingsmodus (Vermijding/Aanpassing/Dweil verwijderen/Stofzuigen & Dweilen/Negeren)
+- Dock instellingen: Dweilwasniveau, Watertemperatuur, Leegfrequentie, Dweildruk, Droogtijd, Volume
+- Schakelaars: Kinderslot, Hervatten Reinigen, Strak Dweilen, Stil Drogen, Niet Storen
+- Status: Batterij, Gereinigd Oppervlak, Reinigingstijd, Totaal Gereinigd Oppervlak, Fout, Opladen, Dock Reiniging, Droogvoortgang, Afvoer, Reinigingsmiddel, Warm Water, Watertank, Vuilwatertank, Stofzak
+- Flow cards: 28 acties, 14 condities, 3 triggers
 
 **Niet ondersteund**
 Sommige functies uit de Dreame Home app of Tasshack/dreame-vacuum (Home Assistant) kunnen niet worden geïmplementeerd op Homey:
