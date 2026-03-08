@@ -2,5 +2,12 @@
   "0.0.1": {
     "en": "Initial release\n- Control robot vacuums via Dreame Home cloud API\n- Cleaning modes: Sweeping, Mopping, Sweeping & Mopping\n- Suction level, water volume, and cleaning route control\n- CleanGenius intelligent cleaning with auto-start\n- Dock features: Auto Empty, Self Clean, Drying\n- Consumable monitoring with low alerts\n- Battery, cleaned area, cleaning time sensors\n- Flow cards for automations\n- Configurable polling interval",
     "nl": "Eerste release\n- Bedien robotstofzuigers via Dreame Home cloud API\n- Reinigingsmodi: Stofzuigen, Dweilen, Stofzuigen & Dweilen\n- Zuigkracht, watervolume en reinigingsroute bediening\n- CleanGenius intelligente reiniging met automatische start\n- Dock functies: Automatisch Legen, Zelfreiniging, Drogen\n- Verbruiksartikelen monitoring met lage voorraad waarschuwingen\n- Batterij, gereinigd oppervlak, reinigingstijd sensoren\n- Flow cards voor automatiseringen\n- Configureerbaar poll-interval"
+  },
+  "0.0.2": {
+    "en": "New capabilities, flow cards, and bug fixes\\n\\n**New capabilities:**\\n- Carpet Boost, Sensitivity, and Cleaning mode\\n- Dock settings: Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time,"
+  },
+  "0.0.3": {
+    "en": "Dashboard widget and settings page\n- Vacuum map widget with room colors, labels, robot & charger position\n- App settings page with map, status, rooms, and consumable overview\n- Per-room trigger cards (cleaning started/finished)\n- Improved map rendering based on Tasshack reference\n- Reduced log noise",
+    "nl": "Dashboard widget en instellingenpagina\n- Stofzuigerkaart widget met kamerkleuren, labels, robot- & oplaadpositie\n- App instellingenpagina met kaart, status, kamers en verbruiksartikeloverzicht\n- Per-kamer trigger cards (reiniging gestart/voltooid)\n- Verbeterde kaartweergave op basis van Tasshack referentie\n- Minder logberichten"
   }
 }

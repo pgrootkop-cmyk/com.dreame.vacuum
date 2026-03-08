@@ -1,8 +1,8 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.2",
-  "compatibility": ">=12.0.0",
+  "version": "0.0.3",
+  "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
     "local"
@@ -20,6 +20,16 @@
     "appliances"
   ],
   "permissions": [],
+  "api": {
+    "getVacuumData": {
+      "method": "GET",
+      "path": "/vacuumData"
+    },
+    "getRenderedMap": {
+      "method": "GET",
+      "path": "/renderedMap"
+    }
+  },
   "tags": {
     "en": [
       "Dreame",
@@ -164,6 +174,88 @@
           }
         ],
         "id": "low_water_warning"
+      },
+      {
+        "title": {
+          "en": "Room cleaning finished"
+        },
+        "titleFormatted": {
+          "en": "[[room]] cleaning finished"
+        },
+        "hint": {
+          "en": "Triggers when the vacuum finishes cleaning a specific room (returns to dock, pauses, or moves to next room)"
+        },
+        "tokens": [
+          {
+            "name": "room_name",
+            "type": "string",
+            "title": {
+              "en": "Room name"
+            },
+            "example": {
+              "en": "Living Room"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "room",
+            "title": {
+              "en": "Room"
+            },
+            "placeholder": {
+              "en": "Any room"
+            }
+          }
+        ],
+        "id": "room_cleaning_finished"
+      },
+      {
+        "title": {
+          "en": "Room cleaning started"
+        },
+        "titleFormatted": {
+          "en": "[[room]] cleaning started"
+        },
+        "hint": {
+          "en": "Triggers when the vacuum starts cleaning a specific room"
+        },
+        "tokens": [
+          {
+            "name": "room_name",
+            "type": "string",
+            "title": {
+              "en": "Room name"
+            },
+            "example": {
+              "en": "Living Room"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "room",
+            "title": {
+              "en": "Room"
+            },
+            "placeholder": {
+              "en": "Any room"
+            }
+          }
+        ],
+        "id": "room_cleaning_started"
       }
     ],
     "conditions": [
@@ -621,6 +713,35 @@
           }
         ],
         "id": "is_cleaning"
+      },
+      {
+        "title": {
+          "en": "Is cleaning room..."
+        },
+        "titleFormatted": {
+          "en": "Is cleaning room [[room]]"
+        },
+        "hint": {
+          "en": "Check if the vacuum is currently cleaning a specific room"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "room",
+            "title": {
+              "en": "Room"
+            },
+            "placeholder": {
+              "en": "Search rooms..."
+            }
+          }
+        ],
+        "id": "is_cleaning_room"
       },
       {
         "title": {
@@ -1542,10 +1663,10 @@
           "en": "Clean multiple rooms"
         },
         "titleFormatted": {
-          "en": "Clean rooms [[room_ids]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+          "en": "Clean rooms [[rooms]] at [[suction]] suction, [[water]] water, [[repeats]]x"
         },
         "hint": {
-          "en": "Clean multiple rooms. Enter room IDs separated by commas (e.g. 1,3,5). To find room IDs: in the Dreame app, rooms are numbered in discovery order (1, 2, 3, ...)."
+          "en": "Clean multiple rooms. Select rooms one at a time — each selection adds to the list. Use 'All rooms' to clean everything."
         },
         "args": [
           {
@@ -1554,13 +1675,13 @@
             "filter": "driver_id=vacuum"
           },
           {
-            "type": "text",
-            "name": "room_ids",
+            "type": "autocomplete",
+            "name": "rooms",
             "title": {
-              "en": "Room IDs (comma-separated)"
+              "en": "Rooms"
             },
             "placeholder": {
-              "en": "1,3,5"
+              "en": "Search rooms..."
             }
           },
           {
@@ -1641,10 +1762,10 @@
           "en": "Clean a specific room"
         },
         "titleFormatted": {
-          "en": "Clean room [[room_id]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+          "en": "Clean room [[room]] at [[suction]] suction, [[water]] water, [[repeats]]x"
         },
         "hint": {
-          "en": "Start cleaning a specific room by its segment ID. To find room IDs: in the Dreame app, rooms are numbered in the order they were discovered during mapping (1, 2, 3, ...). You can also try IDs one by one to see which room the vacuum goes to."
+          "en": "Start cleaning a specific room. Rooms are discovered automatically via MQTT."
         },
         "args": [
           {
@@ -1653,14 +1774,14 @@
             "filter": "driver_id=vacuum"
           },
           {
-            "type": "number",
-            "name": "room_id",
+            "type": "autocomplete",
+            "name": "room",
             "title": {
-              "en": "Room ID"
+              "en": "Room"
             },
-            "min": 1,
-            "max": 50,
-            "step": 1
+            "placeholder": {
+              "en": "Search rooms..."
+            }
           },
           {
             "type": "dropdown",
@@ -2022,6 +2143,54 @@
       "id": "vacuum"
     }
   ],
+  "widgets": {
+    "vacuum-map": {
+      "name": {
+        "en": "Vacuum Map",
+        "nl": "Stofzuiger Kaart"
+      },
+      "settings": [
+        {
+          "id": "showRoomNames",
+          "type": "checkbox",
+          "title": {
+            "en": "Show room names",
+            "nl": "Toon kamernamen"
+          },
+          "value": true
+        },
+        {
+          "id": "showStatus",
+          "type": "checkbox",
+          "title": {
+            "en": "Show status bar",
+            "nl": "Toon statusbalk"
+          },
+          "value": true
+        }
+      ],
+      "height": "75%",
+      "api": {
+        "getDeviceData": {
+          "method": "GET",
+          "path": "/data"
+        },
+        "getMapData": {
+          "method": "GET",
+          "path": "/map"
+        }
+      },
+      "devices": {
+        "singular": true,
+        "type": "app",
+        "filter": {
+          "class": "vacuumcleaner",
+          "capabilities": "vacuumcleaner_state"
+        }
+      },
+      "id": "vacuum-map"
+    }
+  },
   "capabilities": {
     "dreame_auto_empty_frequency": {
       "type": "enum",

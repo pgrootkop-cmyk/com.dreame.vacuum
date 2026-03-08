@@ -1,0 +1,36 @@
+{
+  "title": {
+    "en": "Room cleaning finished"
+  },
+  "titleFormatted": {
+    "en": "[[room]] cleaning finished"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum finishes cleaning a specific room (returns to dock, pauses, or moves to next room)"
+  },
+  "tokens": [
+    {
+      "name": "room_name",
+      "type": "string",
+      "title": { "en": "Room name" },
+      "example": { "en": "Living Room" }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "room",
+      "title": {
+        "en": "Room"
+      },
+      "placeholder": {
+        "en": "Any room"
+      }
+    }
+  ]
+}

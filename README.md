@@ -44,12 +44,15 @@ If you signed up using Google, Apple, or another third-party login, you need to 
 | **Dock Features** | Auto Empty, Self Clean, Drying, Draining |
 | **Consumables** | Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset) |
 | **Sensors** | Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error Status |
-| **Room Cleaning** | Single room or multi-room by ID with per-room suction/water/repeats |
+| **Room Cleaning** | Room discovery via MQTT + cloud map download. Single/multi-room cleaning with autocomplete selection, per-room suction/water/repeats. Per-room trigger cards (start/finish) |
+| **Dashboard Widget** | Live vacuum map widget with room colors, room labels, robot & charger position, battery status, and cleaning progress |
+| **App Settings** | Device overview with rendered map, status grid, room list, and consumable health bars |
 | **Carpet** | Carpet Boost toggle, Carpet Sensitivity (Low/Medium/High), Carpet Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore) |
 | **Dock Settings** | Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume |
 | **Toggles** | Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND |
 | **Status** | Charging Status, Dock Cleaning Status, Drying Progress, Drainage Status, Detergent Status, Hot Water Status, Water Tank, Dirty Water Tank, Dust Bag |
-| **Flow Cards** | 28 action cards, 14 condition cards, 3 trigger cards |
+| **Real-time MQTT** | Persistent connection to Dreame MQTT broker for instant property updates and room discovery |
+| **Flow Cards** | 29 action cards, 16 condition cards, 5 trigger cards |
 
 ## Not Supported
 
@@ -57,14 +60,14 @@ Some features available in the Dreame Home app or in [Tasshack/dreame-vacuum](ht
 
 | Feature | Reason |
 |---------|--------|
-| **Live map / room selection** | Homey has no UI for rendering interactive maps. Room cleaning by ID is supported via Flow cards, but there is no visual map to tap rooms on. |
+| **Interactive map / room selection** | The dashboard widget shows a rendered map with rooms, but tapping rooms to start cleaning is not possible. Use Flow cards for room cleaning. |
 | **Live camera feed** | Homey does not support real-time video streams from devices. |
-| **Saved maps / map editing** | No map rendering or editing UI available on Homey. |
-| **Virtual walls / no-go zones** | Requires a map canvas to draw zones — not possible on Homey. |
+| **Map editing** | No map editing UI available on Homey. Virtual walls and no-go zones must be configured in the Dreame Home app. |
+| **Virtual walls / no-go zones** | Requires interactive map editing — not possible on Homey. |
 | **Furniture / obstacle detection** | Visual AI detection results require an image/map overlay. |
 | **Cleaning history / statistics** | Homey has no UI for historical charts or session logs. Current session data (area, time) is available. |
 | **Custom room schedules** | Dreame schedules are managed in the Dreame Home app. Use Homey Flows for time-based automations instead. |
-| **Real-time MQTT events** | This app uses cloud polling (default 15s). The Tasshack integration uses a local MQTT connection for instant updates, which requires running on the same network as Home Assistant. Homey cloud apps cannot maintain persistent MQTT connections to the vacuum. |
+| **Real-time MQTT events** | ~~Not supported~~ **Now supported!** The app maintains a persistent MQTT connection to Dreame's cloud broker for instant state updates and room/map discovery. |
 | **OTA firmware updates** | Not relevant for a Homey app. |
 
 > **In short:** Homey excels at automations (Flow cards), device control, and status monitoring. For map-based features, camera, or visual AI, use the Dreame Home app alongside Homey.

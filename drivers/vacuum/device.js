@@ -1,6 +1,8 @@
 'use strict';
 
 const Homey = require('homey');
+const zlib = require('zlib');
+const crypto = require('crypto');
 
 // SIID/PIID property constants
 const PROP = {
@@ -66,6 +68,12 @@ const PROP = {
   // Lifetime stats
   FIRST_CLEANING_DATE: { siid: 12, piid: 1 },
   TOTAL_CLEANED_AREA:  { siid: 12, piid: 4 },
+
+  // Map data - cloud requires object name approach, not direct property read
+  MAP_DATA: { siid: 6, piid: 1 },
+  MAP_OBJECT_NAME: { siid: 6, piid: 2 },
+  MAP_EXTEND_DATA: { siid: 6, piid: 3 },
+  MAP_LIST: { siid: 6, piid: 39 },
 };
 
 // SIID/AIID action constants
@@ -84,6 +92,7 @@ const ACTION = {
   RESET_MOP_PAD:    { siid: 18, aiid: 1 },
   CLEAR_WARNING:    { siid: 4, aiid: 3 },
   START_WASHING:    { siid: 4, aiid: 4 },
+  REQUEST_MAP:      { siid: 6, aiid: 1 },
 };
 
 // Dreame state → Homey vacuumcleaner_state mapping
@@ -307,11 +316,164 @@ const ERROR_CODES = {
 
 const COMMAND_DEBOUNCE_MS = 10000;
 
+// Segment/room type names from Dreame protocol
+const SEGMENT_TYPE_NAMES = {
+  0: 'Room', 1: 'Living Room', 2: 'Primary Bedroom', 3: 'Study',
+  4: 'Kitchen', 5: 'Dining Hall', 6: 'Bathroom', 7: 'Balcony',
+  8: 'Corridor', 9: 'Utility Room', 10: 'Closet', 11: 'Meeting Room',
+  12: 'Office', 13: 'Fitness Area', 14: 'Recreation Area', 15: 'Secondary Bedroom',
+};
+
+// Map data header size (27 bytes: map_id, frame_id, frame_type, robot/charger pos, grid, width, height, left, top)
+const MAP_HEADER_SIZE = 27;
+
+/**
+ * Parse room/segment info from raw MAP_DATA property value.
+ * MAP_DATA is base64 (URL-safe), optionally AES-encrypted, zlib-compressed.
+ * After the binary image pixels there's a JSON object with seg_inf (segment info).
+ */
+function extractRoomsFromSegInf(segInf, log) {
+  const rooms = [];
+  // Parse room info from seg_inf entries
+
+  for (const [idStr, info] of Object.entries(segInf)) {
+    const id = parseInt(idStr, 10);
+    if (isNaN(id) || id <= 0) continue;
+
+    const type = info.type !== undefined ? info.type : 0;
+    const index = info.index !== undefined ? info.index : 0;
+
+    let customName = null;
+    if (info.name) {
+      try {
+        customName = Buffer.from(info.name, 'base64').toString('utf8');
+      } catch {
+        customName = null;
+      }
+    }
+
+    let name;
+    if (customName) {
+      name = customName;
+    } else if (type !== 0 && SEGMENT_TYPE_NAMES[type]) {
+      name = SEGMENT_TYPE_NAMES[type];
+      if (index > 0) name = `${name} ${index + 1}`;
+    } else {
+      name = `Room ${id}`;
+    }
+
+    rooms.push({ id, name, customName, type, index });
+  }
+
+  rooms.sort((a, b) => a.id - b.id);
+  // Rooms parsed successfully
+  return rooms;
+}
+
+function parseMapRooms(raw, logger) {
+  const log = logger || (() => {});
+  if (!raw || raw === '') {
+    return [];
+  }
+
+  try {
+    let mapStr = String(raw);
+
+    // URL-safe base64 → standard base64
+    mapStr = mapStr.replace(/_/g, '/').replace(/-/g, '+');
+
+    // Key may be appended after comma
+    let aesKey = null;
+    if (mapStr.includes(',')) {
+      const parts = mapStr.split(',');
+      mapStr = parts[0];
+      aesKey = parts[1];
+      // AES key found, will decrypt
+    }
+
+    let buf = Buffer.from(mapStr, 'base64');
+
+    // AES-256-CBC decrypt if key is present
+    if (aesKey) {
+      try {
+        const keyHash = crypto.createHash('sha256').update(aesKey).digest('hex').substring(0, 32);
+        const iv = Buffer.alloc(16, 0);
+        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), iv);
+        decipher.setAutoPadding(true);
+        buf = Buffer.concat([decipher.update(buf), decipher.final()]);
+        // AES decryption succeeded
+      } catch (e) {
+        log(`[MAP] AES decrypt failed: ${e.message}, trying without`);
+        buf = Buffer.from(mapStr, 'base64');
+      }
+    }
+
+    // Zlib decompress (try zlib format first, then raw deflate)
+    try {
+      buf = zlib.inflateSync(buf);
+    } catch (e1) {
+      try {
+        buf = zlib.inflateRawSync(buf);
+      } catch (e2) {
+        log(`[MAP] Inflate failed: ${e1.message}`);
+        return [];
+      }
+    }
+
+    if (buf.length < MAP_HEADER_SIZE) return [];
+
+    const width = buf.readInt16LE(19);
+    const height = buf.readInt16LE(21);
+    const imageSize = MAP_HEADER_SIZE + (width * height);
+
+    if (buf.length <= imageSize) return [];
+
+    const jsonStr = buf.slice(imageSize).toString('utf8');
+    const dataJson = JSON.parse(jsonStr);
+
+    // Try seg_inf in this map's JSON
+    if (dataJson.seg_inf) {
+      const rooms = extractRoomsFromSegInf(dataJson.seg_inf, log);
+      if (rooms.length > 0) return rooms;
+    }
+
+    // If no seg_inf, check for nested saved map in 'rism' key
+    if (dataJson.rism) {
+      const nestedRooms = parseMapRooms(dataJson.rism, log);
+      if (nestedRooms.length > 0) return nestedRooms;
+    }
+
+    // Fallback: extract segment IDs from pixel data
+    const segmentIds = new Set();
+    const pixelData = buf.slice(MAP_HEADER_SIZE, MAP_HEADER_SIZE + (width * height));
+    for (let i = 0; i < pixelData.length; i++) {
+      const pixel = pixelData[i];
+      if (pixel > 0) {
+        // Segment ID encoding: pixel >> 2 for frame maps, pixel & 0x3F for others
+        const segId1 = pixel >> 2;
+        if (segId1 > 0 && segId1 < 61) segmentIds.add(segId1);
+        const segId2 = (pixel & 0x80) ? (pixel & 0x3F) : 0;
+        if (segId2 > 0 && segId2 < 61) segmentIds.add(segId2);
+      }
+    }
+
+    if (segmentIds.size > 0 && segmentIds.size < 30) {
+      const rooms = [...segmentIds].sort((a, b) => a - b).map(id => ({
+        id, name: `Room ${id}`, customName: null, type: 0, index: 0,
+      }));
+      return rooms;
+    }
+
+    return [];
+  } catch (e) {
+    log(`[MAP] Parse error: ${e.message}`);
+    return [];
+  }
+}
+
 class DreameVacuumDevice extends Homey.Device {
 
   async onInit() {
-    this.log('Dreame Vacuum device initialized:', this.getName());
-
     this._did = this.getData().id;
     this._bindDomain = this.getStoreValue('bindDomain') || '';
     this._pollInterval = null;
@@ -320,6 +482,9 @@ class DreameVacuumDevice extends Homey.Device {
     this._forceNextPoll = false;
     this._lastTriggeredError = null;
     this._consumableLowNotified = {};
+    this._rooms = this.getStoreValue('rooms') || [];
+    this._cleaningRoomIds = [];
+    this._mqttConnected = false;
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -334,7 +499,6 @@ class DreameVacuumDevice extends Homey.Device {
     ];
     for (const cap of requiredCapabilities) {
       if (!this.hasCapability(cap)) {
-        this.log(`Adding missing capability: ${cap}`);
         await this.addCapability(cap);
       }
     }
@@ -351,7 +515,6 @@ class DreameVacuumDevice extends Homey.Device {
     ];
     for (const cap of probeableCapabilities) {
       if (!this.hasCapability(cap)) {
-        this.log(`Adding probeable capability: ${cap}`);
         await this.addCapability(cap);
       }
     }
@@ -421,8 +584,11 @@ class DreameVacuumDevice extends Homey.Device {
       await this._fetchBindDomain();
     }
 
-    // Start polling
+    // Start polling (HTTP fallback)
     this.restartPolling();
+
+    // Connect MQTT for real-time updates (including map/room discovery)
+    this._connectMqtt();
   }
 
   async _fetchBindDomain() {
@@ -446,6 +612,154 @@ class DreameVacuumDevice extends Homey.Device {
       throw new Error('API not initialized. Please repair the device.');
     }
     return api;
+  }
+
+  /**
+   * Connect to Dreame MQTT broker for real-time property updates.
+   */
+  async _connectMqtt() {
+    try {
+      const api = this.homey.app.getApi();
+      if (!api) {
+        return;
+      }
+
+      // Ensure we have a valid token and uid
+      if (!api.accessToken || !api.uid) {
+        await api.login();
+        // Save uid
+        this.homey.app.saveUid(api.uid);
+      }
+
+      const uid = api.uid;
+      const country = api.country || this.homey.settings.get('country') || 'eu';
+      const model = this.getStoreValue('model') || '';
+      const masterUid = this.getStoreValue('masterUid') || uid;
+
+      if (!uid || !api.accessToken || !this._bindDomain) {
+        this.homey.setTimeout(() => this._connectMqtt(), 15000);
+        return;
+      }
+
+      const mqttClient = this.homey.app.getMqtt();
+
+      // Listen for property updates for our device
+      mqttClient.removeAllListeners('properties');
+      mqttClient.on('properties', (did, params) => {
+        if (did === this._did || !did) {
+          this._handleMqttProperties(params);
+        }
+      });
+
+      mqttClient.on('connected', () => {
+        this._mqttConnected = true;
+        this._requestMapViaMqtt();
+      });
+
+      mqttClient.on('disconnected', () => {
+        this._mqttConnected = false;
+      });
+
+      await mqttClient.connect({
+        uid,
+        accessToken: api.accessToken,
+        bindDomain: this._bindDomain,
+        did: this._did,
+        model,
+        country,
+        masterUid,
+      });
+    } catch (e) {
+      this.error('[MQTT] Connect error:', e.message);
+      // Retry in 30s
+      this.homey.setTimeout(() => this._connectMqtt(), 30000);
+    }
+  }
+
+  /**
+   * Request map data via the REQUEST_MAP action after MQTT connects.
+   * The device will push MAP_DATA via MQTT in response.
+   */
+  async _requestMapViaMqtt() {
+    try {
+      const api = this._getApi();
+      await api.callAction(
+        this._did, this._bindDomain,
+        ACTION.REQUEST_MAP.siid, ACTION.REQUEST_MAP.aiid,
+        [{ piid: 2, value: '{}' }],
+      );
+      // Map data will arrive via MQTT property 6-3
+    } catch (e) {
+      this.error('[MQTT] Map request error:', e.message);
+    }
+  }
+
+  /**
+   * Download map data from Dreame cloud using the object path from MQTT 6-3.
+   */
+  async _downloadMapData(objectName) {
+    const api = this._getApi();
+    const model = this.getStoreValue('model') || '';
+    const buffer = await api.getMapData(this._did, objectName, model);
+
+    const mapStr = buffer.toString('utf8');
+    const rooms = parseMapRooms(mapStr, this.log.bind(this));
+    if (rooms.length > 0) {
+      this._rooms = rooms;
+      this.setStoreValue('rooms', rooms).catch(this.error);
+    }
+
+    // Cache map data for future widget use (object name + dimensions)
+    this.setStoreValue('mapObjectName', objectName).catch(this.error);
+    this.setStoreValue('mapRawBase64', mapStr).catch(this.error);
+  }
+
+  /**
+   * Handle property updates received via MQTT.
+   */
+  _handleMqttProperties(params) {
+    for (const p of params) {
+      const key = `${p.siid}-${p.piid}`;
+      const value = p.value;
+
+      // Handle map data from MQTT (this is where rooms come from!)
+      if (key === '6-1' && value) {
+        const rooms = parseMapRooms(value, this.log.bind(this));
+        if (rooms.length > 0) {
+          this._rooms = rooms;
+          this.setStoreValue('rooms', rooms).catch(this.error);
+        }
+        continue;
+      }
+
+      // Handle map object name from MQTT - download the actual map data
+      if (key === '6-3' && value) {
+        this._downloadMapData(value).catch(e => this.error('[MQTT] Map download error:', e.message));
+        continue;
+      }
+
+      // Handle other property updates (same as poll switch cases)
+      // Only process known properties to avoid redundant work with polling
+      switch (key) {
+        case '2-1': // STATE
+          if (STATE_MAP[value]) {
+            const homeyState = STATE_MAP[value];
+            this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
+            this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
+            // Fire room_cleaning_finished when cleaning stops
+            if (homeyState !== 'cleaning' && this._cleaningRoomIds.length > 0) {
+              this._fireRoomFinishedTriggers();
+            }
+          }
+          break;
+        case '3-1': // BATTERY
+          this.setCapabilityValue('measure_battery', value).catch(this.error);
+          break;
+        case '4-63': // CLEANING_PROGRESS
+          this.setCapabilityValue('dreame_cleaning_progress', value || 0).catch(this.error);
+          break;
+      }
+    }
   }
 
   restartPolling() {
@@ -547,6 +861,7 @@ class DreameVacuumDevice extends Homey.Device {
           const pk = `${p.siid}-${p.piid}`;
           if (!this._unsupportedProps.has(pk)) props.push(p);
         }
+
       }
 
       const results = await api.getProperties(this._did, this._bindDomain, props);
@@ -576,6 +891,10 @@ class DreameVacuumDevice extends Homey.Device {
               await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
               // Keep onoff in sync: cleaning = on, everything else = off
               await this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
+              // Fire room_cleaning_finished when cleaning stops
+              if (homeyState !== 'cleaning' && this._cleaningRoomIds.length > 0) {
+                this._fireRoomFinishedTriggers();
+              }
             }
             break;
 
@@ -891,6 +1210,8 @@ class DreameVacuumDevice extends Homey.Device {
           case '12-4': // TOTAL_CLEANED_AREA
             await this.setCapabilityValue('dreame_total_cleaned_area', value).catch(this.error);
             break;
+
+          // Map properties (6-x) are handled via MQTT, not HTTP polling
         }
       }
 
@@ -899,7 +1220,6 @@ class DreameVacuumDevice extends Homey.Device {
         this._probeComplete = true;
         await this.setStoreValue('probeComplete', true);
         await this.setStoreValue('unsupportedProps', [...this._unsupportedProps]);
-        this.log('Probe complete. Unsupported props:', [...this._unsupportedProps]);
 
         // Remove capabilities for unsupported features
         if (this._unsupportedProps.has('4-50')) {
@@ -915,7 +1235,6 @@ class DreameVacuumDevice extends Homey.Device {
         // Remove probeable capabilities for unsupported props
         for (const [propKey, capName] of Object.entries(PROP_TO_CAPABILITY)) {
           if (this._unsupportedProps.has(propKey) && this.hasCapability(capName)) {
-            this.log(`Removing unsupported capability: ${capName} (prop ${propKey})`);
             await this.removeCapability(capName);
           }
         }
@@ -1101,7 +1420,6 @@ class DreameVacuumDevice extends Homey.Device {
 
     // Auto-start: selecting Routine or Deep while idle starts cleaning
     if (dreameValue > 0 && this._isIdle()) {
-      this.log('CleanGenius %s selected while idle — auto-starting', value);
       await this._startCleaning();
     }
   }
@@ -1176,6 +1494,40 @@ class DreameVacuumDevice extends Homey.Device {
     }
   }
 
+  getRooms() {
+    return this._rooms || [];
+  }
+
+  _fireRoomStartedTriggers(roomIds) {
+    const triggerCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_started');
+    for (const roomId of roomIds) {
+      const room = this._rooms.find(r => r.id === roomId);
+      const roomName = room ? room.name : `Room ${roomId}`;
+      triggerCard.trigger(this, { room_name: roomName }, { room_id: roomId })
+        .catch(e => this.error('Room start trigger:', e));
+    }
+  }
+
+  _fireRoomFinishedTriggers() {
+    const triggerCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_finished');
+    for (const roomId of this._cleaningRoomIds) {
+      const room = this._rooms.find(r => r.id === roomId);
+      const roomName = room ? room.name : `Room ${roomId}`;
+      triggerCard.trigger(this, { room_name: roomName }, { room_id: roomId })
+        .catch(e => this.error('Room finish trigger:', e));
+    }
+    this._cleaningRoomIds = [];
+  }
+
+  /**
+   * Check if the vacuum is currently cleaning a specific room.
+   */
+  isCleaningRoom(roomId) {
+    const state = this.getCapabilityValue('vacuumcleaner_state');
+    if (state !== 'cleaning') return false;
+    return this._cleaningRoomIds.includes(roomId);
+  }
+
   async startRoomCleaning(roomId, repeats, suction, water) {
     this._lastCommandTime = Date.now();
     const api = this._getApi();
@@ -1186,11 +1538,15 @@ class DreameVacuumDevice extends Homey.Device {
     const cleanlist = [[roomId, repeatCount, suctionValue, waterValue, 1]];
     const params = JSON.stringify({ selects: cleanlist });
 
-    // START_CUSTOM action with status=18 (SEGMENT_CLEANING) and cleaning properties
+    // Track cleaning rooms for condition/trigger cards
+    this._cleaningRoomIds = [roomId];
+
     await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
       { piid: 1, value: 18 },
       { piid: 10, value: params },
     ]);
+
+    this._fireRoomStartedTriggers([roomId]);
   }
 
   async _onCarpetBoost(value) {
@@ -1383,10 +1739,15 @@ class DreameVacuumDevice extends Homey.Device {
     const cleanlist = roomIds.map(id => [id, repeatCount, suctionValue, waterValue, 1]);
     const params = JSON.stringify({ selects: cleanlist });
 
+    // Track cleaning rooms for condition/trigger cards
+    this._cleaningRoomIds = [...roomIds];
+
     await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
       { piid: 1, value: 18 },
       { piid: 10, value: params },
     ]);
+
+    this._fireRoomStartedTriggers(roomIds);
   }
 
   // Warning/dock actions
@@ -1458,7 +1819,10 @@ class DreameVacuumDevice extends Homey.Device {
 
   onDeleted() {
     this.stopPolling();
-    this.log('Dreame Vacuum device deleted:', this.getName());
+    const mqtt = this.homey.app.getMqtt();
+    if (mqtt) {
+      mqtt.disconnect();
+    }
   }
 
 }

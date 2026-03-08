@@ -1,0 +1,36 @@
+{
+  "title": {
+    "en": "Room cleaning started"
+  },
+  "titleFormatted": {
+    "en": "[[room]] cleaning started"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum starts cleaning a specific room"
+  },
+  "tokens": [
+    {
+      "name": "room_name",
+      "type": "string",
+      "title": { "en": "Room name" },
+      "example": { "en": "Living Room" }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "room",
+      "title": {
+        "en": "Room"
+      },
+      "placeholder": {
+        "en": "Any room"
+      }
+    }
+  ]
+}

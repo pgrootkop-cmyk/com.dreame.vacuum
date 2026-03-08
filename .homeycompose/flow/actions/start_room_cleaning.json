@@ -3,10 +3,10 @@
     "en": "Clean a specific room"
   },
   "titleFormatted": {
-    "en": "Clean room [[room_id]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+    "en": "Clean room [[room]] at [[suction]] suction, [[water]] water, [[repeats]]x"
   },
   "hint": {
-    "en": "Start cleaning a specific room by its segment ID. To find room IDs: in the Dreame app, rooms are numbered in the order they were discovered during mapping (1, 2, 3, ...). You can also try IDs one by one to see which room the vacuum goes to."
+    "en": "Start cleaning a specific room. Rooms are discovered automatically via MQTT."
   },
   "args": [
     {
@@ -15,14 +15,14 @@
       "filter": "driver_id=vacuum"
     },
     {
-      "type": "number",
-      "name": "room_id",
+      "type": "autocomplete",
+      "name": "room",
       "title": {
-        "en": "Room ID"
+        "en": "Room"
       },
-      "min": 1,
-      "max": 50,
-      "step": 1
+      "placeholder": {
+        "en": "Search rooms..."
+      }
     },
     {
       "type": "dropdown",
@@ -31,30 +31,10 @@
         "en": "Suction"
       },
       "values": [
-        {
-          "id": "quiet",
-          "title": {
-            "en": "Quiet"
-          }
-        },
-        {
-          "id": "standard",
-          "title": {
-            "en": "Standard"
-          }
-        },
-        {
-          "id": "strong",
-          "title": {
-            "en": "Strong"
-          }
-        },
-        {
-          "id": "turbo",
-          "title": {
-            "en": "Turbo"
-          }
-        }
+        { "id": "quiet", "title": { "en": "Quiet" } },
+        { "id": "standard", "title": { "en": "Standard" } },
+        { "id": "strong", "title": { "en": "Strong" } },
+        { "id": "turbo", "title": { "en": "Turbo" } }
       ]
     },
     {
@@ -64,24 +44,9 @@
         "en": "Water Volume"
       },
       "values": [
-        {
-          "id": "low",
-          "title": {
-            "en": "Low"
-          }
-        },
-        {
-          "id": "medium",
-          "title": {
-            "en": "Medium"
-          }
-        },
-        {
-          "id": "high",
-          "title": {
-            "en": "High"
-          }
-        }
+        { "id": "low", "title": { "en": "Low" } },
+        { "id": "medium", "title": { "en": "Medium" } },
+        { "id": "high", "title": { "en": "High" } }
       ]
     },
     {

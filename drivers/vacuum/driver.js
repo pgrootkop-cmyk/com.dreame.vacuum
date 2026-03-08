@@ -6,8 +6,6 @@ const DreameApi = require('../../lib/DreameApi');
 class DreameVacuumDriver extends Homey.Driver {
 
   async onInit() {
-    this.log('Dreame Vacuum driver initialized');
-
     // Register flow card actions
     this.homey.flow.getActionCard('set_dreame_suction_level')
       .registerRunListener(async (args) => {
@@ -171,10 +169,15 @@ class DreameVacuumDriver extends Homey.Driver {
         await args.device.setMopWashFrequency(args.frequency);
       });
 
-    this.homey.flow.getActionCard('start_room_cleaning')
-      .registerRunListener(async (args) => {
-        await args.device.startRoomCleaning(args.room_id, args.repeats, args.suction, args.water);
-      });
+    const roomCleaningCard = this.homey.flow.getActionCard('start_room_cleaning');
+    roomCleaningCard.registerRunListener(async (args) => {
+      const roomId = parseInt(args.room.id, 10);
+      if (isNaN(roomId) || roomId <= 0) throw new Error('Invalid room selected');
+      await args.device.startRoomCleaning(roomId, args.repeats, args.suction, args.water);
+    });
+    roomCleaningCard.registerArgumentAutocompleteListener('room', async (query, args) => {
+      return this._getRoomAutocomplete(query, args);
+    });
 
     this.homey.flow.getActionCard('set_carpet_sensitivity')
       .registerRunListener(async (args) => {
@@ -216,12 +219,15 @@ class DreameVacuumDriver extends Homey.Driver {
         await args.device.setVolume(args.volume);
       });
 
-    this.homey.flow.getActionCard('start_multi_room_cleaning')
-      .registerRunListener(async (args) => {
-        const roomIds = args.room_ids.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
-        if (roomIds.length === 0) throw new Error('No valid room IDs provided');
-        await args.device.startMultiRoomCleaning(roomIds, args.repeats, args.suction, args.water);
-      });
+    const multiRoomCard = this.homey.flow.getActionCard('start_multi_room_cleaning');
+    multiRoomCard.registerRunListener(async (args) => {
+      const roomIds = String(args.rooms.id).split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
+      if (roomIds.length === 0) throw new Error('No valid rooms selected');
+      await args.device.startMultiRoomCleaning(roomIds, args.repeats, args.suction, args.water);
+    });
+    multiRoomCard.registerArgumentAutocompleteListener('rooms', async (query, args) => {
+      return this._getMultiRoomAutocomplete(query, args);
+    });
 
     this.homey.flow.getActionCard('start_draining')
       .registerRunListener(async (args) => {
@@ -232,6 +238,36 @@ class DreameVacuumDriver extends Homey.Driver {
       .registerRunListener(async (args) => {
         await args.device.clearWarning();
       });
+
+    // Room condition card
+    const isCleaningRoomCard = this.homey.flow.getConditionCard('is_cleaning_room');
+    isCleaningRoomCard.registerRunListener(async (args) => {
+      const roomId = parseInt(args.room.id, 10);
+      return args.device.isCleaningRoom(roomId);
+    });
+    isCleaningRoomCard.registerArgumentAutocompleteListener('room', async (query, args) => {
+      return this._getRoomAutocomplete(query, args);
+    });
+
+    // Room trigger cards with autocomplete filtering
+    const roomStartedCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_started');
+    roomStartedCard.registerRunListener(async (args, state) => {
+      // Match if no room selected (any room) or room matches
+      if (!args.room || !args.room.id) return true;
+      return String(state.room_id) === String(args.room.id);
+    });
+    roomStartedCard.registerArgumentAutocompleteListener('room', async (query, args) => {
+      return this._getRoomAutocompleteWithAny(query, args);
+    });
+
+    const roomFinishedCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_finished');
+    roomFinishedCard.registerRunListener(async (args, state) => {
+      if (!args.room || !args.room.id) return true;
+      return String(state.room_id) === String(args.room.id);
+    });
+    roomFinishedCard.registerArgumentAutocompleteListener('room', async (query, args) => {
+      return this._getRoomAutocompleteWithAny(query, args);
+    });
   }
 
   async onPair(session) {
@@ -243,15 +279,16 @@ class DreameVacuumDriver extends Homey.Driver {
       const password = data.password;
       country = this.homey.settings.get('country') || 'eu';
 
-      this.log('Login attempt, country:', country);
       api = new DreameApi({ username, password, country });
 
       try {
         const result = await api.login();
-        this.log('Login successful');
         this.homey.app.setCredentials(username, password, country);
         if (result.refresh_token) {
           this.homey.app.saveRefreshToken(result.refresh_token);
+        }
+        if (result.uid) {
+          this.homey.app.saveUid(result.uid);
         }
         return true;
       } catch (err) {
@@ -281,6 +318,7 @@ class DreameVacuumDriver extends Homey.Driver {
             store: {
               model: device.model,
               bindDomain: device.bindDomain || '',
+              masterUid: device.uid || '',
             },
           }));
       } catch (err) {
@@ -288,6 +326,75 @@ class DreameVacuumDriver extends Homey.Driver {
         throw new Error('Failed to list devices. Please try again.');
       }
     });
+  }
+
+  _getRoomAutocompleteWithAny(query, args) {
+    const rooms = args.device ? args.device.getRooms() : [];
+    const results = [
+      { name: 'Any room', description: 'Triggers for all rooms', id: '' },
+      ...rooms.map(r => ({
+        name: r.name,
+        description: `Room ID: ${r.id}`,
+        id: String(r.id),
+      })),
+    ];
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  _getRoomAutocomplete(query, args) {
+    const rooms = args.device ? args.device.getRooms() : [];
+    const results = rooms.map(r => ({
+      name: `${r.name} (ID: ${r.id})`,
+      description: r.customName && r.customName !== r.name ? r.customName : '',
+      id: String(r.id),
+    }));
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q) || r.id === query);
+  }
+
+  _getMultiRoomAutocomplete(query, args) {
+    const rooms = args.device ? args.device.getRooms() : [];
+    if (rooms.length === 0) return [];
+
+    const results = [];
+
+    // Add "All rooms" option
+    const allIds = rooms.map(r => r.id).join(',');
+    const allNames = rooms.map(r => r.name).join(', ');
+    results.push({
+      name: 'All rooms',
+      description: allNames,
+      id: allIds,
+    });
+
+    // Add individual rooms
+    for (const r of rooms) {
+      results.push({
+        name: r.name,
+        description: `Room ID: ${r.id}`,
+        id: String(r.id),
+      });
+    }
+
+    // Add common combinations (pairs)
+    if (rooms.length > 2 && rooms.length <= 8) {
+      for (let i = 0; i < rooms.length; i++) {
+        for (let j = i + 1; j < rooms.length; j++) {
+          results.push({
+            name: `${rooms[i].name} + ${rooms[j].name}`,
+            description: `Room IDs: ${rooms[i].id}, ${rooms[j].id}`,
+            id: `${rooms[i].id},${rooms[j].id}`,
+          });
+        }
+      }
+    }
+
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
   }
 
   async onRepair(session, device) {
@@ -303,6 +410,9 @@ class DreameVacuumDriver extends Homey.Driver {
         this.homey.app.setCredentials(username, password, country);
         if (result.refresh_token) {
           this.homey.app.saveRefreshToken(result.refresh_token);
+        }
+        if (result.uid) {
+          this.homey.app.saveUid(result.uid);
         }
 
         // Re-enable all devices for this driver

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; padding: 16px; background: #fff; }
+    h2 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+    h3 { font-size: 13px; font-weight: 600; margin: 16px 0 8px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .device-select { width: 100%; padding: 10px 12px; font-size: 15px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 16px; background: #fafafa; }
+    .card { background: #f8f8f8; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .map-wrap { text-align: center; background: #1a1a2e; border-radius: 12px; padding: 8px; margin-bottom: 12px; min-height: 80px; }
+    .map-wrap canvas { max-width: 100%; height: auto; border-radius: 6px; }
+    .no-data { color: #999; padding: 32px 0; font-size: 13px; text-align: center; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .stat { padding: 8px 10px; background: #fff; border-radius: 8px; border: 1px solid #eee; }
+    .stat-label { font-size: 10px; color: #999; text-transform: uppercase; }
+    .stat-value { font-size: 15px; font-weight: 600; margin-top: 1px; }
+    .good { color: #34c759; } .warn { color: #ff9500; } .bad { color: #ff3b30; }
+    .room-list { list-style: none; }
+    .room-list li { padding: 7px 10px; background: #fff; border-radius: 6px; margin-bottom: 3px; border: 1px solid #eee; font-size: 13px; display: flex; justify-content: space-between; }
+    .room-id { color: #aaa; font-size: 11px; }
+    .cons-row { margin-bottom: 8px; }
+    .cons-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+    .cons-bar { height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+    .cons-fill { height: 100%; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h2>Dreame Vacuum</h2>
+  <select class="device-select" id="deviceSelect" onchange="selectDevice()">
+    <option value="">Loading...</option>
+  </select>
+  <div id="content" style="display:none;">
+    <div class="map-wrap"><canvas id="mapCanvas" style="display:none;"></canvas><div class="no-data" id="noMap">No map data</div></div>
+    <div class="card"><h3>Status</h3><div class="grid" id="statusGrid"></div></div>
+    <div class="card"><h3>Rooms</h3><ul class="room-list" id="roomList"></ul></div>
+    <div class="card"><h3>Consumables</h3><div id="consumables"></div></div>
+  </div>
+  <div class="no-data" id="loading">Loading...</div>
+
+<script>
+var _homey, _devices = [], _did = null;
+
+function onHomeyReady(Homey) {
+  _homey = Homey;
+  Homey.api('GET', '/vacuumData', null, function(err, data) {
+    document.getElementById('loading').style.display = 'none';
+    if (err || !data || !data.length) {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('loading').textContent = 'No devices found. Pair a vacuum first.';
+      return Homey.ready();
+    }
+    _devices = data;
+    var sel = document.getElementById('deviceSelect');
+    sel.innerHTML = data.map(function(d) { return '<option value="' + d.id + '">' + d.name + '</option>'; }).join('');
+    _did = data[0].id;
+    show(data[0]);
+    document.getElementById('content').style.display = 'block';
+    Homey.ready();
+  });
+}
+
+function selectDevice() {
+  _did = document.getElementById('deviceSelect').value;
+  var d = _devices.find(function(x) { return x.id === _did; });
+  if (d) show(d);
+}
+
+function show(d) {
+  status(d); rooms(d); consumables(d); map(d);
+}
+
+function status(d) {
+  var c = d.capabilities;
+  var s = c.vacuumcleaner_state || 'unknown';
+  var b = c.measure_battery;
+  var items = [
+    ['State', cap(s), s === 'cleaning' ? 'good' : ''],
+    ['Battery', b != null ? b + '%' : '-', b > 50 ? 'good' : b > 20 ? 'warn' : 'bad'],
+    ['Suction', cap(c.dreame_suction_level || '-'), ''],
+    ['Mode', cap((c.dreame_cleaning_mode || '-').replace(/_/g, ' ')), ''],
+    ['Progress', c.dreame_cleaning_progress != null ? c.dreame_cleaning_progress + '%' : '-', ''],
+    ['Area', c.dreame_cleaned_area != null ? c.dreame_cleaned_area + ' m\u00B2' : '-', ''],
+    ['Time', c.dreame_cleaning_time != null ? c.dreame_cleaning_time + ' min' : '-', ''],
+    ['Error', c.dreame_error || 'None', (c.dreame_error && c.dreame_error !== 'None') ? 'bad' : 'good'],
+  ];
+  document.getElementById('statusGrid').innerHTML = items.map(function(i) {
+    return '<div class="stat"><div class="stat-label">' + i[0] + '</div><div class="stat-value ' + i[2] + '">' + i[1] + '</div></div>';
+  }).join('');
+}
+
+function rooms(d) {
+  var el = document.getElementById('roomList');
+  if (!d.rooms || !d.rooms.length) { el.innerHTML = '<li>No rooms discovered</li>'; return; }
+  el.innerHTML = d.rooms.map(function(r) {
+    return '<li><span>' + r.name + '</span><span class="room-id">ID ' + r.id + '</span></li>';
+  }).join('');
+}
+
+function consumables(d) {
+  var c = d.capabilities;
+  var items = [
+    ['Main Brush', c.dreame_main_brush_left],
+    ['Side Brush', c.dreame_side_brush_left],
+    ['Filter', c.dreame_filter_left],
+    ['Mop Pad', c.dreame_mop_pad_left],
+    ['Sensor', c.dreame_sensor_dirty_left],
+  ].filter(function(i) { return i[1] != null; });
+  if (!items.length) { document.getElementById('consumables').innerHTML = '<div class="no-data">No data</div>'; return; }
+  document.getElementById('consumables').innerHTML = items.map(function(i) {
+    var col = i[1] > 30 ? '#34c759' : i[1] > 10 ? '#ff9500' : '#ff3b30';
+    return '<div class="cons-row"><div class="cons-header"><span>' + i[0] + '</span><span style="font-weight:600">' + i[1] + '%</span></div>'
+      + '<div class="cons-bar"><div class="cons-fill" style="width:' + i[1] + '%;background:' + col + '"></div></div></div>';
+  }).join('');
+}
+
+function map(d) {
+  var canvas = document.getElementById('mapCanvas');
+  var noMap = document.getElementById('noMap');
+  canvas.style.display = 'none';
+  noMap.style.display = 'block';
+  noMap.textContent = 'Loading map...';
+
+  _homey.api('GET', '/renderedMap?did=' + encodeURIComponent(d.id), null, function(err, data) {
+    if (err || !data || !data.width) {
+      noMap.textContent = 'No map data available';
+      return;
+    }
+    var w = data.width, h = data.height;
+    var raw = atob(data.pixels);
+
+    // Scale up for crisp rendering with labels
+    var scale = Math.max(1, Math.min(3, Math.floor(800 / Math.max(w, h))));
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    var ctx = canvas.getContext('2d');
+
+    // Draw raw pixels on offscreen canvas, then scale up
+    var off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    var offCtx = off.getContext('2d');
+    var img = offCtx.createImageData(w, h);
+    for (var i = 0; i < raw.length; i++) img.data[i] = raw.charCodeAt(i);
+    offCtx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, w * scale, h * scale);
+
+    // Draw charger position
+    if (data.chargerPos && data.chargerPos.x > 0) {
+      ctx.beginPath();
+      ctx.arc(data.chargerPos.x * scale, data.chargerPos.y * scale, Math.max(3, scale * 2), 0, Math.PI * 2);
+      ctx.fillStyle = '#ff9500';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = Math.max(1, scale * 0.5);
+      ctx.stroke();
+    }
+
+    // Draw robot position
+    if (data.robotPos && data.robotPos.x > 0) {
+      ctx.beginPath();
+      ctx.arc(data.robotPos.x * scale, data.robotPos.y * scale, Math.max(4, scale * 2.5), 0, Math.PI * 2);
+      ctx.fillStyle = '#007aff';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = Math.max(1, scale * 0.5);
+      ctx.stroke();
+    }
+
+    // Draw room labels
+    if (data.roomLabels && data.roomLabels.length > 0) {
+      var fontSize = Math.max(9, Math.min(13, scale * 4));
+      ctx.font = '600 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (var j = 0; j < data.roomLabels.length; j++) {
+        var label = data.roomLabels[j];
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillText(label.name, label.x * scale + 1, label.y * scale + 1);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label.name, label.x * scale, label.y * scale);
+      }
+    }
+
+    canvas.style.display = 'block';
+    noMap.style.display = 'none';
+  });
+}
+
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '-'; }
+</script>
+</body>
+</html>

@@ -25,19 +25,21 @@ We recommend using a separate Dreame Home account for Homey to avoid potential s
 - Mop Wash Frequency: By Room, every 5/10/15/20/25 m²
 - Dock Features: Auto Empty, Self Clean, Drying, Draining
 - Consumable Monitoring: Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset via flow cards)
-- Room Cleaning: Single room or multi-room by ID with suction/water/repeats
+- Room Cleaning: Single room or multi-room by ID with suction/water/repeats, per-room trigger cards
+- Dashboard Widget: Vacuum map with room colors, labels, robot & charger position, status bar
+- App Settings: Device overview with rendered map, status grid, room list, consumable health bars
 - Carpet: Boost toggle, Sensitivity (Low/Medium/High), Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore)
 - Dock Settings: Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume
 - Toggles: Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND
 - Status: Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error, Charging, Dock Cleaning, Drying Progress, Drainage, Detergent, Hot Water, Water Tank, Dirty Water Tank, Dust Bag
-- Flow Cards: 28 actions, 14 conditions, 3 triggers
+- Flow Cards: 29 actions, 16 conditions, 5 triggers
 
 **Not Supported**
 Some features from the Dreame Home app or Tasshack/dreame-vacuum (Home Assistant) cannot be implemented on Homey:
-- Live map / room selection: Homey has no UI for interactive maps. Room cleaning by ID is available via Flow cards.
+- Interactive map / room selection: Dashboard widget shows a rendered map, but tapping rooms to clean is not possible. Use Flow cards.
 - Live camera feed: Homey does not support real-time video streams.
-- Saved maps / map editing: No map rendering UI on Homey.
-- Virtual walls / no-go zones: Requires a map canvas to draw zones.
+- Map editing: No map editing UI on Homey. Configure in Dreame Home app.
+- Virtual walls / no-go zones: Requires interactive map editing.
 - Furniture / obstacle detection: Requires image/map overlay.
 - Cleaning history / statistics: No historical charts on Homey. Current session data (area, time) is available.
 - Custom room schedules: Use Homey Flows for time-based automations instead.

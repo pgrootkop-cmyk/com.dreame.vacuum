@@ -25,19 +25,21 @@ We raden aan een apart Dreame Home account te gebruiken voor Homey om mogelijke 
 - Dweilwasfrequentie: Per kamer, elke 5/10/15/20/25 m²
 - Dock functies: Automatisch Legen, Zelfreiniging, Drogen, Afvoeren
 - Verbruiksartikelen: Hoofdborstel, Zijborstel, Filter, Dweilpad, Sensor (met reset via flow cards)
-- Kamerreinigen: Enkele of meerdere kamers op ID met zuigkracht/water/herhalingen
+- Kamerreinigen: Enkele of meerdere kamers op ID met zuigkracht/water/herhalingen, trigger cards per kamer
+- Dashboard Widget: Stofzuigerkaart met kamerkleuren, labels, robot- & oplaadpositie, statusbalk
+- App Instellingen: Apparaatoverzicht met kaart, statusraster, kamerlijst, verbruiksartikelstatus
 - Tapijt: Boost schakelaar, Gevoeligheid (Laag/Midden/Hoog), Reinigingsmodus (Vermijding/Aanpassing/Dweil verwijderen/Stofzuigen & Dweilen/Negeren)
 - Dock instellingen: Dweilwasniveau, Watertemperatuur, Leegfrequentie, Dweildruk, Droogtijd, Volume
 - Schakelaars: Kinderslot, Hervatten Reinigen, Strak Dweilen, Stil Drogen, Niet Storen
 - Status: Batterij, Gereinigd Oppervlak, Reinigingstijd, Totaal Gereinigd Oppervlak, Fout, Opladen, Dock Reiniging, Droogvoortgang, Afvoer, Reinigingsmiddel, Warm Water, Watertank, Vuilwatertank, Stofzak
-- Flow cards: 28 acties, 14 condities, 3 triggers
+- Flow cards: 29 acties, 16 condities, 5 triggers
 
 **Niet ondersteund**
 Sommige functies uit de Dreame Home app of Tasshack/dreame-vacuum (Home Assistant) kunnen niet worden geïmplementeerd op Homey:
-- Live kaart / kamerselectie: Homey heeft geen UI voor interactieve kaarten. Kamer-reiniging op ID is beschikbaar via Flow cards.
+- Interactieve kaart / kamerselectie: De dashboard widget toont een kaart, maar kamers aantikken om te reinigen is niet mogelijk. Gebruik Flow cards.
 - Live camerabeeld: Homey ondersteunt geen realtime videostreams.
-- Opgeslagen kaarten / kaart bewerken: Geen kaartweergave UI op Homey.
-- Virtuele muren / no-go zones: Vereist een kaartcanvas om zones te tekenen.
+- Kaart bewerken: Geen kaartbewerkings-UI op Homey. Configureer in de Dreame Home app.
+- Virtuele muren / no-go zones: Vereist interactieve kaartbewerking.
 - Meubel-/obstakeldetectie: Vereist een beeld-/kaartoverlay.
 - Reinigingsgeschiedenis / statistieken: Geen historische grafieken op Homey. Huidige sessiegegevens (oppervlak, tijd) zijn beschikbaar.
 - Aangepaste kamerschema's: Gebruik Homey Flows voor tijdgebaseerde automatiseringen.

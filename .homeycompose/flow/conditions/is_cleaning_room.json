@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Is cleaning room..."
+  },
+  "titleFormatted": {
+    "en": "Is cleaning room [[room]]"
+  },
+  "hint": {
+    "en": "Check if the vacuum is currently cleaning a specific room"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "room",
+      "title": {
+        "en": "Room"
+      },
+      "placeholder": {
+        "en": "Search rooms..."
+      }
+    }
+  ]
+}

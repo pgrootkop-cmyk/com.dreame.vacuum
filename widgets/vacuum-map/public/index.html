@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/homey-widget.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; }
+    .container { position: relative; width: 100%; height: 100vh; display: flex; flex-direction: column; }
+    .map-area { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+    .map-area canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .no-map { color: var(--homey-text-color-light); font-size: var(--homey-font-size-small); text-align: center; padding: 20px; }
+    .status-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; gap: 8px; border-top: var(--homey-line-light); }
+    .status-item { display: flex; align-items: center; gap: 4px; font-size: var(--homey-font-size-small); color: var(--homey-text-color); }
+    .status-item .val { font-weight: var(--homey-font-weight-medium); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .dot.cleaning { background: var(--homey-color-green-500, #34c759); }
+    .dot.docked { background: var(--homey-color-blue-500, #007aff); }
+    .dot.charging { background: var(--homey-color-orange-500, #ff9500); }
+    .dot.stopped { background: var(--homey-color-mono-400, #999); }
+    .battery-icon { display: inline-block; width: 18px; height: 10px; border: 1.5px solid currentColor; border-radius: 2px; position: relative; }
+    .battery-icon::after { content: ''; position: absolute; right: -3px; top: 2px; width: 2px; height: 4px; background: currentColor; border-radius: 0 1px 1px 0; }
+    .battery-fill { height: 100%; border-radius: 1px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="map-area" id="mapArea">
+      <canvas id="canvas" style="display:none;"></canvas>
+      <div class="no-map" id="noMap">Loading...</div>
+    </div>
+    <div class="status-bar" id="statusBar" style="display:none;">
+      <div class="status-item"><span class="dot" id="stateDot"></span><span class="val" id="stateText">-</span></div>
+      <div class="status-item">
+        <span class="battery-icon"><span class="battery-fill" id="batteryFill"></span></span>
+        <span class="val" id="batteryText">-</span>
+      </div>
+      <div class="status-item"><span class="val" id="progressText"></span></div>
+    </div>
+  </div>
+
+<script>
+function onHomeyReady(Homey) {
+  var settings = Homey.getSettings();
+  var showStatus = settings.showStatus !== false;
+  var showRoomNames = settings.showRoomNames !== false;
+
+  if (showStatus) {
+    document.getElementById('statusBar').style.display = 'flex';
+  }
+
+  // Load device data for status bar (no did param needed - API returns first device)
+  Homey.api('GET', '/data').then(function(dev) {
+    if (dev) updateStatus(dev);
+  }).catch(function() {});
+
+  // Load pre-rendered map
+  Homey.api('GET', '/map').then(function(data) {
+    if (data && data.width) {
+      renderMap(data, showRoomNames);
+    } else {
+      document.getElementById('noMap').textContent = 'No map available';
+    }
+  }).catch(function() {
+    document.getElementById('noMap').textContent = 'Could not load map';
+  }).finally(function() {
+    Homey.ready();
+  });
+}
+
+function updateStatus(dev) {
+  var c = dev.capabilities || {};
+  var state = c.vacuumcleaner_state || 'unknown';
+  var battery = c.measure_battery;
+  var progress = c.dreame_cleaning_progress;
+
+  document.getElementById('stateText').textContent = state.charAt(0).toUpperCase() + state.slice(1);
+  document.getElementById('stateDot').className = 'dot ' + state;
+
+  if (battery != null) {
+    document.getElementById('batteryText').textContent = battery + '%';
+    var fill = document.getElementById('batteryFill');
+    fill.style.width = battery + '%';
+    fill.style.background = battery > 50 ? '#34c759' : battery > 20 ? '#ff9500' : '#ff3b30';
+  }
+
+  if (progress != null && state === 'cleaning') {
+    document.getElementById('progressText').textContent = progress + '%';
+  }
+}
+
+function renderMap(data, showRoomNames) {
+  var w = data.width, h = data.height;
+  var raw = atob(data.pixels);
+  var canvas = document.getElementById('canvas');
+
+  // Use a higher-res canvas for crisp rendering with room labels
+  var scale = Math.max(1, Math.min(3, Math.floor(800 / Math.max(w, h))));
+  canvas.width = w * scale;
+  canvas.height = h * scale;
+  var ctx = canvas.getContext('2d');
+
+  // Draw the pixel map
+  var img = ctx.createImageData(w, h);
+  for (var i = 0; i < raw.length; i++) img.data[i] = raw.charCodeAt(i);
+
+  // Use an offscreen canvas for the raw pixels, then scale up
+  var offscreen = document.createElement('canvas');
+  offscreen.width = w;
+  offscreen.height = h;
+  var offCtx = offscreen.getContext('2d');
+  offCtx.putImageData(img, 0, 0);
+
+  // Scale up with pixelated rendering for sharp pixels
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(offscreen, 0, 0, w * scale, h * scale);
+
+  // Draw charger position (dock icon)
+  if (data.chargerPos && data.chargerPos.x > 0) {
+    var cx = data.chargerPos.x * scale;
+    var cy = data.chargerPos.y * scale;
+    var r = Math.max(3, scale * 2);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff9500';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(1, scale * 0.5);
+    ctx.stroke();
+  }
+
+  // Draw robot position
+  if (data.robotPos && data.robotPos.x > 0) {
+    var rx = data.robotPos.x * scale;
+    var ry = data.robotPos.y * scale;
+    var rr = Math.max(4, scale * 2.5);
+    ctx.beginPath();
+    ctx.arc(rx, ry, rr, 0, Math.PI * 2);
+    ctx.fillStyle = '#007aff';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(1, scale * 0.5);
+    ctx.stroke();
+  }
+
+  // Draw room labels
+  if (showRoomNames && data.roomLabels && data.roomLabels.length > 0) {
+    var fontSize = Math.max(8, Math.min(12, scale * 4));
+    ctx.font = '600 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var j = 0; j < data.roomLabels.length; j++) {
+      var label = data.roomLabels[j];
+      var lx = label.x * scale;
+      var ly = label.y * scale;
+      // Text shadow for readability
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillText(label.name, lx + 1, ly + 1);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label.name, lx, ly);
+    }
+  }
+
+  canvas.style.display = 'block';
+  document.getElementById('noMap').style.display = 'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": {
+    "en": "Vacuum Map",
+    "nl": "Stofzuiger Kaart"
+  },
+  "settings": [
+    {
+      "id": "showRoomNames",
+      "type": "checkbox",
+      "title": { "en": "Show room names", "nl": "Toon kamernamen" },
+      "value": true
+    },
+    {
+      "id": "showStatus",
+      "type": "checkbox",
+      "title": { "en": "Show status bar", "nl": "Toon statusbalk" },
+      "value": true
+    }
+  ],
+  "height": "75%",
+  "api": {
+    "getDeviceData": {
+      "method": "GET",
+      "path": "/data"
+    },
+    "getMapData": {
+      "method": "GET",
+      "path": "/map"
+    }
+  },
+  "devices": {
+    "singular": true,
+    "type": "app",
+    "filter": {
+      "class": "vacuumcleaner",
+      "capabilities": "vacuumcleaner_state"
+    }
+  }
+}

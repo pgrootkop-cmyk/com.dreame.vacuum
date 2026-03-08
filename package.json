@@ -11,6 +11,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "mqtt": "^5.15.0",
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
