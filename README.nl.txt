@@ -25,6 +25,7 @@ We raden aan een apart Dreame Home account te gebruiken voor Homey om mogelijke 
 - Dweilwasfrequentie: Per kamer, elke 5/10/15/20/25 m²
 - Dock functies: Automatisch Legen, Zelfreiniging, Drogen, Afvoeren
 - Verbruiksartikelen: Hoofdborstel, Zijborstel, Filter, Dweilpad, Sensor (met reset via flow cards)
+- Realtime MQTT: Persistente verbinding met Dreame cloud voor directe statusupdates en kamerontdekking
 - Kamerreinigen: Enkele of meerdere kamers op ID met zuigkracht/water/herhalingen, trigger cards per kamer
 - Dashboard Widget: Stofzuigerkaart met kamerkleuren, labels, robot- & oplaadpositie, statusbalk
 - App Instellingen: Apparaatoverzicht met kaart, statusraster, kamerlijst, verbruiksartikelstatus
@@ -43,7 +44,6 @@ Sommige functies uit de Dreame Home app of Tasshack/dreame-vacuum (Home Assistan
 - Meubel-/obstakeldetectie: Vereist een beeld-/kaartoverlay.
 - Reinigingsgeschiedenis / statistieken: Geen historische grafieken op Homey. Huidige sessiegegevens (oppervlak, tijd) zijn beschikbaar.
 - Aangepaste kamerschema's: Gebruik Homey Flows voor tijdgebaseerde automatiseringen.
-- Realtime MQTT events: Deze app gebruikt cloud-polling (standaard 15s). Tasshack gebruikt lokale MQTT voor directe updates, wat niet mogelijk is voor Homey cloud apps.
 - OTA firmware-updates: Niet relevant voor een Homey app.
 
 Homey blinkt uit in automatiseringen (Flow cards), apparaatbediening en statusmonitoring. Gebruik de Dreame Home app naast Homey voor kaartfuncties, camera of visuele AI.

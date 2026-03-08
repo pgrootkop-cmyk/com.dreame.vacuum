@@ -25,6 +25,7 @@ We recommend using a separate Dreame Home account for Homey to avoid potential s
 - Mop Wash Frequency: By Room, every 5/10/15/20/25 m²
 - Dock Features: Auto Empty, Self Clean, Drying, Draining
 - Consumable Monitoring: Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset via flow cards)
+- Real-time MQTT: Persistent connection to Dreame cloud for instant state updates and room discovery
 - Room Cleaning: Single room or multi-room by ID with suction/water/repeats, per-room trigger cards
 - Dashboard Widget: Vacuum map with room colors, labels, robot & charger position, status bar
 - App Settings: Device overview with rendered map, status grid, room list, consumable health bars
@@ -43,7 +44,6 @@ Some features from the Dreame Home app or Tasshack/dreame-vacuum (Home Assistant
 - Furniture / obstacle detection: Requires image/map overlay.
 - Cleaning history / statistics: No historical charts on Homey. Current session data (area, time) is available.
 - Custom room schedules: Use Homey Flows for time-based automations instead.
-- Real-time MQTT events: This app uses cloud polling (default 15s). Tasshack uses local MQTT for instant updates, which is not possible for Homey cloud apps.
 - OTA firmware updates: Not relevant for a Homey app.
 
 Homey excels at automations (Flow cards), device control, and status monitoring. For map-based features, camera, or visual AI, use the Dreame Home app alongside Homey.

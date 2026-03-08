@@ -67,7 +67,6 @@ Some features available in the Dreame Home app or in [Tasshack/dreame-vacuum](ht
 | **Furniture / obstacle detection** | Visual AI detection results require an image/map overlay. |
 | **Cleaning history / statistics** | Homey has no UI for historical charts or session logs. Current session data (area, time) is available. |
 | **Custom room schedules** | Dreame schedules are managed in the Dreame Home app. Use Homey Flows for time-based automations instead. |
-| **Real-time MQTT events** | ~~Not supported~~ **Now supported!** The app maintains a persistent MQTT connection to Dreame's cloud broker for instant state updates and room/map discovery. |
 | **OTA firmware updates** | Not relevant for a Homey app. |
 
 > **In short:** Homey excels at automations (Flow cards), device control, and status monitoring. For map-based features, camera, or visual AI, use the Dreame Home app alongside Homey.
