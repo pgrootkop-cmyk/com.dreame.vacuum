@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -2611,6 +2611,16 @@
         }
       ]
     },
+    "dreame_dust_collection_available": {
+      "type": "string",
+      "title": {
+        "en": "Dust Collection",
+        "nl": "Stofopvang"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
     "dreame_error": {
       "type": "string",
       "title": {
@@ -2658,6 +2668,16 @@
       "min": 0,
       "max": 100,
       "insights": true
+    },
+    "dreame_mop_pad_installed": {
+      "type": "boolean",
+      "title": {
+        "en": "Mop Pad Installed",
+        "nl": "Dweilpad Geïnstalleerd"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
     },
     "dreame_mop_pad_left": {
       "type": "number",
@@ -2882,6 +2902,16 @@
       "uiComponent": "toggle",
       "insights": true
     },
+    "dreame_status": {
+      "type": "string",
+      "title": {
+        "en": "Status",
+        "nl": "Status"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    },
     "dreame_suction_level": {
       "type": "enum",
       "title": {
@@ -2916,6 +2946,16 @@
           }
         }
       ]
+    },
+    "dreame_task_status": {
+      "type": "string",
+      "title": {
+        "en": "Task Status",
+        "nl": "Taakstatus"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
     },
     "dreame_tight_mopping": {
       "type": "boolean",

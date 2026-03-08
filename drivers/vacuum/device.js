@@ -65,6 +65,12 @@ const PROP = {
   HOT_WATER_STATUS:     { siid: 27, piid: 15 },
   DOCK_CLEANING_STATUS: { siid: 4, piid: 61 },
 
+  // Substatus properties
+  STATUS:               { siid: 4, piid: 1 },
+  TASK_STATUS:          { siid: 4, piid: 7 },
+  MOP_PAD_INSTALLED:    { siid: 4, piid: 53 },
+  DUST_COLLECTION:      { siid: 15, piid: 3 },
+
   // Lifetime stats
   FIRST_CLEANING_DATE: { siid: 12, piid: 1 },
   TOTAL_CLEANED_AREA:  { siid: 12, piid: 4 },
@@ -222,6 +228,27 @@ const HOT_WATER_STATUS_MAP = { 0: 'disabled', 1: 'enabled' };
 // Dock cleaning status
 const DOCK_CLEANING_STATUS_MAP = { 0: 'idle', 1: 'cleaning', 2: 'drying' };
 
+// Vacuum substatus (siid:4, piid:1)
+const STATUS_REVERSE = {
+  0: 'Idle', 1: 'Paused', 2: 'Cleaning', 3: 'Returning', 4: 'Part Cleaning',
+  5: 'Follow Wall', 6: 'Charging', 7: 'OTA', 12: 'Error', 13: 'Remote Control',
+  14: 'Sleeping', 17: 'Standby', 18: 'Segment Cleaning', 19: 'Zone Cleaning',
+  20: 'Spot Cleaning', 21: 'Fast Mapping', 22: 'Cruising Path', 23: 'Cruising Point',
+  24: 'Summon Clean', 25: 'Shortcut', 26: 'Person Follow', 1501: 'Water Check',
+};
+
+// Task status (siid:4, piid:7)
+const TASK_STATUS_REVERSE = {
+  0: 'Completed', 1: 'Auto Cleaning', 2: 'Zone Cleaning', 3: 'Segment Cleaning',
+  4: 'Spot Cleaning', 5: 'Fast Mapping', 6: 'Auto Cleaning Paused',
+  7: 'Zone Cleaning Paused', 8: 'Segment Cleaning Paused', 9: 'Spot Cleaning Paused',
+  20: 'Cruising Path', 21: 'Cruising Path Paused', 22: 'Cruising Point',
+  25: 'Returning Install Mop', 26: 'Returning Remove Mop', 27: 'Station Cleaning',
+};
+
+// Dust collection availability (siid:15, piid:3)
+const DUST_COLLECTION_MAP = { 0: 'not_available', 1: 'available', 2: 'overuse', 3: 'never' };
+
 // Prop key to capability mapping for probe-based removal
 const PROP_TO_CAPABILITY = {
   '4-27': 'dreame_child_lock',
@@ -243,6 +270,10 @@ const PROP_TO_CAPABILITY = {
   '27-15': 'dreame_hot_water_status',
   '4-61': 'dreame_dock_cleaning_status',
   '12-4': 'dreame_total_cleaned_area',
+  '4-1': 'dreame_status',
+  '4-7': 'dreame_task_status',
+  '4-53': 'dreame_mop_pad_installed',
+  '15-3': 'dreame_dust_collection_available',
 };
 
 // Grouped value encoding for self-wash-base cleaning mode (siid:4, piid:23)
@@ -315,6 +346,15 @@ const ERROR_CODES = {
 };
 
 const COMMAND_DEBOUNCE_MS = 10000;
+
+// Adaptive polling intervals (ms)
+// DEBUG FLAG — set to false to silence MQTT debug logs
+const MQTT_DEBUG = false;
+
+const POLL_FAST = 5000;        // MQTT disconnected (fallback)
+const POLL_ACTIVE = 15000;     // MQTT connected + cleaning (backup)
+const POLL_IDLE = 60000;       // MQTT connected + idle (safety net)
+const MQTT_STALE_MS = 120000;  // If no MQTT message for 2min during cleaning, fall back to fast poll
 
 // Segment/room type names from Dreame protocol
 const SEGMENT_TYPE_NAMES = {
@@ -485,6 +525,8 @@ class DreameVacuumDevice extends Homey.Device {
     this._rooms = this.getStoreValue('rooms') || [];
     this._cleaningRoomIds = [];
     this._mqttConnected = false;
+    this._lastMqttMessage = 0;
+    this._currentPollInterval = POLL_FAST;
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -512,6 +554,8 @@ class DreameVacuumDevice extends Homey.Device {
       'dreame_charging_status', 'dreame_drying_progress', 'dreame_drainage_status',
       'dreame_detergent_status', 'dreame_hot_water_status', 'dreame_dock_cleaning_status',
       'dreame_total_cleaned_area',
+      'dreame_status', 'dreame_task_status', 'dreame_mop_pad_installed',
+      'dreame_dust_collection_available',
     ];
     for (const cap of probeableCapabilities) {
       if (!this.hasCapability(cap)) {
@@ -584,11 +628,13 @@ class DreameVacuumDevice extends Homey.Device {
       await this._fetchBindDomain();
     }
 
-    // Start polling (HTTP fallback)
+    // Start polling (HTTP as primary on Cloud, fallback on Local)
     this.restartPolling();
 
-    // Connect MQTT for real-time updates (including map/room discovery)
-    this._connectMqtt();
+    // Connect MQTT for real-time updates (Local platform only — Cloud lacks raw socket support)
+    if (this.homey.platform === 'local') {
+      this._connectMqtt();
+    }
   }
 
   async _fetchBindDomain() {
@@ -653,11 +699,16 @@ class DreameVacuumDevice extends Homey.Device {
 
       mqttClient.on('connected', () => {
         this._mqttConnected = true;
+        this._lastMqttMessage = Date.now();
+        if (MQTT_DEBUG) this.log('[MQTT:STATE] Connected — switching to adaptive polling');
+        this._adjustPolling();
         this._requestMapViaMqtt();
       });
 
       mqttClient.on('disconnected', () => {
         this._mqttConnected = false;
+        if (MQTT_DEBUG) this.log('[MQTT:STATE] Disconnected — switching to fast polling');
+        this._adjustPolling();
       });
 
       await mqttClient.connect({
@@ -682,6 +733,7 @@ class DreameVacuumDevice extends Homey.Device {
    */
   async _requestMapViaMqtt() {
     try {
+      if (MQTT_DEBUG) this.log('[MQTT:OUT] Requesting map via ACTION 6-1');
       const api = this._getApi();
       await api.callAction(
         this._did, this._bindDomain,
@@ -716,8 +768,12 @@ class DreameVacuumDevice extends Homey.Device {
 
   /**
    * Handle property updates received via MQTT.
+   * Routes all properties through the same _applyProperty handler as polling.
    */
   _handleMqttProperties(params) {
+    this._lastMqttMessage = Date.now();
+    if (MQTT_DEBUG) this.log(`[MQTT:IN] ${params.length} props:`, params.map(p => `${p.siid}-${p.piid}=${JSON.stringify(p.value)}`).join(', '));
+
     for (const p of params) {
       const key = `${p.siid}-${p.piid}`;
       const value = p.value;
@@ -738,35 +794,375 @@ class DreameVacuumDevice extends Homey.Device {
         continue;
       }
 
-      // Handle other property updates (same as poll switch cases)
-      // Only process known properties to avoid redundant work with polling
-      switch (key) {
-        case '2-1': // STATE
-          if (STATE_MAP[value]) {
-            const homeyState = STATE_MAP[value];
-            this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
-            this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
-            // Fire room_cleaning_finished when cleaning stops
-            if (homeyState !== 'cleaning' && this._cleaningRoomIds.length > 0) {
-              this._fireRoomFinishedTriggers();
+      // Route all other properties through shared handler
+      this._applyProperty(key, value);
+    }
+
+    // Adjust polling speed based on new state
+    this._adjustPolling();
+  }
+
+  /**
+   * Apply a single property update to capabilities.
+   * Shared between MQTT push and HTTP poll — single source of truth.
+   */
+  async _applyProperty(key, value) {
+    switch (key) {
+      case '2-1': // STATE
+        if (STATE_MAP[value]) {
+          const homeyState = STATE_MAP[value];
+          await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
+          await this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
+          if (homeyState !== 'cleaning' && this._cleaningRoomIds.length > 0) {
+            this._fireRoomFinishedTriggers();
+          }
+        }
+        break;
+
+      case '2-2': { // ERROR
+        const isRealError = value !== 0 && !DOCK_INFO_CODES.has(value);
+        if (value === 0 || DOCK_INFO_CODES.has(value)) {
+          await this.setCapabilityValue('dreame_error', 'None').catch(this.error);
+        } else {
+          const errorText = ERROR_CODES[value] || `Unknown error (${value})`;
+          await this.setCapabilityValue('dreame_error', errorText).catch(this.error);
+        }
+        if (isRealError && this._lastTriggeredError !== value) {
+          this._lastTriggeredError = value;
+          const errorText = ERROR_CODES[value] || `Unknown error (${value})`;
+          const errorCard = this.homey.flow.getDeviceTriggerCard('dreame_error_occurred');
+          await errorCard.trigger(this, { error: errorText }).catch(e => this.error('Trigger error:', e));
+        } else if (!isRealError) {
+          this._lastTriggeredError = null;
+        }
+        break;
+      }
+
+      case '3-1': // BATTERY
+        await this.setCapabilityValue('measure_battery', value).catch(this.error);
+        break;
+
+      case '4-2': // CLEANING_TIME
+        await this.setCapabilityValue('dreame_cleaning_time', value).catch(this.error);
+        break;
+
+      case '4-3': // CLEANED_AREA
+        await this.setCapabilityValue('dreame_cleaned_area', value).catch(this.error);
+        break;
+
+      case '4-4': // SUCTION_LEVEL
+        if (SUCTION_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_suction_level', SUCTION_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '4-5': // WATER_VOLUME
+        if (WATER_VOLUME_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_water_volume', WATER_VOLUME_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '4-23': { // CLEANING_MODE (may be grouped value)
+        const currentState = this.getCapabilityValue('vacuumcleaner_state');
+        const isCleaning = currentState === 'cleaning';
+        if (value > 255) {
+          const grouped = splitGroupedMode(value);
+          this._isGroupedMode = true;
+          this._groupedModeRaw = value;
+          if (CLEANING_MODE_REVERSE[grouped.mode] !== undefined) {
+            if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
+              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[grouped.mode]).catch(this.error);
             }
           }
-          break;
-        case '3-1': // BATTERY
-          this.setCapabilityValue('measure_battery', value).catch(this.error);
-          break;
-        case '4-63': // CLEANING_PROGRESS
-          this.setCapabilityValue('dreame_cleaning_progress', value || 0).catch(this.error);
-          break;
+          if (this.hasCapability('dreame_mop_wash_frequency')) {
+            const freq = MOP_WASH_FREQ_REVERSE[grouped.washFreq];
+            if (freq !== undefined) {
+              await this.setCapabilityValue('dreame_mop_wash_frequency', freq).catch(this.error);
+            }
+          }
+        } else {
+          this._isGroupedMode = false;
+          if (CLEANING_MODE_REVERSE[value] !== undefined) {
+            if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
+              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[value]).catch(this.error);
+            }
+          }
+        }
+        break;
       }
+
+      case '4-25': // SELF_WASH_STATUS
+        if (SELF_WASH_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_self_wash_status', SELF_WASH_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '4-63': // CLEANING_PROGRESS
+        await this.setCapabilityValue('dreame_cleaning_progress', value || 0).catch(this.error);
+        break;
+
+      case '4-12': // CARPET_BOOST
+        await this.setCapabilityValue('dreame_carpet_boost', !!value).catch(this.error);
+        break;
+
+      case '5-1': // DND_ENABLED
+        await this.setCapabilityValue('dreame_dnd', !!value).catch(this.error);
+        break;
+
+      case '9-2': // MAIN_BRUSH_LEFT
+        await this.setCapabilityValue('dreame_main_brush_left', value).catch(this.error);
+        this._checkConsumable('Main Brush', value);
+        break;
+
+      case '10-2': // SIDE_BRUSH_LEFT
+        await this.setCapabilityValue('dreame_side_brush_left', value).catch(this.error);
+        this._checkConsumable('Side Brush', value);
+        break;
+
+      case '11-1': // FILTER_LEFT
+        await this.setCapabilityValue('dreame_filter_left', value).catch(this.error);
+        this._checkConsumable('Filter', value);
+        break;
+
+      case '16-1': // SENSOR_DIRTY_LEFT
+        await this.setCapabilityValue('dreame_sensor_dirty_left', value).catch(this.error);
+        this._checkConsumable('Sensor', value);
+        break;
+
+      case '18-1': // MOP_PAD_LEFT
+        await this.setCapabilityValue('dreame_mop_pad_left', value).catch(this.error);
+        this._checkConsumable('Mop Pad', value);
+        break;
+
+      case '15-5': // AUTO_EMPTY_STATUS
+        if (AUTO_EMPTY_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_dust_collection', AUTO_EMPTY_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '27-3': // DUST_BAG_STATUS
+        if (DUST_BAG_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_dust_bag', DUST_BAG_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '27-1': // CLEAN_WATER_TANK
+        if (WATER_TANK_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_water_tank', WATER_TANK_MAP[value]).catch(this.error);
+          if (value === 2 || value === 3) {
+            const status = value === 2 ? 'Low Water' : 'No Water';
+            const card = this.homey.flow.getDeviceTriggerCard('low_water_warning');
+            await card.trigger(this, { status }).catch(e => this.error('Low water trigger:', e));
+          }
+        }
+        break;
+
+      case '27-2': // DIRTY_WATER_TANK
+        if (DIRTY_WATER_TANK_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_dirty_water_tank', DIRTY_WATER_TANK_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '4-41': // LOW_WATER_WARNING (handled via 27-1)
+        break;
+
+      case '4-50': { // AUTO_SWITCH_SETTINGS
+        try {
+          if (typeof value === 'string') {
+            const settings = JSON.parse(value);
+            const settingsMap = {};
+            if (Array.isArray(settings)) {
+              for (const s of settings) settingsMap[s.k] = s.v;
+            } else if (settings.k) {
+              settingsMap[settings.k] = settings.v;
+            }
+            if (settingsMap.SmartHost !== undefined && this.hasCapability('dreame_cleangenius')) {
+              const cg = CLEANGENIUS_REVERSE[settingsMap.SmartHost];
+              if (cg !== undefined) {
+                await this.setCapabilityValue('dreame_cleangenius', cg).catch(this.error);
+              }
+            }
+            if (settingsMap.CleanRoute !== undefined && this.hasCapability('dreame_cleaning_route')) {
+              const route = CLEANING_ROUTE_REVERSE[settingsMap.CleanRoute];
+              if (route !== undefined) {
+                await this.setCapabilityValue('dreame_cleaning_route', route).catch(this.error);
+              }
+            }
+          }
+        } catch (e) {
+          this.error('Failed to parse AUTO_SWITCH_SETTINGS:', value);
+        }
+        break;
+      }
+
+      case '28-5': // CLEANGENIUS_MODE
+        if (CLEANGENIUS_MODE_REVERSE[value] !== undefined) {
+          this._cleanGeniusMode = CLEANGENIUS_MODE_REVERSE[value];
+        }
+        break;
+
+      case '4-58': // TASK_TYPE
+        this._taskType = value;
+        break;
+
+      case '4-27': // CHILD_LOCK
+        await this.setCapabilityValue('dreame_child_lock', !!value).catch(this.error);
+        break;
+
+      case '4-11': // RESUME_CLEANING
+        await this.setCapabilityValue('dreame_resume_cleaning', !!value).catch(this.error);
+        break;
+
+      case '4-29': // TIGHT_MOPPING
+        await this.setCapabilityValue('dreame_tight_mopping', !!value).catch(this.error);
+        break;
+
+      case '28-27': // SILENT_DRYING
+        await this.setCapabilityValue('dreame_silent_drying', !!value).catch(this.error);
+        break;
+
+      case '4-28': // CARPET_SENSITIVITY
+        if (CARPET_SENSITIVITY_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_carpet_sensitivity', CARPET_SENSITIVITY_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '4-36': // CARPET_CLEANING
+        if (CARPET_CLEANING_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_carpet_cleaning', CARPET_CLEANING_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '4-46': // MOP_WASH_LEVEL
+        if (MOP_WASH_LEVEL_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_mop_wash_level', MOP_WASH_LEVEL_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '4-40': // DRYING_TIME
+        await this.setCapabilityValue('dreame_drying_time', value).catch(this.error);
+        break;
+
+      case '7-1': // VOLUME
+        await this.setCapabilityValue('dreame_volume', value).catch(this.error);
+        break;
+
+      case '28-8': // WATER_TEMPERATURE
+        if (WATER_TEMP_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_water_temperature', WATER_TEMP_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '15-2': // AUTO_EMPTY_FREQUENCY
+        if (AUTO_EMPTY_FREQ_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_auto_empty_frequency', AUTO_EMPTY_FREQ_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '28-86': // MOP_PRESSURE
+        if (MOP_PRESSURE_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_mop_pressure', MOP_PRESSURE_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '3-2': // CHARGING_STATUS
+        if (CHARGING_STATUS_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_charging_status', CHARGING_STATUS_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '4-64': // DRYING_PROGRESS
+        await this.setCapabilityValue('dreame_drying_progress', value || 0).catch(this.error);
+        break;
+
+      case '4-60': // DRAINAGE_STATUS
+        if (DRAINAGE_STATUS_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_drainage_status', DRAINAGE_STATUS_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '27-4': // DETERGENT_STATUS
+        if (DETERGENT_STATUS_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_detergent_status', DETERGENT_STATUS_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '27-15': // HOT_WATER_STATUS
+        if (HOT_WATER_STATUS_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_hot_water_status', HOT_WATER_STATUS_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '4-61': // DOCK_CLEANING_STATUS
+        if (DOCK_CLEANING_STATUS_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_dock_cleaning_status', DOCK_CLEANING_STATUS_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '4-1': // STATUS (cleaning substatus)
+        if (STATUS_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_status', STATUS_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '4-7': // TASK_STATUS
+        if (TASK_STATUS_REVERSE[value] !== undefined) {
+          await this.setCapabilityValue('dreame_task_status', TASK_STATUS_REVERSE[value]).catch(this.error);
+        }
+        break;
+
+      case '4-53': // MOP_PAD_INSTALLED
+        await this.setCapabilityValue('dreame_mop_pad_installed', !!value).catch(this.error);
+        break;
+
+      case '15-3': // DUST_COLLECTION availability
+        if (DUST_COLLECTION_MAP[value] !== undefined) {
+          await this.setCapabilityValue('dreame_dust_collection_available', DUST_COLLECTION_MAP[value]).catch(this.error);
+        }
+        break;
+
+      case '12-1': // FIRST_CLEANING_DATE (read-only, not mapped)
+        break;
+
+      case '12-4': // TOTAL_CLEANED_AREA
+        await this.setCapabilityValue('dreame_total_cleaned_area', value).catch(this.error);
+        break;
+    }
+  }
+
+  /**
+   * Compute the optimal poll interval based on MQTT connection state and device activity.
+   */
+  _getOptimalPollInterval() {
+    if (!this._mqttConnected) return POLL_FAST;
+
+    // If MQTT connected but stale during cleaning, use fast polling
+    const isCleaning = this.getCapabilityValue('vacuumcleaner_state') === 'cleaning';
+    if (isCleaning && this._lastMqttMessage > 0 && (Date.now() - this._lastMqttMessage) > MQTT_STALE_MS) {
+      return POLL_FAST;
+    }
+
+    return isCleaning ? POLL_ACTIVE : POLL_IDLE;
+  }
+
+  /**
+   * Adjust polling interval dynamically. Called when MQTT state or device state changes.
+   */
+  _adjustPolling() {
+    const optimal = this._getOptimalPollInterval();
+    if (optimal !== this._currentPollInterval) {
+      if (MQTT_DEBUG) this.log(`[MQTT:POLL] Interval changed: ${this._currentPollInterval}ms → ${optimal}ms`);
+      this._currentPollInterval = optimal;
+      this.stopPolling();
+      this._pollInterval = this.homey.setInterval(() => this._poll(), optimal);
     }
   }
 
   restartPolling() {
     this.stopPolling();
 
-    const interval = (this.getSetting('poll_interval') || 5) * 1000;
-    this._pollInterval = this.homey.setInterval(() => this._poll(), interval);
+    this._currentPollInterval = this._getOptimalPollInterval();
+    this._pollInterval = this.homey.setInterval(() => this._poll(), this._currentPollInterval);
 
     // Initial poll
     this._poll();
@@ -831,6 +1227,7 @@ class DreameVacuumDevice extends Homey.Device {
         PROP.AUTO_EMPTY_FREQUENCY, PROP.MOP_PRESSURE,
         PROP.CHARGING_STATUS, PROP.DRYING_PROGRESS, PROP.DRAINAGE_STATUS,
         PROP.DETERGENT_STATUS, PROP.HOT_WATER_STATUS, PROP.DOCK_CLEANING_STATUS,
+        PROP.STATUS, PROP.TASK_STATUS,
       ];
       for (const p of probeableEvery) {
         const pk = `${p.siid}-${p.piid}`;
@@ -856,6 +1253,7 @@ class DreameVacuumDevice extends Homey.Device {
         // Probeable consumables + lifetime stats (every 12th cycle)
         const probeableInfrequent = [
           PROP.FIRST_CLEANING_DATE, PROP.TOTAL_CLEANED_AREA,
+          PROP.MOP_PAD_INSTALLED, PROP.DUST_COLLECTION,
         ];
         for (const p of probeableInfrequent) {
           const pk = `${p.siid}-${p.piid}`;
@@ -882,337 +1280,7 @@ class DreameVacuumDevice extends Homey.Device {
         }
 
         const key = `${r.siid}-${r.piid}`;
-        const value = r.value;
-
-        switch (key) {
-          case '2-1': // STATE
-            if (STATE_MAP[value]) {
-              const homeyState = STATE_MAP[value];
-              await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
-              // Keep onoff in sync: cleaning = on, everything else = off
-              await this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
-              // Fire room_cleaning_finished when cleaning stops
-              if (homeyState !== 'cleaning' && this._cleaningRoomIds.length > 0) {
-                this._fireRoomFinishedTriggers();
-              }
-            }
-            break;
-
-          case '2-2': // ERROR
-            {
-              // Some codes are informational dock statuses, not real errors
-              const isRealError = value !== 0 && !DOCK_INFO_CODES.has(value);
-
-              if (value === 0 || DOCK_INFO_CODES.has(value)) {
-                await this.setCapabilityValue('dreame_error', 'None').catch(this.error);
-              } else {
-                const errorText = ERROR_CODES[value] || `Unknown error (${value})`;
-                await this.setCapabilityValue('dreame_error', errorText).catch(this.error);
-              }
-
-              // Only trigger flow card for real errors, and only on change
-              if (isRealError && this._lastTriggeredError !== value) {
-                this._lastTriggeredError = value;
-                const errorText = ERROR_CODES[value] || `Unknown error (${value})`;
-                const errorCard = this.homey.flow.getDeviceTriggerCard('dreame_error_occurred');
-                await errorCard.trigger(this, { error: errorText }).catch(e => this.error('Trigger error:', e));
-              } else if (!isRealError) {
-                this._lastTriggeredError = null;
-              }
-            }
-            break;
-
-          case '3-1': // BATTERY
-            await this.setCapabilityValue('measure_battery', value).catch(this.error);
-            break;
-
-          case '4-2': // CLEANING_TIME
-            await this.setCapabilityValue('dreame_cleaning_time', value).catch(this.error);
-            break;
-
-          case '4-3': // CLEANED_AREA
-            await this.setCapabilityValue('dreame_cleaned_area', value).catch(this.error);
-            break;
-
-          case '4-4': // SUCTION_LEVEL
-            if (SUCTION_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_suction_level', SUCTION_REVERSE[value]).catch(this.error);
-            } else {
-              this.error('Unknown suction level value:', value);
-            }
-            break;
-
-          case '4-5': // WATER_VOLUME
-            if (WATER_VOLUME_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_water_volume', WATER_VOLUME_REVERSE[value]).catch(this.error);
-            } else {
-              this.error('Unknown water volume value:', value);
-            }
-            break;
-
-          case '4-23': { // CLEANING_MODE (may be grouped value on self-wash-base)
-            const currentState = this.getCapabilityValue('vacuumcleaner_state');
-            const isCleaning = currentState === 'cleaning';
-
-            // Check if this is a grouped value (> 255 means bytes are packed)
-            if (value > 255) {
-              const grouped = splitGroupedMode(value);
-              this._isGroupedMode = true;
-              this._groupedModeRaw = value;
-
-              // Extract cleaning mode from byte0
-              const modeVal = grouped.mode;
-              if (CLEANING_MODE_REVERSE[modeVal] !== undefined) {
-                if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
-                  await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[modeVal]).catch(this.error);
-                }
-              }
-
-              // Extract mop wash frequency from byte1
-              if (this.hasCapability('dreame_mop_wash_frequency')) {
-                const freqVal = grouped.washFreq;
-                const freq = MOP_WASH_FREQ_REVERSE[freqVal];
-                if (freq !== undefined) {
-                  await this.setCapabilityValue('dreame_mop_wash_frequency', freq).catch(this.error);
-                }
-              }
-            } else {
-              // Simple non-grouped mode
-              this._isGroupedMode = false;
-              if (CLEANING_MODE_REVERSE[value] !== undefined) {
-                if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
-                  await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[value]).catch(this.error);
-                }
-              } else {
-                this.error('Unknown cleaning mode value:', value);
-              }
-            }
-            break;
-          }
-
-          case '4-25': // SELF_WASH_STATUS
-            if (SELF_WASH_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_self_wash_status', SELF_WASH_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '4-63': // CLEANING_PROGRESS
-            await this.setCapabilityValue('dreame_cleaning_progress', value || 0).catch(this.error);
-            break;
-
-          case '4-12': // CARPET_BOOST
-            await this.setCapabilityValue('dreame_carpet_boost', !!value).catch(this.error);
-            break;
-
-          case '5-1': // DND_ENABLED
-            await this.setCapabilityValue('dreame_dnd', !!value).catch(this.error);
-            break;
-
-          case '9-2': // MAIN_BRUSH_LEFT
-            await this.setCapabilityValue('dreame_main_brush_left', value).catch(this.error);
-            this._checkConsumable('Main Brush', value);
-            break;
-
-          case '10-2': // SIDE_BRUSH_LEFT
-            await this.setCapabilityValue('dreame_side_brush_left', value).catch(this.error);
-            this._checkConsumable('Side Brush', value);
-            break;
-
-          case '11-1': // FILTER_LEFT
-            await this.setCapabilityValue('dreame_filter_left', value).catch(this.error);
-            this._checkConsumable('Filter', value);
-            break;
-
-          case '16-1': // SENSOR_DIRTY_LEFT
-            await this.setCapabilityValue('dreame_sensor_dirty_left', value).catch(this.error);
-            this._checkConsumable('Sensor', value);
-            break;
-
-          case '18-1': // MOP_PAD_LEFT
-            await this.setCapabilityValue('dreame_mop_pad_left', value).catch(this.error);
-            this._checkConsumable('Mop Pad', value);
-            break;
-
-          case '15-5': // AUTO_EMPTY_STATUS
-            if (AUTO_EMPTY_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_dust_collection', AUTO_EMPTY_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '27-3': // DUST_BAG_STATUS
-            if (DUST_BAG_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_dust_bag', DUST_BAG_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '27-1': // CLEAN_WATER_TANK
-            if (WATER_TANK_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_water_tank', WATER_TANK_MAP[value]).catch(this.error);
-              // Trigger low water warning
-              if (value === 2 || value === 3) {
-                const status = value === 2 ? 'Low Water' : 'No Water';
-                const card = this.homey.flow.getDeviceTriggerCard('low_water_warning');
-                await card.trigger(this, { status }).catch(e => this.error('Low water trigger:', e));
-              }
-            }
-            break;
-
-          case '27-2': // DIRTY_WATER_TANK
-            if (DIRTY_WATER_TANK_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_dirty_water_tank', DIRTY_WATER_TANK_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '4-41': // LOW_WATER_WARNING (separate from tank status)
-            break; // Handled via 27-1
-
-          case '4-50': { // AUTO_SWITCH_SETTINGS
-            // Parse JSON auto-switch settings
-            try {
-              if (typeof value === 'string') {
-                const settings = JSON.parse(value);
-                // Settings can be an object or array of {k,v} pairs
-                const settingsMap = {};
-                if (Array.isArray(settings)) {
-                  for (const s of settings) settingsMap[s.k] = s.v;
-                } else if (settings.k) {
-                  settingsMap[settings.k] = settings.v;
-                }
-                // CleanGenius (SmartHost)
-                if (settingsMap.SmartHost !== undefined && this.hasCapability('dreame_cleangenius')) {
-                  const cg = CLEANGENIUS_REVERSE[settingsMap.SmartHost];
-                  if (cg !== undefined) {
-                    await this.setCapabilityValue('dreame_cleangenius', cg).catch(this.error);
-                  }
-                }
-                // Cleaning Route (CleanRoute)
-                if (settingsMap.CleanRoute !== undefined && this.hasCapability('dreame_cleaning_route')) {
-                  const route = CLEANING_ROUTE_REVERSE[settingsMap.CleanRoute];
-                  if (route !== undefined) {
-                    await this.setCapabilityValue('dreame_cleaning_route', route).catch(this.error);
-                  }
-                }
-              }
-            } catch (e) {
-              this.error('Failed to parse AUTO_SWITCH_SETTINGS:', value);
-            }
-            break;
-          }
-
-          case '28-5': // CLEANGENIUS_MODE
-            // Only meaningful when CleanGenius is active
-            if (CLEANGENIUS_MODE_REVERSE[value] !== undefined) {
-              this._cleanGeniusMode = CLEANGENIUS_MODE_REVERSE[value];
-            }
-            break;
-
-          case '4-58': // TASK_TYPE
-            this._taskType = value;
-            break;
-
-          case '4-27': // CHILD_LOCK
-            await this.setCapabilityValue('dreame_child_lock', !!value).catch(this.error);
-            break;
-
-          case '4-11': // RESUME_CLEANING
-            await this.setCapabilityValue('dreame_resume_cleaning', !!value).catch(this.error);
-            break;
-
-          case '4-29': // TIGHT_MOPPING
-            await this.setCapabilityValue('dreame_tight_mopping', !!value).catch(this.error);
-            break;
-
-          case '28-27': // SILENT_DRYING
-            await this.setCapabilityValue('dreame_silent_drying', !!value).catch(this.error);
-            break;
-
-          case '4-28': // CARPET_SENSITIVITY
-            if (CARPET_SENSITIVITY_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_carpet_sensitivity', CARPET_SENSITIVITY_REVERSE[value]).catch(this.error);
-            }
-            break;
-
-          case '4-36': // CARPET_CLEANING
-            if (CARPET_CLEANING_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_carpet_cleaning', CARPET_CLEANING_REVERSE[value]).catch(this.error);
-            }
-            break;
-
-          case '4-46': // MOP_WASH_LEVEL
-            if (MOP_WASH_LEVEL_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_mop_wash_level', MOP_WASH_LEVEL_REVERSE[value]).catch(this.error);
-            }
-            break;
-
-          case '4-40': // DRYING_TIME
-            await this.setCapabilityValue('dreame_drying_time', value).catch(this.error);
-            break;
-
-          case '7-1': // VOLUME
-            await this.setCapabilityValue('dreame_volume', value).catch(this.error);
-            break;
-
-          case '28-8': // WATER_TEMPERATURE
-            if (WATER_TEMP_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_water_temperature', WATER_TEMP_REVERSE[value]).catch(this.error);
-            }
-            break;
-
-          case '15-2': // AUTO_EMPTY_FREQUENCY
-            if (AUTO_EMPTY_FREQ_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_auto_empty_frequency', AUTO_EMPTY_FREQ_REVERSE[value]).catch(this.error);
-            }
-            break;
-
-          case '28-86': // MOP_PRESSURE
-            if (MOP_PRESSURE_REVERSE[value] !== undefined) {
-              await this.setCapabilityValue('dreame_mop_pressure', MOP_PRESSURE_REVERSE[value]).catch(this.error);
-            }
-            break;
-
-          case '3-2': // CHARGING_STATUS
-            if (CHARGING_STATUS_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_charging_status', CHARGING_STATUS_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '4-64': // DRYING_PROGRESS
-            await this.setCapabilityValue('dreame_drying_progress', value || 0).catch(this.error);
-            break;
-
-          case '4-60': // DRAINAGE_STATUS
-            if (DRAINAGE_STATUS_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_drainage_status', DRAINAGE_STATUS_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '27-4': // DETERGENT_STATUS
-            if (DETERGENT_STATUS_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_detergent_status', DETERGENT_STATUS_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '27-15': // HOT_WATER_STATUS
-            if (HOT_WATER_STATUS_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_hot_water_status', HOT_WATER_STATUS_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '4-61': // DOCK_CLEANING_STATUS
-            if (DOCK_CLEANING_STATUS_MAP[value] !== undefined) {
-              await this.setCapabilityValue('dreame_dock_cleaning_status', DOCK_CLEANING_STATUS_MAP[value]).catch(this.error);
-            }
-            break;
-
-          case '12-1': // FIRST_CLEANING_DATE (read-only, not mapped to capability)
-            break;
-
-          case '12-4': // TOTAL_CLEANED_AREA
-            await this.setCapabilityValue('dreame_total_cleaned_area', value).catch(this.error);
-            break;
-
-          // Map properties (6-x) are handled via MQTT, not HTTP polling
-        }
+        await this._applyProperty(key, r.value);
       }
 
       // Complete probe and save unsupported props
@@ -1805,7 +1873,7 @@ class DreameVacuumDevice extends Homey.Device {
   }
 
   async onSettings({ oldSettings, newSettings, changedKeys }) {
-    if (changedKeys.includes('poll_interval')) {
+    if (changedKeys.includes('poll_interval') || changedKeys.includes('adaptive_polling')) {
       this.restartPolling();
     }
 

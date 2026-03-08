@@ -25,7 +25,8 @@ We raden aan een apart Dreame Home account te gebruiken voor Homey om mogelijke 
 - Dweilwasfrequentie: Per kamer, elke 5/10/15/20/25 m²
 - Dock functies: Automatisch Legen, Zelfreiniging, Drogen, Afvoeren
 - Verbruiksartikelen: Hoofdborstel, Zijborstel, Filter, Dweilpad, Sensor (met reset via flow cards)
-- Realtime MQTT: Persistente verbinding met Dreame cloud voor directe statusupdates en kamerontdekking
+- Realtime MQTT: Persistente verbinding met Dreame cloud voor directe statusupdates en kamerontdekking. Alle 35+ eigenschappen via MQTT push
+- Adaptieve Polling: 60s inactief / 15s reiniging bij MQTT, 5s terugval zonder. Automatische gezondheidsmonitoring
 - Kamerreinigen: Enkele of meerdere kamers op ID met zuigkracht/water/herhalingen, trigger cards per kamer
 - Dashboard Widget: Stofzuigerkaart met kamerkleuren, labels, robot- & oplaadpositie, statusbalk
 - App Instellingen: Apparaatoverzicht met kaart, statusraster, kamerlijst, verbruiksartikelstatus

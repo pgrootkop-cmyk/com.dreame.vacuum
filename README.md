@@ -51,7 +51,8 @@ If you signed up using Google, Apple, or another third-party login, you need to 
 | **Dock Settings** | Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume |
 | **Toggles** | Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND |
 | **Status** | Charging Status, Dock Cleaning Status, Drying Progress, Drainage Status, Detergent Status, Hot Water Status, Water Tank, Dirty Water Tank, Dust Bag |
-| **Real-time MQTT** | Persistent connection to Dreame MQTT broker for instant property updates and room discovery |
+| **Real-time MQTT** | Persistent connection to Dreame MQTT broker for instant property updates and room discovery. All 35+ properties pushed via MQTT — ~80% fewer API calls |
+| **Adaptive Polling** | Automatic poll interval adjustment: 60s idle / 15s cleaning with MQTT, 5s fallback without. MQTT health monitoring with automatic fast-poll recovery |
 | **Flow Cards** | 29 action cards, 16 condition cards, 5 trigger cards |
 
 ## Not Supported
