@@ -355,6 +355,8 @@ const POLL_FAST = 5000;        // MQTT disconnected (fallback)
 const POLL_ACTIVE = 15000;     // MQTT connected + cleaning (backup)
 const POLL_IDLE = 60000;       // MQTT connected + idle (safety net)
 const MQTT_STALE_MS = 120000;  // If no MQTT message for 2min during cleaning, fall back to fast poll
+const MAP_REFRESH_INTERVAL = 600000; // 10min — periodic map refresh via HTTP when MQTT is down
+const MQTT_RESTART_DELAY = 1800000;  // 30min — full MQTT restart after giving up
 
 // Segment/room type names from Dreame protocol
 const SEGMENT_TYPE_NAMES = {
@@ -527,6 +529,11 @@ class DreameVacuumDevice extends Homey.Device {
     this._mqttConnected = false;
     this._lastMqttMessage = 0;
     this._currentPollInterval = POLL_FAST;
+    this._mqttListeners = null; // track our own listeners for cleanup
+    this._mapRefreshTimer = null;
+    this._mqttRetryTimer = null; // track connect retry timer
+    this._mqttRestartTimer = null; // track full restart timer
+    this._refreshingToken = false; // guard concurrent token refresh
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -673,7 +680,6 @@ class DreameVacuumDevice extends Homey.Device {
       // Ensure we have a valid token and uid
       if (!api.accessToken || !api.uid) {
         await api.login();
-        // Save uid
         this.homey.app.saveUid(api.uid);
       }
 
@@ -683,33 +689,57 @@ class DreameVacuumDevice extends Homey.Device {
       const masterUid = this.getStoreValue('masterUid') || uid;
 
       if (!uid || !api.accessToken || !this._bindDomain) {
-        this.homey.setTimeout(() => this._connectMqtt(), 15000);
+        this._mqttRetryTimer = this.homey.setTimeout(() => this._connectMqtt(), 15000);
         return;
       }
 
       const mqttClient = this.homey.app.getMqtt();
 
-      // Listen for property updates for our device
-      mqttClient.removeAllListeners('properties');
-      mqttClient.on('properties', (did, params) => {
-        if (did === this._did || !did) {
-          this._handleMqttProperties(params);
-        }
-      });
+      // Remove previous listeners from this device (prevent leaks)
+      this._removeMqttListeners(mqttClient);
 
-      mqttClient.on('connected', () => {
-        this._mqttConnected = true;
-        this._lastMqttMessage = Date.now();
-        if (MQTT_DEBUG) this.log('[MQTT:STATE] Connected — switching to adaptive polling');
-        this._adjustPolling();
-        this._requestMapViaMqtt();
-      });
+      // Create bound listeners we can track and remove later
+      const listeners = {
+        properties: (did, params) => {
+          if (did === this._did || !did) {
+            this._handleMqttProperties(params);
+          }
+        },
+        connected: () => {
+          this._mqttConnected = true;
+          this._lastMqttMessage = Date.now();
+          if (MQTT_DEBUG) this.log('[MQTT:STATE] Connected — switching to adaptive polling');
+          this._adjustPolling();
+          this._stopMapRefreshTimer();
+          this._requestMapViaMqtt();
+        },
+        disconnected: () => {
+          this._mqttConnected = false;
+          if (MQTT_DEBUG) this.log('[MQTT:STATE] Disconnected — switching to fast polling');
+          this._adjustPolling();
+          this._startMapRefreshTimer();
+        },
+        auth_error: () => {
+          this.log('[MQTT] Auth error — refreshing token');
+          this._mqttConnected = false;
+          this._adjustPolling();
+          this._handleMqttAuthError();
+        },
+        gave_up: () => {
+          this.log('[MQTT] Gave up reconnecting — relying on HTTP polling, will retry in 30min');
+          this._mqttConnected = false;
+          this._adjustPolling();
+          this._startMapRefreshTimer();
+          this._scheduleMqttRestart();
+        },
+      };
+      this._mqttListeners = { client: mqttClient, listeners };
 
-      mqttClient.on('disconnected', () => {
-        this._mqttConnected = false;
-        if (MQTT_DEBUG) this.log('[MQTT:STATE] Disconnected — switching to fast polling');
-        this._adjustPolling();
-      });
+      mqttClient.on('properties', listeners.properties);
+      mqttClient.on('connected', listeners.connected);
+      mqttClient.on('disconnected', listeners.disconnected);
+      mqttClient.on('auth_error', listeners.auth_error);
+      mqttClient.on('gave_up', listeners.gave_up);
 
       await mqttClient.connect({
         uid,
@@ -722,8 +752,144 @@ class DreameVacuumDevice extends Homey.Device {
       });
     } catch (e) {
       this.error('[MQTT] Connect error:', e.message);
-      // Retry in 30s
-      this.homey.setTimeout(() => this._connectMqtt(), 30000);
+      this._startMapRefreshTimer();
+      this._mqttRetryTimer = this.homey.setTimeout(() => this._connectMqtt(), 30000);
+    }
+  }
+
+  _cancelMqttRetryTimer() {
+    if (this._mqttRetryTimer) {
+      this.homey.clearTimeout(this._mqttRetryTimer);
+      this._mqttRetryTimer = null;
+    }
+  }
+
+  /**
+   * Schedule a full MQTT restart after giving up.
+   * Fresh login + reconnect attempt after 30 minutes.
+   */
+  _scheduleMqttRestart() {
+    this._cancelMqttRestartTimer();
+    this._mqttRestartTimer = this.homey.setTimeout(() => {
+      this._mqttRestartTimer = null;
+      this.log('[MQTT] Attempting full restart after cooldown');
+      this._restartMqtt();
+    }, MQTT_RESTART_DELAY);
+  }
+
+  _cancelMqttRestartTimer() {
+    if (this._mqttRestartTimer) {
+      this.homey.clearTimeout(this._mqttRestartTimer);
+      this._mqttRestartTimer = null;
+    }
+  }
+
+  /**
+   * Full MQTT restart: fresh login, new connection from scratch.
+   */
+  async _restartMqtt() {
+    try {
+      const api = this.homey.app.getApi();
+      if (!api) return;
+
+      // Fresh login to get new tokens
+      await api.login();
+      this.homey.app.saveUid(api.uid);
+
+      // Re-fetch bindDomain in case it changed
+      await this._fetchBindDomain();
+
+      // Clean up old listeners and reconnect
+      const mqttClient = this.homey.app.getMqtt();
+      this._removeMqttListeners(mqttClient);
+      this._stopMapRefreshTimer();
+
+      await this._connectMqtt();
+      this.log('[MQTT] Full restart succeeded');
+    } catch (e) {
+      this.error('[MQTT] Full restart failed:', e.message);
+      // Schedule another attempt
+      this._scheduleMqttRestart();
+    }
+  }
+
+  /**
+   * Remove our own MQTT listeners without affecting other devices.
+   */
+  _removeMqttListeners(mqttClient) {
+    if (this._mqttListeners) {
+      const { client, listeners } = this._mqttListeners;
+      const target = mqttClient || client;
+      if (target) {
+        for (const [event, fn] of Object.entries(listeners)) {
+          target.removeListener(event, fn);
+        }
+      }
+      this._mqttListeners = null;
+    }
+  }
+
+  /**
+   * Handle MQTT auth error — refresh token and reconnect.
+   */
+  async _handleMqttAuthError() {
+    if (this._refreshingToken) return; // prevent concurrent refresh
+    this._refreshingToken = true;
+    try {
+      const api = this.homey.app.getApi();
+      if (!api) return;
+      await api.login();
+      this.homey.app.saveUid(api.uid);
+      // updateToken triggers reconnect with fresh credentials
+      const mqttClient = this.homey.app.getMqtt();
+      mqttClient.updateToken(api.accessToken);
+    } catch (e) {
+      this.error('[MQTT] Token refresh failed:', e.message);
+      // Polling continues as fallback
+    } finally {
+      this._refreshingToken = false;
+    }
+  }
+
+  /**
+   * Start periodic map refresh via HTTP when MQTT is unavailable.
+   */
+  _startMapRefreshTimer() {
+    if (this._mapRefreshTimer) return;
+    this._mapRefreshTimer = this.homey.setInterval(() => {
+      this._refreshMapViaHttp();
+    }, MAP_REFRESH_INTERVAL);
+  }
+
+  _stopMapRefreshTimer() {
+    if (this._mapRefreshTimer) {
+      this.homey.clearInterval(this._mapRefreshTimer);
+      this._mapRefreshTimer = null;
+    }
+  }
+
+  /**
+   * Refresh map data via HTTP API as fallback when MQTT is down.
+   */
+  async _refreshMapViaHttp() {
+    try {
+      const api = this.homey.app.getApi();
+      if (!api) return;
+
+      // Request map — the response comes via the cloud API
+      await api.callAction(
+        this._did, this._bindDomain,
+        ACTION.REQUEST_MAP.siid, ACTION.REQUEST_MAP.aiid,
+        [{ piid: 2, value: '{}' }],
+      );
+
+      // Try to download map using last known object name
+      const objectName = this.getStoreValue('mapObjectName');
+      if (objectName) {
+        await this._downloadMapData(objectName);
+      }
+    } catch (e) {
+      if (MQTT_DEBUG) this.log('[MAP:HTTP] Refresh error:', e.message);
     }
   }
 
@@ -733,6 +899,11 @@ class DreameVacuumDevice extends Homey.Device {
    */
   async _requestMapViaMqtt() {
     try {
+      const mqttClient = this.homey.app.getMqtt();
+      if (!mqttClient || !mqttClient.connected) {
+        if (MQTT_DEBUG) this.log('[MQTT:OUT] Skipping map request — MQTT not connected');
+        return;
+      }
       if (MQTT_DEBUG) this.log('[MQTT:OUT] Requesting map via ACTION 6-1');
       const api = this._getApi();
       await api.callAction(
@@ -1887,10 +2058,12 @@ class DreameVacuumDevice extends Homey.Device {
 
   onDeleted() {
     this.stopPolling();
-    const mqtt = this.homey.app.getMqtt();
-    if (mqtt) {
-      mqtt.disconnect();
-    }
+    this._stopMapRefreshTimer();
+    this._cancelMqttRetryTimer();
+    this._cancelMqttRestartTimer();
+    // Only remove our listeners — don't disconnect the shared MQTT singleton
+    // (other devices may still be using it; app.onUninit() handles disconnect)
+    this._removeMqttListeners();
   }
 
 }

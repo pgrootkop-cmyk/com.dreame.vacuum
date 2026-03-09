@@ -345,6 +345,9 @@ class DreameVacuumDriver extends Homey.Driver {
 
   _getRoomAutocomplete(query, args) {
     const rooms = args.device ? args.device.getRooms() : [];
+    if (rooms.length === 0) {
+      return [{ name: 'No rooms discovered yet', description: 'Rooms appear after the vacuum maps your home', id: '_none' }];
+    }
     const results = rooms.map(r => ({
       name: `${r.name} (ID: ${r.id})`,
       description: r.customName && r.customName !== r.name ? r.customName : '',
@@ -357,7 +360,9 @@ class DreameVacuumDriver extends Homey.Driver {
 
   _getMultiRoomAutocomplete(query, args) {
     const rooms = args.device ? args.device.getRooms() : [];
-    if (rooms.length === 0) return [];
+    if (rooms.length === 0) {
+      return [{ name: 'No rooms discovered yet', description: 'Rooms appear after the vacuum maps your home', id: '_none' }];
+    }
 
     const results = [];
 
