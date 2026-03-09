@@ -357,6 +357,7 @@ const POLL_IDLE = 60000;       // MQTT connected + idle (safety net)
 const MQTT_STALE_MS = 120000;  // If no MQTT message for 2min during cleaning, fall back to fast poll
 const MAP_REFRESH_INTERVAL = 600000; // 10min — periodic map refresh via HTTP when MQTT is down
 const MQTT_RESTART_DELAY = 1800000;  // 30min — full MQTT restart after giving up
+const TOKEN_REFRESH_MARGIN = 100;    // seconds before expiry to proactively refresh (matches ioBroker)
 
 // Segment/room type names from Dreame protocol
 const SEGMENT_TYPE_NAMES = {
@@ -684,9 +685,8 @@ class DreameVacuumDevice extends Homey.Device {
       }
 
       const uid = api.uid;
-      const country = api.country || this.homey.settings.get('country') || 'eu';
+      const region = api.region || api.country || this.homey.settings.get('country') || 'eu';
       const model = this.getStoreValue('model') || '';
-      const masterUid = this.getStoreValue('masterUid') || uid;
 
       if (!uid || !api.accessToken || !this._bindDomain) {
         this._mqttRetryTimer = this.homey.setTimeout(() => this._connectMqtt(), 15000);
@@ -741,15 +741,18 @@ class DreameVacuumDevice extends Homey.Device {
       mqttClient.on('auth_error', listeners.auth_error);
       mqttClient.on('gave_up', listeners.gave_up);
 
+      if (MQTT_DEBUG) this.log(`[MQTT] Connecting: uid=${uid}, did=${this._did}, model=${model}, region=${region}, broker=${this._bindDomain}`);
       await mqttClient.connect({
         uid,
         accessToken: api.accessToken,
         bindDomain: this._bindDomain,
         did: this._did,
         model,
-        country,
-        masterUid,
+        country: region,
       });
+
+      // Start proactive token refresh to prevent auth expiry
+      this._startTokenRefreshTimer();
     } catch (e) {
       this.error('[MQTT] Connect error:', e.message);
       this._startMapRefreshTimer();
@@ -781,6 +784,49 @@ class DreameVacuumDevice extends Homey.Device {
     if (this._mqttRestartTimer) {
       this.homey.clearTimeout(this._mqttRestartTimer);
       this._mqttRestartTimer = null;
+    }
+  }
+
+  /**
+   * Start proactive token refresh timer.
+   * Refreshes token before expiry to prevent auth failures on MQTT and API.
+   * Matches ioBroker pattern: setInterval((expires_in - 100) * 1000).
+   */
+  _startTokenRefreshTimer() {
+    this._stopTokenRefreshTimer();
+    const api = this.homey.app.getApi();
+    if (!api || !api.tokenExpiry) return;
+
+    const msUntilRefresh = api.tokenExpiry - Date.now() - (TOKEN_REFRESH_MARGIN * 1000);
+    const delay = Math.max(msUntilRefresh, 60000); // At least 1 minute
+    if (MQTT_DEBUG) this.log(`[TOKEN] Proactive refresh scheduled in ${Math.round(delay / 1000)}s`);
+
+    this._tokenRefreshTimer = this.homey.setTimeout(async () => {
+      this._tokenRefreshTimer = null;
+      try {
+        const currentApi = this.homey.app.getApi();
+        if (!currentApi) return;
+        if (MQTT_DEBUG) this.log('[TOKEN] Proactive refresh triggered');
+        await currentApi.refreshAccessToken();
+        this.homey.app.saveUid(currentApi.uid);
+        // MQTT gets new token via onTokenUpdate → updateToken
+        // Schedule next refresh
+        this._startTokenRefreshTimer();
+      } catch (e) {
+        this.error('[TOKEN] Proactive refresh failed:', e.message);
+        // Retry in 5 minutes
+        this._tokenRefreshTimer = this.homey.setTimeout(() => {
+          this._tokenRefreshTimer = null;
+          this._startTokenRefreshTimer();
+        }, 300000);
+      }
+    }, delay);
+  }
+
+  _stopTokenRefreshTimer() {
+    if (this._tokenRefreshTimer) {
+      this.homey.clearTimeout(this._tokenRefreshTimer);
+      this._tokenRefreshTimer = null;
     }
   }
 
@@ -2059,6 +2105,7 @@ class DreameVacuumDevice extends Homey.Device {
   onDeleted() {
     this.stopPolling();
     this._stopMapRefreshTimer();
+    this._stopTokenRefreshTimer();
     this._cancelMqttRetryTimer();
     this._cancelMqttRestartTimer();
     // Only remove our listeners — don't disconnect the shared MQTT singleton
