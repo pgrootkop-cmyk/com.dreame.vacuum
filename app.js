@@ -51,10 +51,14 @@ class DreameApp extends Homey.App {
       this._api.tenantId = tenantId;
     }
 
-    // Restore uid
+    // Restore uid and region
     const uid = this.homey.settings.get('uid');
     if (uid) {
       this._api.uid = uid;
+    }
+    const region = this.homey.settings.get('region');
+    if (region) {
+      this._api.region = region;
     }
 
     // Auto-save tokens whenever they change
@@ -65,6 +69,9 @@ class DreameApp extends Homey.App {
       this.homey.settings.set('tenantId', tokens.tenantId);
       if (tokens.uid) {
         this.homey.settings.set('uid', tokens.uid);
+      }
+      if (tokens.region) {
+        this.homey.settings.set('region', tokens.region);
       }
 
       // Update MQTT token if connected
