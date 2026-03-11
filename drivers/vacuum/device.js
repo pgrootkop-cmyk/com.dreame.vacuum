@@ -729,10 +729,19 @@ class DreameVacuumDevice extends Homey.Device {
         connected: () => {
           this._mqttConnected = true;
           this._lastMqttMessage = Date.now();
-          this._diag('[MQTT] Connected', null, 'info');
+          const cachedRooms = this._rooms ? this._rooms.length : 0;
+          this._diag(`[MQTT] Connected, ${cachedRooms} cached rooms`, null, 'info');
           this._adjustPolling();
           this._stopMapRefreshTimer();
           this._requestMapViaMqtt();
+
+          // If no 6-3 arrives within 60s, log it and try HTTP fallback
+          this._mapResponseTimeout = this.homey.setTimeout(() => {
+            if (!this._rooms || this._rooms.length === 0) {
+              this._diag('[MAP] No 6-3 received after 60s, trying HTTP fallback', null, 'warning');
+              this._refreshMapViaHttp().catch(() => {});
+            }
+          }, 60000);
         },
         disconnected: () => {
           this._mqttConnected = false;
@@ -948,6 +957,8 @@ class DreameVacuumDevice extends Homey.Device {
       const api = this.homey.app.getApi();
       if (!api) return;
 
+      this._diag('[MAP] HTTP fallback: requesting map via API', null, 'debug');
+
       // Request map — the response comes via the cloud API
       await api.callAction(
         this._did, this._bindDomain,
@@ -958,10 +969,13 @@ class DreameVacuumDevice extends Homey.Device {
       // Try to download map using last known object name
       const objectName = this.getStoreValue('mapObjectName');
       if (objectName) {
+        this._diag(`[MAP] HTTP fallback: downloading with cached path`, null, 'debug');
         await this._downloadMapData(objectName);
+      } else {
+        this._diag('[MAP] HTTP fallback: no cached map path available', null, 'warning');
       }
     } catch (e) {
-      this._diagError(e, { context: 'map_http_refresh' }, 'warning');
+      this._diag(`[MAP] HTTP fallback error: ${e.message}`, null, 'warning');
     }
   }
 
@@ -973,19 +987,20 @@ class DreameVacuumDevice extends Homey.Device {
     try {
       const mqttClient = this.homey.app.getMqtt();
       if (!mqttClient || !mqttClient.connected) {
-        this._diag('[MQTT] Skipping map request — not connected', null, 'debug');
+        this._diag('[MAP] Skipping map request — MQTT not connected', null, 'debug');
         return;
       }
-      this._diag('[MQTT] Requesting map via ACTION 6-1', null, 'debug');
+      this._diag('[MAP] Requesting map via ACTION 6-1', null, 'debug');
       const api = this._getApi();
-      await api.callAction(
+      const result = await api.callAction(
         this._did, this._bindDomain,
         ACTION.REQUEST_MAP.siid, ACTION.REQUEST_MAP.aiid,
         [{ piid: 2, value: '{}' }],
       );
+      this._diag('[MAP] Map request sent', { result: JSON.stringify(result).slice(0, 200) }, 'debug');
       // Map data will arrive via MQTT property 6-3
     } catch (e) {
-      this.error('[MQTT] Map request error:', e.message);
+      this._diag(`[MAP] Map request error: ${e.message}`, null, 'error');
     }
   }
 
@@ -999,6 +1014,7 @@ class DreameVacuumDevice extends Homey.Device {
 
     const mapStr = buffer.toString('utf8');
     const rooms = parseMapRooms(mapStr, this.log.bind(this));
+    this._diag(`[MAP] Parsed ${rooms.length} rooms from map data`, null, 'debug');
     if (rooms.length > 0) {
       this._rooms = rooms;
       this.setStoreValue('rooms', rooms).catch(this.error);
@@ -1015,7 +1031,8 @@ class DreameVacuumDevice extends Homey.Device {
    */
   _handleMqttProperties(params) {
     this._lastMqttMessage = Date.now();
-    this._diag(`[MQTT:IN] ${params.length} props`, { props: params.map(p => `${p.siid}-${p.piid}`).join(',') }, 'debug');
+    const propKeys = params.map(p => `${p.siid}-${p.piid}`).join(',');
+    this._diag(`[MQTT:IN] ${params.length} props: ${propKeys}`, null, 'debug');
 
     for (const p of params) {
       const key = `${p.siid}-${p.piid}`;
@@ -1033,8 +1050,13 @@ class DreameVacuumDevice extends Homey.Device {
 
       // Handle map object name from MQTT - download the actual map data
       if (key === '6-3' && value) {
+        if (this._mapResponseTimeout) {
+          this.homey.clearTimeout(this._mapResponseTimeout);
+          this._mapResponseTimeout = null;
+        }
+        this._diag(`[MAP] Got object path via MQTT 6-3: ${String(value).slice(0, 100)}`, null, 'debug');
         this._downloadMapData(value).catch(e => {
-          this.error('[MQTT] Map download error:', e.message);
+          this._diag(`[MAP] Download error: ${e.message}`, null, 'error');
           this._diagError(e, { context: 'mqtt_map_download' });
         });
         continue;
@@ -2147,6 +2169,10 @@ class DreameVacuumDevice extends Homey.Device {
     this._stopTokenRefreshTimer();
     this._cancelMqttRetryTimer();
     this._cancelMqttRestartTimer();
+    if (this._mapResponseTimeout) {
+      this.homey.clearTimeout(this._mapResponseTimeout);
+      this._mapResponseTimeout = null;
+    }
     // Only remove our listeners — don't disconnect the shared MQTT singleton
     // (other devices may still be using it; app.onUninit() handles disconnect)
     this._removeMqttListeners();
