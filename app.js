@@ -40,11 +40,12 @@ class DreameApp extends Homey.App {
    */
   sendDiagnostic(message, extra, level = 'info') {
     if (!this.isDiagnosticEnabled()) return;
+    const opts = { level };
     if (extra) {
       if (extra.model) this.homeyLog.setTags({ model: extra.model });
-      this.homeyLog.setExtra(extra);
+      opts.extra = extra;
     }
-    Raven.captureMessage(message, { level });
+    Raven.captureMessage(message, opts);
   }
 
   /**
@@ -53,11 +54,12 @@ class DreameApp extends Homey.App {
    */
   sendError(err, extra, level = 'error') {
     if (!this.isDiagnosticEnabled()) return;
+    const opts = { level };
     if (extra) {
       if (extra.model) this.homeyLog.setTags({ model: extra.model });
-      this.homeyLog.setExtra(extra);
+      opts.extra = extra;
     }
-    Raven.captureException(err, { level });
+    Raven.captureException(err, opts);
   }
 
   _initApi() {
