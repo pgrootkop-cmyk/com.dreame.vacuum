@@ -1,6 +1,6 @@
 {
   "type": "boolean",
-  "title": { "en": "Mop Pad Installed", "nl": "Dweilpad Geïnstalleerd" },
+  "title": { "en": "Mop Pad Installed" },
   "getable": true,
   "setable": false,
   "uiComponent": "sensor"

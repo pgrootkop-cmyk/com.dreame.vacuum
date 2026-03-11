@@ -9,12 +9,10 @@
   ],
   "brandColor": "#292929",
   "name": {
-    "en": "Dreame",
-    "nl": "Dreame"
+    "en": "Dreame"
   },
   "description": {
-    "en": "Smart Robot Vacuum Control",
-    "nl": "Slimme Robotstofzuiger Bediening"
+    "en": "Smart Robot Vacuum Control"
   },
   "category": [
     "appliances"
@@ -49,13 +47,9 @@
       "stofzuiger",
       "robotstofzuiger",
       "schoonmaken",
-      "dweil",
       "robot",
-      "CleanGenius",
       "X40",
-      "L20",
-      "dweilen",
-      "dock"
+      "L20"
     ]
   },
   "images": {
@@ -2481,16 +2475,14 @@
   "widgets": {
     "vacuum-map": {
       "name": {
-        "en": "Vacuum Map",
-        "nl": "Stofzuiger Kaart"
+        "en": "Vacuum Map"
       },
       "settings": [
         {
           "id": "showRoomNames",
           "type": "checkbox",
           "title": {
-            "en": "Show room names",
-            "nl": "Toon kamernamen"
+            "en": "Show room names"
           },
           "value": true
         },
@@ -2498,8 +2490,7 @@
           "id": "showStatus",
           "type": "checkbox",
           "title": {
-            "en": "Show status bar",
-            "nl": "Toon statusbalk"
+            "en": "Show status bar"
           },
           "value": true
         }
@@ -2949,8 +2940,7 @@
     "dreame_dust_collection_available": {
       "type": "string",
       "title": {
-        "en": "Dust Collection",
-        "nl": "Stofopvang"
+        "en": "Dust Collection"
       },
       "getable": true,
       "setable": false,
@@ -3007,8 +2997,7 @@
     "dreame_mop_pad_installed": {
       "type": "boolean",
       "title": {
-        "en": "Mop Pad Installed",
-        "nl": "Dweilpad Geïnstalleerd"
+        "en": "Mop Pad Installed"
       },
       "getable": true,
       "setable": false,
@@ -3240,8 +3229,7 @@
     "dreame_status": {
       "type": "string",
       "title": {
-        "en": "Status",
-        "nl": "Status"
+        "en": "Status"
       },
       "getable": true,
       "setable": false,
@@ -3285,8 +3273,7 @@
     "dreame_task_status": {
       "type": "string",
       "title": {
-        "en": "Task Status",
-        "nl": "Taakstatus"
+        "en": "Task Status"
       },
       "getable": true,
       "setable": false,
