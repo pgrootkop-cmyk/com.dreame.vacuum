@@ -348,9 +348,6 @@ const ERROR_CODES = {
 const COMMAND_DEBOUNCE_MS = 10000;
 
 // Adaptive polling intervals (ms)
-// DEBUG FLAG — set to false to silence MQTT debug logs
-const MQTT_DEBUG = false;
-
 const POLL_FAST = 5000;        // MQTT disconnected (fallback)
 const POLL_ACTIVE = 15000;     // MQTT connected + cleaning (backup)
 const POLL_IDLE = 60000;       // MQTT connected + idle (safety net)
@@ -660,6 +657,30 @@ class DreameVacuumDevice extends Homey.Device {
     }
   }
 
+  /**
+   * Send diagnostic log to Sentry when user has opted in.
+   * @param {'debug'|'info'|'warning'|'error'|'fatal'} level
+   */
+  _diag(message, extra, level = 'info') {
+    this.homey.app.sendDiagnostic(message, {
+      ...extra,
+      did: this._did,
+      model: this.getStoreValue('model') || 'unknown',
+    }, level);
+  }
+
+  /**
+   * Send error to Sentry when user has opted in.
+   * @param {'warning'|'error'|'fatal'} level
+   */
+  _diagError(err, extra, level = 'error') {
+    this.homey.app.sendError(err, {
+      ...extra,
+      did: this._did,
+      model: this.getStoreValue('model') || 'unknown',
+    }, level);
+  }
+
   _getApi() {
     const api = this.homey.app.getApi();
     if (!api) {
@@ -708,25 +729,27 @@ class DreameVacuumDevice extends Homey.Device {
         connected: () => {
           this._mqttConnected = true;
           this._lastMqttMessage = Date.now();
-          if (MQTT_DEBUG) this.log('[MQTT:STATE] Connected — switching to adaptive polling');
+          this._diag('[MQTT] Connected', null, 'info');
           this._adjustPolling();
           this._stopMapRefreshTimer();
           this._requestMapViaMqtt();
         },
         disconnected: () => {
           this._mqttConnected = false;
-          if (MQTT_DEBUG) this.log('[MQTT:STATE] Disconnected — switching to fast polling');
+          this._diag('[MQTT] Disconnected', null, 'warning');
           this._adjustPolling();
           this._startMapRefreshTimer();
         },
         auth_error: () => {
           this.log('[MQTT] Auth error — refreshing token');
+          this._diag('[MQTT] Auth error', null, 'error');
           this._mqttConnected = false;
           this._adjustPolling();
           this._handleMqttAuthError();
         },
         gave_up: () => {
           this.log('[MQTT] Gave up reconnecting — relying on HTTP polling, will retry in 30min');
+          this._diag('[MQTT] Gave up reconnecting', null, 'fatal');
           this._mqttConnected = false;
           this._adjustPolling();
           this._startMapRefreshTimer();
@@ -741,7 +764,7 @@ class DreameVacuumDevice extends Homey.Device {
       mqttClient.on('auth_error', listeners.auth_error);
       mqttClient.on('gave_up', listeners.gave_up);
 
-      if (MQTT_DEBUG) this.log(`[MQTT] Connecting: uid=${uid}, did=${this._did}, model=${model}, region=${region}, broker=${this._bindDomain}`);
+      this._diag('[MQTT] Connecting', { uid, model, region, broker: this._bindDomain }, 'debug');
       await mqttClient.connect({
         uid,
         accessToken: api.accessToken,
@@ -755,6 +778,7 @@ class DreameVacuumDevice extends Homey.Device {
       this._startTokenRefreshTimer();
     } catch (e) {
       this.error('[MQTT] Connect error:', e.message);
+      this._diagError(e, { context: 'mqtt_connect' });
       this._startMapRefreshTimer();
       this._mqttRetryTimer = this.homey.setTimeout(() => this._connectMqtt(), 30000);
     }
@@ -799,14 +823,14 @@ class DreameVacuumDevice extends Homey.Device {
 
     const msUntilRefresh = api.tokenExpiry - Date.now() - (TOKEN_REFRESH_MARGIN * 1000);
     const delay = Math.max(msUntilRefresh, 60000); // At least 1 minute
-    if (MQTT_DEBUG) this.log(`[TOKEN] Proactive refresh scheduled in ${Math.round(delay / 1000)}s`);
+    this._diag(`[TOKEN] Proactive refresh scheduled in ${Math.round(delay / 1000)}s`, null, 'debug');
 
     this._tokenRefreshTimer = this.homey.setTimeout(async () => {
       this._tokenRefreshTimer = null;
       try {
         const currentApi = this.homey.app.getApi();
         if (!currentApi) return;
-        if (MQTT_DEBUG) this.log('[TOKEN] Proactive refresh triggered');
+        this._diag('[TOKEN] Proactive refresh triggered', null, 'debug');
         await currentApi.refreshAccessToken();
         this.homey.app.saveUid(currentApi.uid);
         // MQTT gets new token via onTokenUpdate → updateToken
@@ -854,6 +878,7 @@ class DreameVacuumDevice extends Homey.Device {
       this.log('[MQTT] Full restart succeeded');
     } catch (e) {
       this.error('[MQTT] Full restart failed:', e.message);
+      this._diagError(e, { context: 'mqtt_restart' });
       // Schedule another attempt
       this._scheduleMqttRestart();
     }
@@ -891,6 +916,7 @@ class DreameVacuumDevice extends Homey.Device {
       mqttClient.updateToken(api.accessToken);
     } catch (e) {
       this.error('[MQTT] Token refresh failed:', e.message);
+      this._diagError(e, { context: 'mqtt_token_refresh' });
       // Polling continues as fallback
     } finally {
       this._refreshingToken = false;
@@ -935,7 +961,7 @@ class DreameVacuumDevice extends Homey.Device {
         await this._downloadMapData(objectName);
       }
     } catch (e) {
-      if (MQTT_DEBUG) this.log('[MAP:HTTP] Refresh error:', e.message);
+      this._diagError(e, { context: 'map_http_refresh' }, 'warning');
     }
   }
 
@@ -947,10 +973,10 @@ class DreameVacuumDevice extends Homey.Device {
     try {
       const mqttClient = this.homey.app.getMqtt();
       if (!mqttClient || !mqttClient.connected) {
-        if (MQTT_DEBUG) this.log('[MQTT:OUT] Skipping map request — MQTT not connected');
+        this._diag('[MQTT] Skipping map request — not connected', null, 'debug');
         return;
       }
-      if (MQTT_DEBUG) this.log('[MQTT:OUT] Requesting map via ACTION 6-1');
+      this._diag('[MQTT] Requesting map via ACTION 6-1', null, 'debug');
       const api = this._getApi();
       await api.callAction(
         this._did, this._bindDomain,
@@ -989,7 +1015,7 @@ class DreameVacuumDevice extends Homey.Device {
    */
   _handleMqttProperties(params) {
     this._lastMqttMessage = Date.now();
-    if (MQTT_DEBUG) this.log(`[MQTT:IN] ${params.length} props:`, params.map(p => `${p.siid}-${p.piid}=${JSON.stringify(p.value)}`).join(', '));
+    this._diag(`[MQTT:IN] ${params.length} props`, { props: params.map(p => `${p.siid}-${p.piid}`).join(',') }, 'debug');
 
     for (const p of params) {
       const key = `${p.siid}-${p.piid}`;
@@ -1007,7 +1033,10 @@ class DreameVacuumDevice extends Homey.Device {
 
       // Handle map object name from MQTT - download the actual map data
       if (key === '6-3' && value) {
-        this._downloadMapData(value).catch(e => this.error('[MQTT] Map download error:', e.message));
+        this._downloadMapData(value).catch(e => {
+          this.error('[MQTT] Map download error:', e.message);
+          this._diagError(e, { context: 'mqtt_map_download' });
+        });
         continue;
       }
 
@@ -1368,7 +1397,7 @@ class DreameVacuumDevice extends Homey.Device {
   _adjustPolling() {
     const optimal = this._getOptimalPollInterval();
     if (optimal !== this._currentPollInterval) {
-      if (MQTT_DEBUG) this.log(`[MQTT:POLL] Interval changed: ${this._currentPollInterval}ms → ${optimal}ms`);
+      this._diag(`[MQTT:POLL] Interval changed: ${this._currentPollInterval}ms to ${optimal}ms`, null, 'debug');
       this._currentPollInterval = optimal;
       this.stopPolling();
       this._pollInterval = this.homey.setInterval(() => this._poll(), optimal);

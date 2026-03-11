@@ -1,6 +1,8 @@
 'use strict';
 
 const Homey = require('homey');
+const { Log } = require('homey-log');
+const Raven = require('raven');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const DreameApi = require('./lib/DreameApi');
@@ -18,9 +20,44 @@ const MAP_HEADER_SIZE = 27;
 class DreameApp extends Homey.App {
 
   async onInit() {
+    this.homeyLog = new Log({ homey: this.homey });
     this._api = null;
     this._mqtt = null;
     this._initApi();
+  }
+
+  /**
+   * Check if diagnostic logging is enabled by the user.
+   */
+  isDiagnosticEnabled() {
+    return this.homey.settings.get('diagnosticLogging') === true;
+  }
+
+  /**
+   * Send a diagnostic message to Sentry with severity level.
+   * Only sends when user has opted in.
+   * @param {'debug'|'info'|'warning'|'error'|'fatal'} level
+   */
+  sendDiagnostic(message, extra, level = 'info') {
+    if (!this.isDiagnosticEnabled()) return;
+    if (extra) {
+      if (extra.model) this.homeyLog.setTags({ model: extra.model });
+      this.homeyLog.setExtra(extra);
+    }
+    Raven.captureMessage(message, { level });
+  }
+
+  /**
+   * Send an error to Sentry (only when user has opted in).
+   * @param {'warning'|'error'|'fatal'} level
+   */
+  sendError(err, extra, level = 'error') {
+    if (!this.isDiagnosticEnabled()) return;
+    if (extra) {
+      if (extra.model) this.homeyLog.setTags({ model: extra.model });
+      this.homeyLog.setExtra(extra);
+    }
+    Raven.captureException(err, { level });
   }
 
   _initApi() {

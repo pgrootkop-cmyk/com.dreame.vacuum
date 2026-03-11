@@ -24,10 +24,32 @@
     .cons-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
     .cons-bar { height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
     .cons-fill { height: 100%; border-radius: 3px; }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
+    .toggle-label { font-size: 14px; }
+    .toggle-desc { font-size: 11px; color: #999; margin-top: 2px; }
+    .toggle-switch { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 26px; transition: .2s; }
+    .toggle-slider:before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+    .toggle-switch input:checked + .toggle-slider { background: #007aff; }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); }
   </style>
 </head>
 <body>
   <h2>Dreame Vacuum</h2>
+  <div class="card">
+    <h3>Diagnostics</h3>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Share diagnostic logs</div>
+        <div class="toggle-desc">Send MQTT and connection logs to help improve app stability. No personal data is collected.</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="diagnosticToggle" onchange="toggleDiagnostic()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
   <select class="device-select" id="deviceSelect" onchange="selectDevice()">
     <option value="">Loading...</option>
   </select>
@@ -44,6 +66,10 @@ var _homey, _devices = [], _did = null;
 
 function onHomeyReady(Homey) {
   _homey = Homey;
+  // Load diagnostic toggle state
+  Homey.get('diagnosticLogging', function(err, val) {
+    document.getElementById('diagnosticToggle').checked = val === true;
+  });
   Homey.api('GET', '/vacuumData', null, function(err, data) {
     document.getElementById('loading').style.display = 'none';
     if (err || !data || !data.length) {
@@ -186,6 +212,11 @@ function map(d) {
     canvas.style.display = 'block';
     noMap.style.display = 'none';
   });
+}
+
+function toggleDiagnostic() {
+  var checked = document.getElementById('diagnosticToggle').checked;
+  _homey.set('diagnosticLogging', checked);
 }
 
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '-'; }
