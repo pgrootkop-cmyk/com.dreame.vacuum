@@ -309,10 +309,14 @@ class DreameVacuumDriver extends Homey.Driver {
     let api = null;
     let country = 'eu';
 
+    session.setHandler('set_region', async (region) => {
+      country = region || 'eu';
+      this.log('Region selected for pairing:', country);
+    });
+
     session.setHandler('login', async (data) => {
       const username = data.username;
       const password = data.password;
-      country = this.homey.settings.get('country') || 'eu';
 
       api = new DreameApi({ username, password, country });
 
@@ -325,9 +329,11 @@ class DreameVacuumDriver extends Homey.Driver {
         if (result.uid) {
           this.homey.app.saveUid(result.uid);
         }
+        this.homey.app.sendDiagnostic('Pairing: login success', { region: country });
         return true;
       } catch (err) {
         this.error('Login failed:', err.message);
+        this.homey.app.sendDiagnostic('Pairing: login failed', { region: country, error: err.message });
         throw new Error(`Login failed: ${err.message}`);
       }
     });
@@ -337,13 +343,13 @@ class DreameVacuumDriver extends Homey.Driver {
         api = this.homey.app.getApi();
       }
       if (!api) {
+        this.homey.app.sendDiagnostic('Pairing: list_devices called without API', { region: country }, 'warning');
         throw new Error('Not logged in');
       }
 
       try {
         const devices = await api.getDevices();
-
-        return devices
+        const vacuums = devices
           .filter(d => d.model && d.model.startsWith('dreame.vacuum.'))
           .map(device => ({
             name: device.customName || device.name || 'Dreame Vacuum',
@@ -356,8 +362,18 @@ class DreameVacuumDriver extends Homey.Driver {
               masterUid: device.uid || '',
             },
           }));
+
+        this.homey.app.sendDiagnostic('Pairing: devices discovered', {
+          region: country,
+          totalDevices: devices.length,
+          vacuums: vacuums.length,
+          models: vacuums.map(v => v.store.model),
+        });
+
+        return vacuums;
       } catch (err) {
         this.error('Failed to list devices:', err.message);
+        this.homey.app.sendDiagnostic('Pairing: device discovery failed', { region: country, error: err.message }, 'error');
         throw new Error('Failed to list devices. Please try again.');
       }
     });
@@ -462,9 +478,11 @@ class DreameVacuumDriver extends Homey.Driver {
           d.restartPolling();
         }
 
+        this.homey.app.sendDiagnostic('Repair: login success', { region: country });
         return true;
       } catch (err) {
         this.error('Repair login failed:', err.message);
+        this.homey.app.sendDiagnostic('Repair: login failed', { region: country, error: err.message }, 'error');
         throw new Error('Login failed. Check your credentials.');
       }
     });
