@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 0 20px;
+      margin: 0;
+    }
+    .form-group {
+      margin: 20px 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+      appearance: auto;
+      color: #333;
+    }
+    .hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-group">
+    <label for="region">Server Region</label>
+    <select id="region">
+      <option value="eu" selected>Auto (Europe)</option>
+      <option value="cn">China</option>
+      <option value="de">Germany (EU)</option>
+      <option value="us">United States</option>
+      <option value="sg">Singapore</option>
+      <option value="kr">South Korea</option>
+    </select>
+    <p class="hint">Select the region matching your Dreame Home account. Most users should use Auto.</p>
+  </div>
+  <script>
+    var regionSelect = document.getElementById('region');
+    Homey.emit('set_region', regionSelect.value);
+    regionSelect.addEventListener('change', function () {
+      Homey.emit('set_region', this.value);
+    });
+  </script>
+</body>
+</html>

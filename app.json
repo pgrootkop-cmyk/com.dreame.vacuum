@@ -2319,6 +2319,12 @@
       },
       "pair": [
         {
+          "id": "select_region",
+          "navigation": {
+            "next": "login_credentials"
+          }
+        },
+        {
           "id": "login_credentials",
           "template": "login_credentials",
           "options": {
