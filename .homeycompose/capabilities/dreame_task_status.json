@@ -1,6 +1,6 @@
 {
   "type": "string",
-  "title": { "en": "Task Status", "nl": "Taakstatus" },
+  "title": { "en": "Task Status" },
   "getable": true,
   "setable": false,
   "uiComponent": "sensor"

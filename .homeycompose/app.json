@@ -8,12 +8,10 @@
   ],
   "brandColor": "#292929",
   "name": {
-    "en": "Dreame",
-    "nl": "Dreame"
+    "en": "Dreame"
   },
   "description": {
-    "en": "Smart Robot Vacuum Control",
-    "nl": "Slimme Robotstofzuiger Bediening"
+    "en": "Smart Robot Vacuum Control"
   },
   "category": [
     "appliances"
@@ -48,13 +46,9 @@
       "stofzuiger",
       "robotstofzuiger",
       "schoonmaken",
-      "dweil",
       "robot",
-      "CleanGenius",
       "X40",
-      "L20",
-      "dweilen",
-      "dock"
+      "L20"
     ]
   },
   "images": {

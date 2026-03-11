@@ -1,6 +1,6 @@
 {
   "type": "string",
-  "title": { "en": "Dust Collection", "nl": "Stofopvang" },
+  "title": { "en": "Dust Collection" },
   "getable": true,
   "setable": false,
   "uiComponent": "sensor"

@@ -1,19 +1,18 @@
 {
   "name": {
-    "en": "Vacuum Map",
-    "nl": "Stofzuiger Kaart"
+    "en": "Vacuum Map"
   },
   "settings": [
     {
       "id": "showRoomNames",
       "type": "checkbox",
-      "title": { "en": "Show room names", "nl": "Toon kamernamen" },
+      "title": { "en": "Show room names" },
       "value": true
     },
     {
       "id": "showStatus",
       "type": "checkbox",
-      "title": { "en": "Show status bar", "nl": "Toon statusbalk" },
+      "title": { "en": "Show status bar" },
       "value": true
     }
   ],
