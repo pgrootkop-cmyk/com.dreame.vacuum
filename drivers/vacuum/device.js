@@ -1814,21 +1814,31 @@ class DreameVacuumDevice extends Homey.Device {
 
   _fireRoomStartedTriggers(roomIds) {
     const triggerCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_started');
+    const triggerByIdCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_started_by_id');
     for (const roomId of roomIds) {
       const room = this._rooms.find(r => r.id === roomId);
       const roomName = room ? room.name : `Room ${roomId}`;
-      triggerCard.trigger(this, { room_name: roomName }, { room_id: roomId })
+      const tokens = { room_name: roomName, room_id: String(roomId) };
+      const state = { room_id: roomId };
+      triggerCard.trigger(this, { room_name: roomName }, state)
         .catch(e => this.error('Room start trigger:', e));
+      triggerByIdCard.trigger(this, tokens, state)
+        .catch(e => this.error('Room start by-id trigger:', e));
     }
   }
 
   _fireRoomFinishedTriggers() {
     const triggerCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_finished');
+    const triggerByIdCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_finished_by_id');
     for (const roomId of this._cleaningRoomIds) {
       const room = this._rooms.find(r => r.id === roomId);
       const roomName = room ? room.name : `Room ${roomId}`;
-      triggerCard.trigger(this, { room_name: roomName }, { room_id: roomId })
+      const tokens = { room_name: roomName, room_id: String(roomId) };
+      const state = { room_id: roomId };
+      triggerCard.trigger(this, { room_name: roomName }, state)
         .catch(e => this.error('Room finish trigger:', e));
+      triggerByIdCard.trigger(this, tokens, state)
+        .catch(e => this.error('Room finish by-id trigger:', e));
     }
     this._cleaningRoomIds = [];
   }

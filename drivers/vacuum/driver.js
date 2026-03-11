@@ -268,6 +268,41 @@ class DreameVacuumDriver extends Homey.Driver {
     roomFinishedCard.registerArgumentAutocompleteListener('room', async (query, args) => {
       return this._getRoomAutocompleteWithAny(query, args);
     });
+
+    // --- Manual room ID cards (text input, no autocomplete) ---
+
+    this.homey.flow.getActionCard('start_room_cleaning_by_id')
+      .registerRunListener(async (args) => {
+        const roomId = parseInt(args.room_id, 10);
+        if (isNaN(roomId) || roomId <= 0) throw new Error('Invalid room ID');
+        await args.device.startRoomCleaning(roomId, args.repeats, args.suction, args.water);
+      });
+
+    this.homey.flow.getActionCard('start_multi_room_cleaning_by_id')
+      .registerRunListener(async (args) => {
+        const roomIds = String(args.room_ids).split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
+        if (roomIds.length === 0) throw new Error('No valid room IDs provided');
+        await args.device.startMultiRoomCleaning(roomIds, args.repeats, args.suction, args.water);
+      });
+
+    this.homey.flow.getConditionCard('is_cleaning_room_by_id')
+      .registerRunListener(async (args) => {
+        const roomId = parseInt(args.room_id, 10);
+        if (isNaN(roomId) || roomId <= 0) throw new Error('Invalid room ID');
+        return args.device.isCleaningRoom(roomId);
+      });
+
+    const roomStartedByIdCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_started_by_id');
+    roomStartedByIdCard.registerRunListener(async (args, state) => {
+      if (!args.room_id || args.room_id.trim() === '') return true;
+      return String(state.room_id) === String(args.room_id).trim();
+    });
+
+    const roomFinishedByIdCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_finished_by_id');
+    roomFinishedByIdCard.registerRunListener(async (args, state) => {
+      if (!args.room_id || args.room_id.trim() === '') return true;
+      return String(state.room_id) === String(args.room_id).trim();
+    });
   }
 
   async onPair(session) {

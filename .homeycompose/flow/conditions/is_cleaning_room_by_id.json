@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Is cleaning room by ID..."
+  },
+  "titleFormatted": {
+    "en": "Is cleaning room ID [[room_id]]"
+  },
+  "hint": {
+    "en": "Check if the vacuum is currently cleaning a specific room by its numeric ID"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "text",
+      "name": "room_id",
+      "title": {
+        "en": "Room ID"
+      },
+      "placeholder": {
+        "en": "e.g. 10"
+      }
+    }
+  ]
+}

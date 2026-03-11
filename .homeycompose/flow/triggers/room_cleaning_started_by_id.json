@@ -1,0 +1,42 @@
+{
+  "title": {
+    "en": "Room cleaning started (by ID)"
+  },
+  "titleFormatted": {
+    "en": "Room ID [[room_id]] cleaning started"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum starts cleaning a specific room. Enter a room ID or leave empty for any room."
+  },
+  "tokens": [
+    {
+      "name": "room_name",
+      "type": "string",
+      "title": { "en": "Room name" },
+      "example": { "en": "Living Room" }
+    },
+    {
+      "name": "room_id",
+      "type": "string",
+      "title": { "en": "Room ID" },
+      "example": { "en": "10" }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "text",
+      "name": "room_id",
+      "title": {
+        "en": "Room ID"
+      },
+      "placeholder": {
+        "en": "Leave empty for any room"
+      }
+    }
+  ]
+}
