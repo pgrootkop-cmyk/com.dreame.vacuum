@@ -34,5 +34,8 @@
   },
   "0.0.12": {
     "en": "additional debug logs for fixing compatibility with L20"
+  },
+  "0.0.13": {
+    "en": "map view decoding with encryption key for L20 ultra"
   }
 }

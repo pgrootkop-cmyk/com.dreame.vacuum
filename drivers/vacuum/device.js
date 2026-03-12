@@ -1042,8 +1042,9 @@ class DreameVacuumDevice extends Homey.Device {
     }
 
     // Cache map data for future widget use (object name + dimensions)
+    // Append encryption key after comma so app.js _decodeMapData can decrypt
     this.setStoreValue('mapObjectName', objectName).catch(this.error);
-    this.setStoreValue('mapRawBase64', mapStr).catch(this.error);
+    this.setStoreValue('mapRawBase64', mapKey ? mapStr + ',' + mapKey : mapStr).catch(this.error);
   }
 
   /**
@@ -1059,12 +1060,18 @@ class DreameVacuumDevice extends Homey.Device {
       const key = `${p.siid}-${p.piid}`;
       const value = p.value;
 
-      // Handle map data from MQTT (this is where rooms come from!)
+      // MQTT 6-1 sends P-frame map updates (partial pixel data for real-time position).
+      // These are NOT complete maps — they lack seg_inf/rism and have unstable pixel segments.
+      // Room discovery comes from 6-3 cloud download (full saved map with seg_inf).
+      // Only use 6-1 for rooms if we have zero cached rooms (bootstrap fallback).
       if (key === '6-1' && value) {
-        const rooms = parseMapRooms(value, (msg) => { this._diag(msg, null, 'debug'); });
-        if (rooms.length > 0) {
-          this._rooms = rooms;
-          this.setStoreValue('rooms', rooms).catch(this.error);
+        if (!this._rooms || this._rooms.length === 0) {
+          const rooms = parseMapRooms(value, (msg) => { this._diag(msg, null, 'debug'); });
+          if (rooms.length > 0) {
+            this._diag(`[MAP] Bootstrap rooms from 6-1 P-frame: ${rooms.length} segments`, null, 'debug');
+            this._rooms = rooms;
+            this.setStoreValue('rooms', rooms).catch(this.error);
+          }
         }
         continue;
       }
