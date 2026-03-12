@@ -80,9 +80,13 @@ Should work with any robot vacuum controllable via the [Dreame Home](https://www
 
 This app is not affiliated with Dreame Technology. The Dreame Home API is reverse-engineered and may change without notice.
 
-## Feedback
+## Reporting Issues
 
-Found a bug or have a feature request? Please open an [issue](https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues).
+Found a bug or have a feature request? Please open an [issue](https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues) and include:
+
+1. **Your exact vacuum model** (e.g. Dreame X40 Ultra, L20 Ultra, L10 Pro)
+2. **A description of the problem** — what happened and what you expected
+3. **Enable diagnostic logging** — go to the app settings in Homey, enable **Diagnostic Logging**, and reproduce the issue. This sends anonymous logs to the developer to help debug your problem. You can disable it again afterwards.
 
 ## Credits
 

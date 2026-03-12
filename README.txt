@@ -49,5 +49,11 @@ Some features from the Dreame Home app or Tasshack/dreame-vacuum (Home Assistant
 
 Homey excels at automations (Flow cards), device control, and status monitoring. For map-based features, camera, or visual AI, use the Dreame Home app alongside Homey.
 
+**Reporting Issues**
+Found a bug or have a feature request? Open an issue at https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues and include:
+1. Your exact vacuum model (e.g. Dreame X40 Ultra, L20 Ultra, L10 Pro)
+2. A description of the problem — what happened and what you expected
+3. Enable diagnostic logging — go to the app settings in Homey, enable Diagnostic Logging, and reproduce the issue. This sends anonymous logs to the developer to help debug your problem. You can disable it again afterwards.
+
 **Supported Devices**
 Works with Dreame robot vacuums controllable via the Dreame Home app, including the X40, X30, L20, L10, and other models.
