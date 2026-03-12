@@ -430,6 +430,7 @@ function parseMapRooms(raw, logger, aesKey) {
     }
 
     let buf = Buffer.from(mapStr, 'base64');
+    log(`[MAP] Raw buffer: ${buf.length} bytes, hasKey: ${!!aesKey}`);
 
     // AES-256-CBC decrypt if key is present
     if (aesKey) {
@@ -439,7 +440,7 @@ function parseMapRooms(raw, logger, aesKey) {
         const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), iv);
         decipher.setAutoPadding(true);
         buf = Buffer.concat([decipher.update(buf), decipher.final()]);
-        // AES decryption succeeded
+        log(`[MAP] AES decrypted: ${buf.length} bytes`);
       } catch (e) {
         log(`[MAP] AES decrypt failed: ${e.message}, trying without`);
         buf = Buffer.from(mapStr, 'base64');
@@ -458,25 +459,36 @@ function parseMapRooms(raw, logger, aesKey) {
       }
     }
 
-    if (buf.length < MAP_HEADER_SIZE) return [];
+    if (buf.length < MAP_HEADER_SIZE) {
+      log(`[MAP] Buffer too small: ${buf.length} < ${MAP_HEADER_SIZE}`);
+      return [];
+    }
 
     const width = buf.readInt16LE(19);
     const height = buf.readInt16LE(21);
     const imageSize = MAP_HEADER_SIZE + (width * height);
+    log(`[MAP] Decoded: ${width}x${height}, buf=${buf.length}, imageSize=${imageSize}`);
 
-    if (buf.length <= imageSize) return [];
+    if (buf.length <= imageSize) {
+      log(`[MAP] No JSON after pixels (buf=${buf.length} <= imageSize=${imageSize})`);
+      return [];
+    }
 
     const jsonStr = buf.slice(imageSize).toString('utf8');
     const dataJson = JSON.parse(jsonStr);
+    const jsonKeys = Object.keys(dataJson).join(',');
+    log(`[MAP] JSON keys: ${jsonKeys}`);
 
     // Try seg_inf in this map's JSON
     if (dataJson.seg_inf) {
       const rooms = extractRoomsFromSegInf(dataJson.seg_inf, log);
+      log(`[MAP] seg_inf found: ${Object.keys(dataJson.seg_inf).length} entries, ${rooms.length} rooms`);
       if (rooms.length > 0) return rooms;
     }
 
     // If no seg_inf, check for nested saved map in 'rism' key
     if (dataJson.rism) {
+      log(`[MAP] Recursing into rism (${String(dataJson.rism).length} chars)`);
       const nestedRooms = parseMapRooms(dataJson.rism, log);
       if (nestedRooms.length > 0) return nestedRooms;
     }
@@ -495,6 +507,7 @@ function parseMapRooms(raw, logger, aesKey) {
       }
     }
 
+    log(`[MAP] Pixel fallback: ${segmentIds.size} segment IDs found`);
     if (segmentIds.size > 0 && segmentIds.size < 30) {
       const rooms = [...segmentIds].sort((a, b) => a - b).map(id => ({
         id, name: `Room ${id}`, customName: null, type: 0, index: 0,
@@ -1020,7 +1033,8 @@ class DreameVacuumDevice extends Homey.Device {
     const buffer = await api.getMapData(this._did, filePath, model);
 
     const mapStr = buffer.toString('utf8');
-    const rooms = parseMapRooms(mapStr, this.log.bind(this), mapKey);
+    const parseLogger = (msg) => { this._diag(msg, null, 'debug'); };
+    const rooms = parseMapRooms(mapStr, parseLogger, mapKey);
     this._diag(`[MAP] Parsed ${rooms.length} rooms from map data`, null, 'debug');
     if (rooms.length > 0) {
       this._rooms = rooms;
@@ -1047,7 +1061,7 @@ class DreameVacuumDevice extends Homey.Device {
 
       // Handle map data from MQTT (this is where rooms come from!)
       if (key === '6-1' && value) {
-        const rooms = parseMapRooms(value, this.log.bind(this));
+        const rooms = parseMapRooms(value, (msg) => { this._diag(msg, null, 'debug'); });
         if (rooms.length > 0) {
           this._rooms = rooms;
           this.setStoreValue('rooms', rooms).catch(this.error);

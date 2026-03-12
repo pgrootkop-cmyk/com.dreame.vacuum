@@ -31,5 +31,8 @@
   },
   "0.0.11": {
     "en": "fix for encrypted maps"
+  },
+  "0.0.12": {
+    "en": "additional debug logs for fixing compatibility with L20"
   }
 }
