@@ -1033,10 +1033,9 @@ class DreameVacuumDevice extends Homey.Device {
     const buffer = await api.getMapData(this._did, filePath, model);
 
     const mapStr = buffer.toString('utf8');
-    const parseLogs = [];
-    const parseLogger = (msg) => { this.log(msg); parseLogs.push(msg); };
+    const parseLogger = (msg) => { this._diag(msg, null, 'debug'); };
     const rooms = parseMapRooms(mapStr, parseLogger, mapKey);
-    this._diag(`[MAP] Parsed ${rooms.length} rooms from map data`, { parseLogs: parseLogs.join(' | ') }, 'debug');
+    this._diag(`[MAP] Parsed ${rooms.length} rooms from map data`, null, 'debug');
     if (rooms.length > 0) {
       this._rooms = rooms;
       this.setStoreValue('rooms', rooms).catch(this.error);
@@ -1062,7 +1061,7 @@ class DreameVacuumDevice extends Homey.Device {
 
       // Handle map data from MQTT (this is where rooms come from!)
       if (key === '6-1' && value) {
-        const rooms = parseMapRooms(value, this.log.bind(this));
+        const rooms = parseMapRooms(value, (msg) => { this._diag(msg, null, 'debug'); });
         if (rooms.length > 0) {
           this._rooms = rooms;
           this.setStoreValue('rooms', rooms).catch(this.error);
