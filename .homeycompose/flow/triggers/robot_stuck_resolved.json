@@ -1,0 +1,15 @@
+{
+  "title": {
+    "en": "The robot is no longer stuck"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum is freed after being stuck"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

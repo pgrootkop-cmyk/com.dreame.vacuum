@@ -1,0 +1,27 @@
+{
+  "title": {
+    "en": "The robot is stuck"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum gets stuck or blocked"
+  },
+  "tokens": [
+    {
+      "name": "error",
+      "type": "string",
+      "title": {
+        "en": "Error"
+      },
+      "example": {
+        "en": "Robot stuck"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

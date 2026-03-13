@@ -345,6 +345,29 @@ const ERROR_CODES = {
   75: 'Mop pads need replacing',
 };
 
+// Detailed operational state names (for triggers/conditions) — Dreame STATE (2-1) values
+const OPERATIONAL_STATE_MAP = {
+  1: 'sweeping', 2: 'idle', 3: 'paused', 4: 'error', 5: 'returning',
+  6: 'charging', 7: 'mopping', 8: 'drying', 9: 'washing', 10: 'returning',
+  11: 'fast_mapping', 12: 'sweeping_and_mopping', 13: 'charging', 14: 'idle',
+  15: 'idle', 16: 'idle', 17: 'returning', 18: 'returning', 19: 'sweeping',
+  20: 'dust_collection', 21: 'idle', 22: 'charging', 23: 'sweeping', 24: 'sweeping',
+  25: 'sweeping', 26: 'returning', 27: 'idle', 28: 'sweeping', 29: 'washing',
+  30: 'idle', 31: 'idle', 32: 'drying', 33: 'sweeping', 34: 'sweeping',
+  35: 'sweeping', 36: 'sweeping', 37: 'fast_mapping', 38: 'idle',
+};
+
+// Friendly operational state labels for trigger tokens
+const OPERATIONAL_STATE_LABELS = {
+  sweeping: 'Sweeping', idle: 'Idle', paused: 'Paused', error: 'Error',
+  returning: 'Returning', charging: 'Charging', mopping: 'Mopping',
+  drying: 'Drying', washing: 'Washing', sweeping_and_mopping: 'Sweeping & Mopping',
+  dust_collection: 'Emptying dust bin', fast_mapping: 'Fast mapping',
+};
+
+// Error codes that indicate the robot is stuck/blocked
+const STUCK_ERROR_CODES = new Set([2, 3, 5, 6, 7, 8]);
+
 const COMMAND_DEBOUNCE_MS = 10000;
 
 // Adaptive polling intervals (ms)
@@ -543,11 +566,13 @@ function parseMapRooms(raw, logger, aesKey, modelIv) {
       }
     }
 
-    // Build rooms from pixel segments, then enrich with seg_inf metadata
+    // Build rooms from pixel segments, enriched with seg_inf metadata
+    const segInf = dataJson.seg_inf || {};
+    const roomMap = new Map(); // id -> room object
+
     if (segmentIds.size > 0 && segmentIds.size < 61) {
-      const segInf = dataJson.seg_inf || {};
       log(`[MAP] Pixel segments: ${segmentIds.size}, seg_inf entries: ${Object.keys(segInf).length}`);
-      const rooms = [...segmentIds].sort((a, b) => a - b).map(id => {
+      for (const id of segmentIds) {
         const info = segInf[String(id)] || {};
         const type = info.type !== undefined ? info.type : 0;
         const index = info.index !== undefined ? info.index : 0;
@@ -564,23 +589,40 @@ function parseMapRooms(raw, logger, aesKey, modelIv) {
         } else {
           name = `Room ${id}`;
         }
-        return { id, name, customName, type, index };
-      });
-      return rooms;
+        roomMap.set(id, { id, name, customName, type, index });
+      }
+    } else if (Object.keys(segInf).length > 0) {
+      // No pixel segments found — use seg_inf directly
+      const rooms = extractRoomsFromSegInf(segInf, log);
+      log(`[MAP] seg_inf only: ${Object.keys(segInf).length} entries, ${rooms.length} rooms`);
+      for (const r of rooms) roomMap.set(r.id, r);
     }
 
-    // If no pixels had segments, try seg_inf directly
-    if (dataJson.seg_inf) {
-      const rooms = extractRoomsFromSegInf(dataJson.seg_inf, log);
-      log(`[MAP] seg_inf found: ${Object.keys(dataJson.seg_inf).length} entries, ${rooms.length} rooms`);
-      if (rooms.length > 0) return rooms;
-    }
-
-    // Check for nested saved map in 'rism' key
+    // Always check rism (saved map) — it may contain additional rooms not in this frame
+    // Tasshack merges saved_map_data.segments into map_data.segments
     if (dataJson.rism) {
-      log(`[MAP] Recursing into rism (${String(dataJson.rism).length} chars)`);
-      const nestedRooms = parseMapRooms(dataJson.rism, log);
-      if (nestedRooms.length > 0) return nestedRooms;
+      log(`[MAP] Processing rism (${String(dataJson.rism).length} chars)`);
+      const savedRooms = parseMapRooms(dataJson.rism, log, aesKey, modelIv);
+      log(`[MAP] Saved map (rism) has ${savedRooms.length} rooms`);
+      for (const sr of savedRooms) {
+        if (roomMap.has(sr.id)) {
+          // Enrich existing room with saved map metadata (names, types) if missing
+          const existing = roomMap.get(sr.id);
+          if (!existing.customName && sr.customName) existing.customName = sr.customName;
+          if (existing.type === 0 && sr.type !== 0) existing.type = sr.type;
+          if (existing.index === 0 && sr.index !== 0) existing.index = sr.index;
+          if (existing.name.startsWith('Room ') && !sr.name.startsWith('Room ')) existing.name = sr.name;
+        } else {
+          // Add rooms from saved map that aren't in current frame
+          roomMap.set(sr.id, sr);
+        }
+      }
+    }
+
+    if (roomMap.size > 0) {
+      const rooms = [...roomMap.values()].sort((a, b) => a.id - b.id);
+      log(`[MAP] Total rooms after merge: ${rooms.length}`);
+      return rooms;
     }
 
     return [];
@@ -611,6 +653,9 @@ class DreameVacuumDevice extends Homey.Device {
     this._mqttRetryTimer = null; // track connect retry timer
     this._mqttRestartTimer = null; // track full restart timer
     this._refreshingToken = false; // guard concurrent token refresh
+    this._operationalState = 'idle'; // track detailed state for triggers
+    this._isStuck = false;           // track stuck status for triggers
+    this._lastWaterTankInstalled = null; // track water tank for change triggers
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -1074,7 +1119,7 @@ class DreameVacuumDevice extends Homey.Device {
       const result = await api.callAction(
         this._did, this._bindDomain,
         ACTION.REQUEST_MAP.siid, ACTION.REQUEST_MAP.aiid,
-        [{ piid: 2, value: '{}' }],
+        [{ piid: 2, value: '{"frame_type":"I"}' }],
       );
       this._diag('[MAP] Map request sent', { result: JSON.stringify(result).slice(0, 200) }, 'debug');
       // Map data will arrive via MQTT property 6-3
@@ -1173,7 +1218,7 @@ class DreameVacuumDevice extends Homey.Device {
    */
   async _applyProperty(key, value) {
     switch (key) {
-      case '2-1': // STATE
+      case '2-1': { // STATE
         if (STATE_MAP[value]) {
           const homeyState = STATE_MAP[value];
           await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
@@ -1182,7 +1227,16 @@ class DreameVacuumDevice extends Homey.Device {
             this._fireRoomFinishedTriggers();
           }
         }
+        // Fire operational state change trigger
+        const newOpState = OPERATIONAL_STATE_MAP[value] || 'idle';
+        if (newOpState !== this._operationalState) {
+          this._operationalState = newOpState;
+          const label = OPERATIONAL_STATE_LABELS[newOpState] || newOpState;
+          const card = this.homey.flow.getDeviceTriggerCard('operational_state_changed');
+          card.trigger(this, { state: label }, { state: newOpState }).catch(e => this.error('State trigger:', e));
+        }
         break;
+      }
 
       case '2-2': { // ERROR
         const isRealError = value !== 0 && !DOCK_INFO_CODES.has(value);
@@ -1199,6 +1253,23 @@ class DreameVacuumDevice extends Homey.Device {
           await errorCard.trigger(this, { error: errorText }).catch(e => this.error('Trigger error:', e));
         } else if (!isRealError) {
           this._lastTriggeredError = null;
+        }
+        // Stuck detection
+        const isNowStuck = STUCK_ERROR_CODES.has(value);
+        if (isNowStuck && !this._isStuck) {
+          this._isStuck = true;
+          const errorText = ERROR_CODES[value] || `Stuck (${value})`;
+          const stuckCard = this.homey.flow.getDeviceTriggerCard('robot_stuck');
+          stuckCard.trigger(this, { error: errorText }).catch(e => this.error('Stuck trigger:', e));
+        } else if (!isNowStuck && this._isStuck) {
+          this._isStuck = false;
+          const resolvedCard = this.homey.flow.getDeviceTriggerCard('robot_stuck_resolved');
+          resolvedCard.trigger(this).catch(e => this.error('Stuck resolved trigger:', e));
+        }
+        // Dust bin full detection (error codes 15 and 43)
+        if (value === 15 || value === 43) {
+          const binFullCard = this.homey.flow.getDeviceTriggerCard('dust_bin_full');
+          binFullCard.trigger(this).catch(e => this.error('Bin full trigger:', e));
         }
         break;
       }
@@ -1308,10 +1379,14 @@ class DreameVacuumDevice extends Homey.Device {
       case '27-3': // DUST_BAG_STATUS
         if (DUST_BAG_MAP[value] !== undefined) {
           await this.setCapabilityValue('dreame_dust_bag', DUST_BAG_MAP[value]).catch(this.error);
+          if (value === 2) { // full
+            const binFullCard = this.homey.flow.getDeviceTriggerCard('dust_bin_full');
+            binFullCard.trigger(this).catch(e => this.error('Bin full trigger:', e));
+          }
         }
         break;
 
-      case '27-1': // CLEAN_WATER_TANK
+      case '27-1': { // CLEAN_WATER_TANK
         if (WATER_TANK_MAP[value] !== undefined) {
           await this.setCapabilityValue('dreame_water_tank', WATER_TANK_MAP[value]).catch(this.error);
           if (value === 2 || value === 3) {
@@ -1319,8 +1394,17 @@ class DreameVacuumDevice extends Homey.Device {
             const card = this.homey.flow.getDeviceTriggerCard('low_water_warning');
             await card.trigger(this, { status }).catch(e => this.error('Low water trigger:', e));
           }
+          // Water tank removed/placed trigger
+          const isInstalled = value === 0;
+          if (this._lastWaterTankInstalled !== null && isInstalled !== this._lastWaterTankInstalled) {
+            const action = isInstalled ? 'placed' : 'removed';
+            const tankCard = this.homey.flow.getDeviceTriggerCard('water_tank_changed');
+            tankCard.trigger(this, { status: isInstalled ? 'Placed' : 'Removed' }, { action }).catch(e => this.error('Tank trigger:', e));
+          }
+          this._lastWaterTankInstalled = isInstalled;
         }
         break;
+      }
 
       case '27-2': // DIRTY_WATER_TANK
         if (DIRTY_WATER_TANK_MAP[value] !== undefined) {
@@ -1929,6 +2013,14 @@ class DreameVacuumDevice extends Homey.Device {
 
   getRooms() {
     return this._rooms || [];
+  }
+
+  isStuck() {
+    return this._isStuck || false;
+  }
+
+  getOperationalState() {
+    return this._operationalState || 'idle';
   }
 
   _fireRoomStartedTriggers(roomIds) {

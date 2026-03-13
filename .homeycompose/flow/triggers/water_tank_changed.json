@@ -1,0 +1,39 @@
+{
+  "title": {
+    "en": "The water tank was removed or placed"
+  },
+  "titleFormatted": {
+    "en": "The water tank was [[action]]"
+  },
+  "hint": {
+    "en": "Triggers when the water tank is installed or removed"
+  },
+  "tokens": [
+    {
+      "name": "status",
+      "type": "string",
+      "title": {
+        "en": "Status"
+      },
+      "example": {
+        "en": "Removed"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "name": "action",
+      "type": "dropdown",
+      "values": [
+        { "id": "any", "title": { "en": "Removed or placed" } },
+        { "id": "removed", "title": { "en": "Removed" } },
+        { "id": "placed", "title": { "en": "Placed" } }
+      ]
+    }
+  ]
+}

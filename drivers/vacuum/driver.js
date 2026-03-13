@@ -292,6 +292,35 @@ class DreameVacuumDriver extends Homey.Driver {
         return args.device.isCleaningRoom(roomId);
       });
 
+    // --- Operational state trigger ---
+    const stateChangedCard = this.homey.flow.getDeviceTriggerCard('operational_state_changed');
+    stateChangedCard.registerRunListener(async (args, state) => {
+      if (args.state === 'any') return true;
+      return state.state === args.state;
+    });
+
+    // --- Stuck triggers (no run listener needed — no args to filter) ---
+
+    // --- Dust bin full trigger (no args to filter) ---
+
+    // --- Water tank changed trigger ---
+    const waterTankChangedCard = this.homey.flow.getDeviceTriggerCard('water_tank_changed');
+    waterTankChangedCard.registerRunListener(async (args, state) => {
+      if (args.action === 'any') return true;
+      return state.action === args.action;
+    });
+
+    // --- New condition cards ---
+    this.homey.flow.getConditionCard('is_stuck')
+      .registerRunListener(async (args) => {
+        return args.device.isStuck();
+      });
+
+    this.homey.flow.getConditionCard('operational_state_is')
+      .registerRunListener(async (args) => {
+        return args.device.getOperationalState() === args.state;
+      });
+
     const roomStartedByIdCard = this.homey.flow.getDeviceTriggerCard('room_cleaning_started_by_id');
     roomStartedByIdCard.registerRunListener(async (args, state) => {
       if (!args.room_id || args.room_id.trim() === '') return true;

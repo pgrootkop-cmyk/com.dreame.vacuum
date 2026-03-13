@@ -1,0 +1,15 @@
+{
+  "title": {
+    "en": "The dust bin is full"
+  },
+  "hint": {
+    "en": "Triggers when the dust bin or dust bag becomes full"
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}
