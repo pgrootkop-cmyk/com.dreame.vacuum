@@ -1,0 +1,49 @@
+{
+  "title": {
+    "en": "The operational state changed to ..."
+  },
+  "titleFormatted": {
+    "en": "The operational state changed to [[state]]"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum's operational state changes (e.g. cleaning, returning, washing, drying)"
+  },
+  "tokens": [
+    {
+      "name": "state",
+      "type": "string",
+      "title": {
+        "en": "State"
+      },
+      "example": {
+        "en": "Returning"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "name": "state",
+      "type": "dropdown",
+      "values": [
+        { "id": "any", "title": { "en": "Any state" } },
+        { "id": "sweeping", "title": { "en": "Sweeping" } },
+        { "id": "idle", "title": { "en": "Idle" } },
+        { "id": "paused", "title": { "en": "Paused" } },
+        { "id": "error", "title": { "en": "Error" } },
+        { "id": "returning", "title": { "en": "Returning" } },
+        { "id": "charging", "title": { "en": "Charging" } },
+        { "id": "mopping", "title": { "en": "Mopping" } },
+        { "id": "drying", "title": { "en": "Drying" } },
+        { "id": "washing", "title": { "en": "Washing" } },
+        { "id": "sweeping_and_mopping", "title": { "en": "Sweeping & Mopping" } },
+        { "id": "dust_collection", "title": { "en": "Emptying dust bin" } },
+        { "id": "fast_mapping", "title": { "en": "Fast mapping" } }
+      ]
+    }
+  ]
+}
