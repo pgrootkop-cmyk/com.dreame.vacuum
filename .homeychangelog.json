@@ -37,5 +37,8 @@
   },
   "0.0.13": {
     "en": "map view decoding with encryption key for L20 ultra"
+  },
+  "0.0.15": {
+    "en": "fix proper decryption of maps for some models (incl L20 ultra)"
   }
 }
