@@ -367,6 +367,39 @@ const SEGMENT_TYPE_NAMES = {
 // Map data header size (27 bytes: map_id, frame_id, frame_type, robot/charger pos, grid, width, height, left, top)
 const MAP_HEADER_SIZE = 27;
 
+// AES-CBC IV for map decryption, keyed by model suffix (from Tasshack DEVICE_INFO)
+const MODEL_MAP_IV = {
+  qFKhvoAqRFTPfKN6: ['r2209'],
+  OFULk9To37qRdXY3: ['c102cn', 'c102gl', 'd103cn', 'd110ch', 'r2210'],
+  dndRQ3z8ACjDdDMo: ['r2211o'],
+  NRwnBj5FsNPgBNbT: null, // Default IV for most modern models (r2212+, r2235+, r2253*, r2449*, etc.)
+  '4sCv3Q2BtbWVBIB2': ['r2216o'],
+  ojxGnogHfVuefVfx: ['r2240'],
+  '3F0ji4ufBMaH1ThM': ['r2243', 'r2312', 'r2312a', 'r2328', 'r2380', 'r2380r', 'r2388', 'r2422', 'r2422a', 'r2422b', 'r2422c', 'r2458a', 'r2458h', 'r2459a', 'r2459h', 'r2459k', 'r2459r', 'r2463r', 'r2478r', 'r2478v', 'r2479r', 'r2490', 'r2491', 'r2491a', 'r2491b', 'r2491d', 'r2493', 'r2493a', 'r2497'],
+  nf3Zi2Mq8jD5AAOm: ['r2250'],
+  FmnfaI2pbem0k75t: ['r2251a', 'r2251o', 'r2257o', 'r2317', 'r2345a', 'r2345h', 'r2363', 'r2363a', 'r2363n', 'r2364', 'r2364a', 'r2382a', 'r2382k', 'r2382r', 'r2383a', 'r2383k', 'r2386', 'r2471', 'r2563b', 'r2563v'],
+  wRy05fYLQJMRH6Mj: ['r2254'],
+  '8qnS9dqgT3CppGe1': ['p2140', 'p2140a', 'p2140o', 'p2140p', 'p2140q'],
+  '6PFiLPYMHLylp7RR': ['p2114a', 'p2114o'],
+  RNO4p35b2QKaovHC: ['p2149o'],
+};
+
+/**
+ * Get the AES-CBC IV for a given vacuum model suffix.
+ * Returns the IV string (16 chars) or null if no IV needed.
+ */
+function getMapIvForModel(model) {
+  if (!model) return null;
+  const suffix = model.replace('dreame.vacuum.', '');
+  // Check specific model lists first
+  for (const [iv, models] of Object.entries(MODEL_MAP_IV)) {
+    if (models === null) continue; // Skip the default entry
+    if (models.includes(suffix)) return iv;
+  }
+  // Default IV for modern models (r2212+) that use encryption
+  return 'NRwnBj5FsNPgBNbT';
+}
+
 /**
  * Parse room/segment info from raw MAP_DATA property value.
  * MAP_DATA is base64 (URL-safe), optionally AES-encrypted, zlib-compressed.
@@ -410,7 +443,7 @@ function extractRoomsFromSegInf(segInf, log) {
   return rooms;
 }
 
-function parseMapRooms(raw, logger, aesKey) {
+function parseMapRooms(raw, logger, aesKey, modelIv) {
   const log = logger || (() => {});
   if (!raw || raw === '') {
     return [];
@@ -436,7 +469,8 @@ function parseMapRooms(raw, logger, aesKey) {
     if (aesKey) {
       try {
         const keyHash = crypto.createHash('sha256').update(aesKey).digest('hex').substring(0, 32);
-        const iv = Buffer.alloc(16, 0);
+        // IV from model-specific lookup (16-char string → 16 bytes UTF-8)
+        const iv = modelIv ? Buffer.from(modelIv, 'utf8') : Buffer.alloc(16, 0);
         const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), iv);
         decipher.setAutoPadding(true);
         buf = Buffer.concat([decipher.update(buf), decipher.final()]);
@@ -479,40 +513,74 @@ function parseMapRooms(raw, logger, aesKey) {
     const jsonKeys = Object.keys(dataJson).join(',');
     log(`[MAP] JSON keys: ${jsonKeys}`);
 
-    // Try seg_inf in this map's JSON
+    const frameMap = !!(dataJson.fsm && dataJson.fsm === 1);
+    const savedMapStatus = dataJson.ris !== undefined ? dataJson.ris : -1;
+    const frameType = buf.readUInt8(4); // 73=I-frame, 80=P-frame
+    const isSavedMap = frameType === 73 && !frameMap && savedMapStatus === -1
+      && !dataJson.rpur && !dataJson.iscleanlog;
+
+    // Extract segment IDs from pixel data first (matching Tasshack approach)
+    const segmentIds = new Set();
+    const pixelData = buf.slice(MAP_HEADER_SIZE, MAP_HEADER_SIZE + (width * height));
+
+    if (frameMap) {
+      // Frame map: segment_id = pixel >> 2 (63=wall, 62=floor, 61=unknown)
+      for (let i = 0; i < pixelData.length; i++) {
+        const pixel = pixelData[i];
+        if (pixel > 0) {
+          const segId = pixel >> 2;
+          if (segId > 0 && segId < 61) segmentIds.add(segId);
+        }
+      }
+    } else if (savedMapStatus !== 1 && savedMapStatus !== 0) {
+      // Saved map / normal I-frame: segment_id = pixel & 0x3F, bit 7 = wall
+      for (let i = 0; i < pixelData.length; i++) {
+        const pixel = pixelData[i];
+        if (pixel > 0 && !(pixel >> 7)) {
+          const segId = pixel & 0x3F;
+          if (segId > 0) segmentIds.add(segId);
+        }
+      }
+    }
+
+    // Build rooms from pixel segments, then enrich with seg_inf metadata
+    if (segmentIds.size > 0 && segmentIds.size < 61) {
+      const segInf = dataJson.seg_inf || {};
+      log(`[MAP] Pixel segments: ${segmentIds.size}, seg_inf entries: ${Object.keys(segInf).length}`);
+      const rooms = [...segmentIds].sort((a, b) => a - b).map(id => {
+        const info = segInf[String(id)] || {};
+        const type = info.type !== undefined ? info.type : 0;
+        const index = info.index !== undefined ? info.index : 0;
+        let customName = null;
+        if (info.name) {
+          try { customName = Buffer.from(info.name, 'base64').toString('utf8'); } catch { /* ignore */ }
+        }
+        let name;
+        if (customName) {
+          name = customName;
+        } else if (type !== 0 && SEGMENT_TYPE_NAMES[type]) {
+          name = SEGMENT_TYPE_NAMES[type];
+          if (index > 0) name = `${name} ${index + 1}`;
+        } else {
+          name = `Room ${id}`;
+        }
+        return { id, name, customName, type, index };
+      });
+      return rooms;
+    }
+
+    // If no pixels had segments, try seg_inf directly
     if (dataJson.seg_inf) {
       const rooms = extractRoomsFromSegInf(dataJson.seg_inf, log);
       log(`[MAP] seg_inf found: ${Object.keys(dataJson.seg_inf).length} entries, ${rooms.length} rooms`);
       if (rooms.length > 0) return rooms;
     }
 
-    // If no seg_inf, check for nested saved map in 'rism' key
+    // Check for nested saved map in 'rism' key
     if (dataJson.rism) {
       log(`[MAP] Recursing into rism (${String(dataJson.rism).length} chars)`);
       const nestedRooms = parseMapRooms(dataJson.rism, log);
       if (nestedRooms.length > 0) return nestedRooms;
-    }
-
-    // Fallback: extract segment IDs from pixel data
-    const segmentIds = new Set();
-    const pixelData = buf.slice(MAP_HEADER_SIZE, MAP_HEADER_SIZE + (width * height));
-    for (let i = 0; i < pixelData.length; i++) {
-      const pixel = pixelData[i];
-      if (pixel > 0) {
-        // Segment ID encoding: pixel >> 2 for frame maps, pixel & 0x3F for others
-        const segId1 = pixel >> 2;
-        if (segId1 > 0 && segId1 < 61) segmentIds.add(segId1);
-        const segId2 = (pixel & 0x80) ? (pixel & 0x3F) : 0;
-        if (segId2 > 0 && segId2 < 61) segmentIds.add(segId2);
-      }
-    }
-
-    log(`[MAP] Pixel fallback: ${segmentIds.size} segment IDs found`);
-    if (segmentIds.size > 0 && segmentIds.size < 30) {
-      const rooms = [...segmentIds].sort((a, b) => a - b).map(id => ({
-        id, name: `Room ${id}`, customName: null, type: 0, index: 0,
-      }));
-      return rooms;
     }
 
     return [];
@@ -1034,7 +1102,8 @@ class DreameVacuumDevice extends Homey.Device {
 
     const mapStr = buffer.toString('utf8');
     const parseLogger = (msg) => { this._diag(msg, null, 'debug'); };
-    const rooms = parseMapRooms(mapStr, parseLogger, mapKey);
+    const modelIv = getMapIvForModel(model);
+    const rooms = parseMapRooms(mapStr, parseLogger, mapKey, modelIv);
     this._diag(`[MAP] Parsed ${rooms.length} rooms from map data`, null, 'debug');
     if (rooms.length > 0) {
       this._rooms = rooms;

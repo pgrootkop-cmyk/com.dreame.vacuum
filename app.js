@@ -212,15 +212,44 @@ class DreameApp extends Homey.App {
     const raw = device.getStoreValue('mapRawBase64');
     if (!raw) return null;
 
+    const model = device.getStoreValue('model') || '';
     const rooms = device.getRooms() || [];
-    return this._renderMapPixels(raw, rooms);
+    return this._renderMapPixels(raw, rooms, model);
+  }
+
+  /**
+   * Get the AES-CBC IV for a given vacuum model.
+   * Returns the 16-char IV string or null.
+   */
+  _getMapIv(model) {
+    if (!model) return null;
+    const suffix = model.replace('dreame.vacuum.', '');
+    // Specific model overrides (from Tasshack DEVICE_INFO)
+    const specific = {
+      r2209: 'qFKhvoAqRFTPfKN6', r2211o: 'dndRQ3z8ACjDdDMo', r2216o: '4sCv3Q2BtbWVBIB2',
+      r2240: 'ojxGnogHfVuefVfx', r2250: 'nf3Zi2Mq8jD5AAOm', r2254: 'wRy05fYLQJMRH6Mj',
+      r2210: 'OFULk9To37qRdXY3', p2149o: 'RNO4p35b2QKaovHC',
+    };
+    if (specific[suffix]) return specific[suffix];
+    // p2114 family
+    if (suffix === 'p2114a' || suffix === 'p2114o') return '6PFiLPYMHLylp7RR';
+    // p2140 family
+    if (suffix.startsWith('p2140')) return '8qnS9dqgT3CppGe1';
+    // 3F0ji4ufBMaH1ThM family
+    const family3F = ['r2243', 'r2312', 'r2312a', 'r2328', 'r2380', 'r2380r', 'r2388', 'r2422', 'r2422a', 'r2422b', 'r2422c'];
+    if (family3F.includes(suffix) || suffix.startsWith('r2458') || suffix.startsWith('r2459') || suffix.startsWith('r2463') || suffix.startsWith('r2478') || suffix.startsWith('r2479') || suffix.startsWith('r249')) return '3F0ji4ufBMaH1ThM';
+    // FmnfaI2pbem0k75t family
+    const familyFm = ['r2251a', 'r2251o', 'r2257o', 'r2317', 'r2345a', 'r2345h', 'r2363', 'r2363a', 'r2363n', 'r2364', 'r2364a', 'r2382a', 'r2382k', 'r2382r', 'r2383a', 'r2383k', 'r2386', 'r2471', 'r2563b', 'r2563v'];
+    if (familyFm.includes(suffix)) return 'FmnfaI2pbem0k75t';
+    // Default IV for most modern models (r2212+, r2253*, r2449*, etc.)
+    return 'NRwnBj5FsNPgBNbT';
   }
 
   /**
    * Decode raw map data (base64, optionally AES-encrypted, zlib-compressed).
    * Returns { buf, width, height, dataJson } or null.
    */
-  _decodeMapData(raw) {
+  _decodeMapData(raw, model) {
     let mapStr = String(raw).replace(/_/g, '/').replace(/-/g, '+');
     let aesKey = null;
     if (mapStr.includes(',')) {
@@ -234,7 +263,8 @@ class DreameApp extends Homey.App {
     if (aesKey) {
       try {
         const keyHash = crypto.createHash('sha256').update(aesKey).digest('hex').substring(0, 32);
-        const iv = Buffer.alloc(16, 0);
+        const modelIv = this._getMapIv(model);
+        const iv = modelIv ? Buffer.from(modelIv, 'utf8') : Buffer.alloc(16, 0);
         const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), iv);
         decipher.setAutoPadding(true);
         buf = Buffer.concat([decipher.update(buf), decipher.final()]);
@@ -301,10 +331,10 @@ class DreameApp extends Homey.App {
     return { type: 'outside' };
   }
 
-  _renderMapPixels(raw, rooms) {
+  _renderMapPixels(raw, rooms, model) {
     try {
       // Decode the outer map
-      const outer = this._decodeMapData(raw);
+      const outer = this._decodeMapData(raw, model);
       if (!outer) return null;
 
       const { dataJson } = outer;
@@ -317,7 +347,7 @@ class DreameApp extends Homey.App {
       let renderSavedMapStatus = savedMapStatus;
 
       if (dataJson.rism) {
-        const saved = this._decodeMapData(dataJson.rism);
+        const saved = this._decodeMapData(dataJson.rism, model);
         if (saved && saved.width > 2 && saved.height > 2) {
           renderData = saved;
           renderFrameMap = !!(saved.dataJson.fsm && saved.dataJson.fsm === 1);
