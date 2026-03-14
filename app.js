@@ -217,6 +217,12 @@ class DreameApp extends Homey.App {
     return this._renderMapPixels(raw, rooms, model);
   }
 
+  getRobotPosition(did) {
+    const device = this._findVacuumDevice(did);
+    if (!device) return null;
+    return device.getRobotPosition();
+  }
+
   /**
    * Get the AES-CBC IV for a given vacuum model.
    * Returns the 16-char IV string or null.

@@ -27,6 +27,7 @@ const PROP = {
   SELF_WASH_STATUS: { siid: 4, piid: 25 },
   AUTO_EMPTY_STATUS:{ siid: 15, piid: 5 },
   LOW_WATER_WARNING:{ siid: 4, piid: 41 },
+  WATER_TANK:       { siid: 4, piid: 6 },   // Tasshack primary water tank status
   DUST_BAG_STATUS:  { siid: 27, piid: 3 },
   CLEAN_WATER_TANK: { siid: 27, piid: 1 },
   DIRTY_WATER_TANK: { siid: 27, piid: 2 },
@@ -274,6 +275,9 @@ const PROP_TO_CAPABILITY = {
   '4-7': 'dreame_task_status',
   '4-53': 'dreame_mop_pad_installed',
   '15-3': 'dreame_dust_collection_available',
+  '27-2': 'dreame_dirty_water_tank',
+  '27-3': 'dreame_dust_bag',
+  '18-1': 'dreame_mop_pad_left',
 };
 
 // Grouped value encoding for self-wash-base cleaning mode (siid:4, piid:23)
@@ -379,13 +383,38 @@ const MAP_REFRESH_INTERVAL = 600000; // 10min — periodic map refresh via HTTP 
 const MQTT_RESTART_DELAY = 1800000;  // 30min — full MQTT restart after giving up
 const TOKEN_REFRESH_MARGIN = 100;    // seconds before expiry to proactively refresh (matches ioBroker)
 
-// Segment/room type names from Dreame protocol
+// Segment/room type names from Dreame protocol, localized
 const SEGMENT_TYPE_NAMES = {
-  0: 'Room', 1: 'Living Room', 2: 'Primary Bedroom', 3: 'Study',
-  4: 'Kitchen', 5: 'Dining Hall', 6: 'Bathroom', 7: 'Balcony',
-  8: 'Corridor', 9: 'Utility Room', 10: 'Closet', 11: 'Meeting Room',
-  12: 'Office', 13: 'Fitness Area', 14: 'Recreation Area', 15: 'Secondary Bedroom',
+  en: {
+    0: 'Room', 1: 'Living Room', 2: 'Primary Bedroom', 3: 'Study',
+    4: 'Kitchen', 5: 'Dining Hall', 6: 'Bathroom', 7: 'Balcony',
+    8: 'Corridor', 9: 'Utility Room', 10: 'Closet', 11: 'Meeting Room',
+    12: 'Office', 13: 'Fitness Area', 14: 'Recreation Area', 15: 'Secondary Bedroom',
+  },
+  nl: {
+    0: 'Kamer', 1: 'Woonkamer', 2: 'Slaapkamer', 3: 'Studeerkamer',
+    4: 'Keuken', 5: 'Eetkamer', 6: 'Badkamer', 7: 'Balkon',
+    8: 'Gang', 9: 'Bijkeuken', 10: 'Kast', 11: 'Vergaderruimte',
+    12: 'Kantoor', 13: 'Fitnessruimte', 14: 'Recreatieruimte', 15: 'Tweede slaapkamer',
+  },
+  de: {
+    0: 'Raum', 1: 'Wohnzimmer', 2: 'Schlafzimmer', 3: 'Arbeitszimmer',
+    4: 'Küche', 5: 'Esszimmer', 6: 'Badezimmer', 7: 'Balkon',
+    8: 'Flur', 9: 'Hauswirtschaftsraum', 10: 'Abstellraum', 11: 'Besprechungsraum',
+    12: 'Büro', 13: 'Fitnessraum', 14: 'Freizeitraum', 15: 'Zweites Schlafzimmer',
+  },
+  fr: {
+    0: 'Pièce', 1: 'Salon', 2: 'Chambre principale', 3: 'Bureau',
+    4: 'Cuisine', 5: 'Salle à manger', 6: 'Salle de bain', 7: 'Balcon',
+    8: 'Couloir', 9: 'Buanderie', 10: 'Placard', 11: 'Salle de réunion',
+    12: 'Bureau', 13: 'Salle de sport', 14: 'Salle de loisirs', 15: 'Chambre secondaire',
+  },
 };
+
+function getSegmentTypeName(type, lang) {
+  const names = SEGMENT_TYPE_NAMES[lang] || SEGMENT_TYPE_NAMES.en;
+  return names[type] || SEGMENT_TYPE_NAMES.en[type];
+}
 
 // Map data header size (27 bytes: map_id, frame_id, frame_type, robot/charger pos, grid, width, height, left, top)
 const MAP_HEADER_SIZE = 27;
@@ -428,7 +457,7 @@ function getMapIvForModel(model) {
  * MAP_DATA is base64 (URL-safe), optionally AES-encrypted, zlib-compressed.
  * After the binary image pixels there's a JSON object with seg_inf (segment info).
  */
-function extractRoomsFromSegInf(segInf, log) {
+function extractRoomsFromSegInf(segInf, log, lang) {
   const rooms = [];
   // Parse room info from seg_inf entries
 
@@ -451,11 +480,12 @@ function extractRoomsFromSegInf(segInf, log) {
     let name;
     if (customName) {
       name = customName;
-    } else if (type !== 0 && SEGMENT_TYPE_NAMES[type]) {
-      name = SEGMENT_TYPE_NAMES[type];
+    } else if (type !== 0 && getSegmentTypeName(type, lang)) {
+      name = getSegmentTypeName(type, lang);
       if (index > 0) name = `${name} ${index + 1}`;
     } else {
-      name = `Room ${id}`;
+      const roomLabel = (SEGMENT_TYPE_NAMES[lang] || SEGMENT_TYPE_NAMES.en)[0] || 'Room';
+      name = `${roomLabel} ${id}`;
     }
 
     rooms.push({ id, name, customName, type, index });
@@ -466,7 +496,7 @@ function extractRoomsFromSegInf(segInf, log) {
   return rooms;
 }
 
-function parseMapRooms(raw, logger, aesKey, modelIv) {
+function parseMapRooms(raw, logger, aesKey, modelIv, lang) {
   const log = logger || (() => {});
   if (!raw || raw === '') {
     return [];
@@ -583,17 +613,18 @@ function parseMapRooms(raw, logger, aesKey, modelIv) {
         let name;
         if (customName) {
           name = customName;
-        } else if (type !== 0 && SEGMENT_TYPE_NAMES[type]) {
-          name = SEGMENT_TYPE_NAMES[type];
+        } else if (type !== 0 && getSegmentTypeName(type, lang)) {
+          name = getSegmentTypeName(type, lang);
           if (index > 0) name = `${name} ${index + 1}`;
         } else {
-          name = `Room ${id}`;
+          const roomLabel = (SEGMENT_TYPE_NAMES[lang] || SEGMENT_TYPE_NAMES.en)[0] || 'Room';
+          name = `${roomLabel} ${id}`;
         }
         roomMap.set(id, { id, name, customName, type, index });
       }
     } else if (Object.keys(segInf).length > 0) {
       // No pixel segments found — use seg_inf directly
-      const rooms = extractRoomsFromSegInf(segInf, log);
+      const rooms = extractRoomsFromSegInf(segInf, log, lang);
       log(`[MAP] seg_inf only: ${Object.keys(segInf).length} entries, ${rooms.length} rooms`);
       for (const r of rooms) roomMap.set(r.id, r);
     }
@@ -602,16 +633,22 @@ function parseMapRooms(raw, logger, aesKey, modelIv) {
     // Tasshack merges saved_map_data.segments into map_data.segments
     if (dataJson.rism) {
       log(`[MAP] Processing rism (${String(dataJson.rism).length} chars)`);
-      const savedRooms = parseMapRooms(dataJson.rism, log, aesKey, modelIv);
+      const savedRooms = parseMapRooms(dataJson.rism, log, aesKey, modelIv, lang);
       log(`[MAP] Saved map (rism) has ${savedRooms.length} rooms`);
       for (const sr of savedRooms) {
         if (roomMap.has(sr.id)) {
           // Enrich existing room with saved map metadata (names, types) if missing
           const existing = roomMap.get(sr.id);
+          // Merge metadata from saved map into pixel-discovered room
           if (!existing.customName && sr.customName) existing.customName = sr.customName;
           if (existing.type === 0 && sr.type !== 0) existing.type = sr.type;
           if (existing.index === 0 && sr.index !== 0) existing.index = sr.index;
-          if (existing.name.startsWith('Room ') && !sr.name.startsWith('Room ')) existing.name = sr.name;
+          // Recalculate name from merged data (saved map has better metadata)
+          if (sr.customName) {
+            existing.name = sr.customName;
+          } else if (sr.type !== 0 || sr.name !== existing.name) {
+            existing.name = sr.name;
+          }
         } else {
           // Add rooms from saved map that aren't in current frame
           roomMap.set(sr.id, sr);
@@ -656,6 +693,10 @@ class DreameVacuumDevice extends Homey.Device {
     this._operationalState = 'idle'; // track detailed state for triggers
     this._isStuck = false;           // track stuck status for triggers
     this._lastWaterTankInstalled = null; // track water tank for change triggers
+    this._robotPositionRaw = null;    // live robot position (raw Dreame coords) from P-frames
+    this._robotCurrentRoomId = null;  // segment ID the robot is currently in
+    this._hasDocWaterTank = this.getStoreValue('hasDocWaterTank') || false;
+    this._rismCache = null;           // cached decoded rism buffer for fast room lookups
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -664,9 +705,10 @@ class DreameVacuumDevice extends Homey.Device {
       'dreame_cleaning_time', 'dreame_cleaning_progress', 'dreame_carpet_boost',
       'dreame_dnd', 'dreame_cleangenius', 'dreame_cleaning_route', 'dreame_mop_wash_frequency',
       'dreame_self_wash_status', 'dreame_dust_collection',
-      'dreame_water_tank', 'dreame_dirty_water_tank', 'dreame_dust_bag',
+      'dreame_water_tank',
       'dreame_main_brush_left', 'dreame_side_brush_left', 'dreame_filter_left',
-      'dreame_mop_pad_left', 'dreame_sensor_dirty_left', 'dreame_error',
+      'dreame_sensor_dirty_left', 'dreame_error',
+      'dreame_current_room',
     ];
     for (const cap of requiredCapabilities) {
       if (!this.hasCapability(cap)) {
@@ -685,6 +727,8 @@ class DreameVacuumDevice extends Homey.Device {
       'dreame_total_cleaned_area',
       'dreame_status', 'dreame_task_status', 'dreame_mop_pad_installed',
       'dreame_dust_collection_available',
+      'dreame_water_tank', 'dreame_dirty_water_tank', 'dreame_dust_bag',
+      'dreame_mop_pad_left',
     ];
     for (const cap of probeableCapabilities) {
       if (!this.hasCapability(cap)) {
@@ -693,8 +737,18 @@ class DreameVacuumDevice extends Homey.Device {
     }
 
     // Probe-once: detect which advanced properties the device supports
-    this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
-    this._probeComplete = this.getStoreValue('probeComplete') || false;
+    // Re-probe when new probeable props are added (version bump resets probe)
+    const probeVersion = this.getStoreValue('probeVersion') || 0;
+    if (probeVersion < 2) {
+      this._unsupportedProps = new Set();
+      this._probeComplete = false;
+      await this.setStoreValue('probeVersion', 2);
+      await this.setStoreValue('probeComplete', false);
+      await this.setStoreValue('unsupportedProps', []);
+    } else {
+      this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
+      this._probeComplete = this.getStoreValue('probeComplete') || false;
+    }
 
     // Register capability listeners
     this.registerCapabilityListener('onoff', this._onOnOff.bind(this));
@@ -858,6 +912,13 @@ class DreameVacuumDevice extends Homey.Device {
           this._adjustPolling();
           this._stopMapRefreshTimer();
           this._requestMapViaMqtt();
+
+          // Set charger room if currently docked and current_room is empty
+          const curState = this.getCapabilityValue('vacuumcleaner_state');
+          const curRoom = this.getCapabilityValue('dreame_current_room');
+          if ((curState === 'docked' || curState === 'charging') && (!curRoom || curRoom === '-')) {
+            this._detectChargerRoom();
+          }
 
           // If no 6-3 arrives within 60s, log it and try HTTP fallback
           this._mapResponseTimeout = this.homey.setTimeout(() => {
@@ -1148,7 +1209,8 @@ class DreameVacuumDevice extends Homey.Device {
     const mapStr = buffer.toString('utf8');
     const parseLogger = (msg) => { this._diag(msg, null, 'debug'); };
     const modelIv = getMapIvForModel(model);
-    const rooms = parseMapRooms(mapStr, parseLogger, mapKey, modelIv);
+    const lang = this._getLanguage();
+    const rooms = parseMapRooms(mapStr, parseLogger, mapKey, modelIv, lang);
     this._diag(`[MAP] Parsed ${rooms.length} rooms from map data`, null, 'debug');
     if (rooms.length > 0) {
       this._rooms = rooms;
@@ -1159,6 +1221,7 @@ class DreameVacuumDevice extends Homey.Device {
     // Append encryption key after comma so app.js _decodeMapData can decrypt
     this.setStoreValue('mapObjectName', objectName).catch(this.error);
     this.setStoreValue('mapRawBase64', mapKey ? mapStr + ',' + mapKey : mapStr).catch(this.error);
+    this._rismCache = null; // invalidate cached rism so _detectCurrentRoom re-decodes
   }
 
   /**
@@ -1177,10 +1240,12 @@ class DreameVacuumDevice extends Homey.Device {
       // MQTT 6-1 sends P-frame map updates (partial pixel data for real-time position).
       // These are NOT complete maps — they lack seg_inf/rism and have unstable pixel segments.
       // Room discovery comes from 6-3 cloud download (full saved map with seg_inf).
-      // Only use 6-1 for rooms if we have zero cached rooms (bootstrap fallback).
+      // Extract robot position from every 6-1 frame for live tracking.
       if (key === '6-1' && value) {
+        this._extractRobotPosition(value);
         if (!this._rooms || this._rooms.length === 0) {
-          const rooms = parseMapRooms(value, (msg) => { this._diag(msg, null, 'debug'); });
+          const lang = this._getLanguage();
+          const rooms = parseMapRooms(value, (msg) => { this._diag(msg, null, 'debug'); }, null, null, lang);
           if (rooms.length > 0) {
             this._diag(`[MAP] Bootstrap rooms from 6-1 P-frame: ${rooms.length} segments`, null, 'debug');
             this._rooms = rooms;
@@ -1223,8 +1288,16 @@ class DreameVacuumDevice extends Homey.Device {
           const homeyState = STATE_MAP[value];
           await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
           await this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
-          if (homeyState !== 'cleaning' && this._cleaningRoomIds.length > 0) {
-            this._fireRoomFinishedTriggers();
+          if (homeyState !== 'cleaning') {
+            if (this._cleaningRoomIds.length > 0) this._fireRoomFinishedTriggers();
+            this._robotCurrentRoomId = null;
+            this._robotPositionRaw = null;
+            // When docked/charging, show the dock's room instead of clearing
+            if (homeyState === 'docked' || homeyState === 'charging') {
+              this._detectChargerRoom();
+            } else {
+              this.setCapabilityValue('dreame_current_room', '-').catch(this.error);
+            }
           }
         }
         // Fire operational state change trigger
@@ -1297,6 +1370,19 @@ class DreameVacuumDevice extends Homey.Device {
           await this.setCapabilityValue('dreame_water_volume', WATER_VOLUME_REVERSE[value]).catch(this.error);
         }
         break;
+
+      case '4-6': { // WATER_TANK (Tasshack: 0=not_installed, 1=installed, 2=mop_installed, 3=installed, 10=mop_installed)
+        // Only use 4-6 as fallback if 27-1 (dock-specific) hasn't set the water tank value
+        if (!this._hasDocWaterTank) {
+          let tankStatus;
+          if (value === 0) tankStatus = 'not_installed';
+          else if (value === 1 || value === 3) tankStatus = 'installed';
+          else if (value === 10 || value === 2) tankStatus = 'installed';
+          else tankStatus = 'installed';
+          await this.setCapabilityValue('dreame_water_tank', tankStatus).catch(this.error);
+        }
+        break;
+      }
 
       case '4-23': { // CLEANING_MODE (may be grouped value)
         const currentState = this.getCapabilityValue('vacuumcleaner_state');
@@ -1386,7 +1472,11 @@ class DreameVacuumDevice extends Homey.Device {
         }
         break;
 
-      case '27-1': { // CLEAN_WATER_TANK
+      case '27-1': { // CLEAN_WATER_TANK (dock models — takes priority over 4-6)
+        if (!this._hasDocWaterTank) {
+          this._hasDocWaterTank = true;
+          this.setStoreValue('hasDocWaterTank', true).catch(this.error);
+        }
         if (WATER_TANK_MAP[value] !== undefined) {
           await this.setCapabilityValue('dreame_water_tank', WATER_TANK_MAP[value]).catch(this.error);
           if (value === 2 || value === 3) {
@@ -1656,6 +1746,7 @@ class DreameVacuumDevice extends Homey.Device {
         PROP.CLEANED_AREA,
         PROP.SUCTION_LEVEL,
         PROP.WATER_VOLUME,
+        PROP.WATER_TANK,
         PROP.CLEANING_MODE,
         PROP.SELF_WASH_STATUS,
         PROP.CLEANING_PROGRESS,
@@ -1691,17 +1782,14 @@ class DreameVacuumDevice extends Homey.Device {
           PROP.SIDE_BRUSH_LEFT,
           PROP.FILTER_LEFT,
           PROP.SENSOR_DIRTY_LEFT,
-          PROP.MOP_PAD_LEFT,
           PROP.AUTO_EMPTY_STATUS,
-          PROP.DUST_BAG_STATUS,
-          PROP.CLEAN_WATER_TANK,
-          PROP.DIRTY_WATER_TANK,
           PROP.LOW_WATER_WARNING,
         );
 
-        // Probeable consumables + lifetime stats (every 12th cycle)
+        // Probeable consumables + dock sensors (skip if known unsupported)
         const probeableInfrequent = [
-          PROP.FIRST_CLEANING_DATE, PROP.TOTAL_CLEANED_AREA,
+          PROP.MOP_PAD_LEFT, PROP.DUST_BAG_STATUS, PROP.CLEAN_WATER_TANK,
+          PROP.DIRTY_WATER_TANK, PROP.FIRST_CLEANING_DATE, PROP.TOTAL_CLEANED_AREA,
           PROP.MOP_PAD_INSTALLED, PROP.DUST_COLLECTION,
         ];
         for (const p of probeableInfrequent) {
@@ -2013,6 +2101,249 @@ class DreameVacuumDevice extends Homey.Device {
 
   getRooms() {
     return this._rooms || [];
+  }
+
+  getRobotPosition() {
+    return this._robotPosition || null;
+  }
+
+  _getLanguage() {
+    try {
+      return this.homey.i18n.getLanguage() || 'en';
+    } catch {
+      return 'en';
+    }
+  }
+
+  /**
+   * Extract robot position from a 6-1 frame header + detect current room from stored full map.
+   * P-frames have sparse pixel data so we look up the segment from the stored I-frame/rism map.
+   */
+  _extractRobotPosition(raw) {
+    try {
+      let mapStr = String(raw).replace(/_/g, '/').replace(/-/g, '+');
+      if (mapStr.includes(',')) mapStr = mapStr.split(',')[0];
+      let buf = Buffer.from(mapStr, 'base64');
+      try { buf = zlib.inflateSync(buf); } catch { try { buf = zlib.inflateRawSync(buf); } catch { return; } }
+      if (buf.length < MAP_HEADER_SIZE) return;
+
+      const rX = buf.readInt16LE(5);
+      const rY = buf.readInt16LE(7);
+      if (rX === 32767 || rY === 32767) {
+        this._robotPositionRaw = null;
+        this._robotCurrentRoomId = null;
+        return;
+      }
+      this._robotPositionRaw = { rX, rY };
+
+      // Detect room from stored FULL map (not P-frame which has sparse pixels)
+      this._detectCurrentRoom(rX, rY);
+    } catch { /* ignore parse errors on individual frames */ }
+  }
+
+  /**
+   * Detect the room where the charging dock is located and set dreame_current_room.
+   * Reads charger position (bytes 11-14) from the stored map's outer header.
+   */
+  _detectChargerRoom() {
+    try {
+      const mapRaw = this.getStoreValue('mapRawBase64');
+      if (!mapRaw) return;
+      let mapStr = mapRaw;
+      if (mapStr.includes(',')) mapStr = mapStr.split(',')[0];
+      let buf = Buffer.from(mapStr, 'base64');
+      try { buf = zlib.inflateSync(buf); } catch { try { buf = zlib.inflateRawSync(buf); } catch { return; } }
+      if (buf.length < MAP_HEADER_SIZE) return;
+
+      const cX = buf.readInt16LE(11);
+      const cY = buf.readInt16LE(13);
+      if (cX === 32767 || cY === 32767) return;
+
+      // Look up room from rism using charger coords
+      this._detectCurrentRoom(cX, cY);
+    } catch { /* ignore */ }
+  }
+
+  /**
+   * Decode and cache the rism saved map pixel data for room lookups.
+   * Called when mapRawBase64 changes (new 6-3 download).
+   */
+  _cacheRismPixels() {
+    this._rismCache = null;
+    try {
+      const mapRaw = this.getStoreValue('mapRawBase64');
+      if (!mapRaw) return;
+      const model = this.getStoreValue('model') || '';
+
+      let buf = Buffer.from(mapRaw, 'base64');
+      try { buf = zlib.inflateSync(buf); } catch { try { buf = zlib.inflateRawSync(buf); } catch { return; } }
+      if (buf.length < MAP_HEADER_SIZE) return;
+
+      const outerW = buf.readInt16LE(19);
+      const outerH = buf.readInt16LE(21);
+      const jsonStart = MAP_HEADER_SIZE + outerW * outerH;
+      if (jsonStart >= buf.length) return;
+      const outerJson = JSON.parse(buf.slice(jsonStart).toString('utf8'));
+      if (!outerJson.rism) return;
+
+      let rismBuf = Buffer.from(outerJson.rism, 'base64');
+      const encKey = this.getStoreValue('mapEncryptionKey');
+      if (encKey) {
+        try {
+          const DEVICE_KEY_IV = {
+            'dreame.vacuum.r2228o': '6YDSMSVwXMFZacVo', 'dreame.vacuum.r2233': '6YDSMSVwXMFZacVo',
+            'dreame.vacuum.r2205': 'NRwnBj5FsNPgBNbT', 'dreame.vacuum.r2228': 'NRwnBj5FsNPgBNbT',
+            'dreame.vacuum.r2253w': 'NRwnBj5FsNPgBNbT', 'dreame.vacuum.r2449a': 'NRwnBj5FsNPgBNbT',
+          };
+          const iv = DEVICE_KEY_IV[model] || 'NRwnBj5FsNPgBNbT';
+          const keyHash = crypto.createHash('sha256').update(encKey).digest('hex').slice(0, 32);
+          const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), Buffer.from(iv, 'utf8'));
+          rismBuf = Buffer.concat([decipher.update(rismBuf), decipher.final()]);
+        } catch { return; }
+      }
+      try { rismBuf = zlib.inflateSync(rismBuf); } catch { try { rismBuf = zlib.inflateRawSync(rismBuf); } catch { return; } }
+      if (rismBuf.length < MAP_HEADER_SIZE) return;
+
+      const width = rismBuf.readInt16LE(19);
+      const height = rismBuf.readInt16LE(21);
+      const left = rismBuf.readInt16LE(23);
+      const top = rismBuf.readInt16LE(25);
+      const gridSize = rismBuf.readInt16LE(17);
+      if (gridSize <= 0 || width <= 0 || height <= 0) return;
+
+      this._rismCache = { buf: rismBuf, width, height, left, top, gridSize };
+    } catch { /* ignore */ }
+  }
+
+  /**
+   * Detect which room the robot is in using cached rism pixel data.
+   * Runs on every P-frame (~3s during cleaning) so must be fast.
+   */
+  _detectCurrentRoom(rX, rY) {
+    try {
+      if (!this._rismCache) this._cacheRismPixels();
+      const c = this._rismCache;
+      if (!c) return;
+
+      const { buf: rismBuf, width, height, left, top, gridSize } = c;
+
+      const px = Math.round((rX - left) / gridSize);
+      const py = Math.round((rY - top) / gridSize);
+      if (px < 0 || px >= width || py < 0 || py >= height) return;
+
+      const pi = MAP_HEADER_SIZE + (py * width + px);
+      if (pi >= rismBuf.length) return;
+
+      const pixel = rismBuf[pi];
+      // Saved map: segId = pixel & 0x3F
+      const segId = pixel & 0x3F;
+      if (segId > 0 && segId < 61 && segId !== this._robotCurrentRoomId) {
+        this._robotCurrentRoomId = segId;
+        const room = (this._rooms || []).find(r => r.id === segId);
+        const name = room ? room.name : `Room ${segId}`;
+        this.setCapabilityValue('dreame_current_room', name).catch(this.error);
+      }
+    } catch { /* ignore */ }
+  }
+
+  /**
+   * Get robot position converted to the rendered map's pixel coordinate system.
+   * The rendered map uses the rism (saved map) header for left/top/gridSize/width/height.
+   */
+  getRobotPosition() {
+    if (!this._robotPositionRaw) return null;
+    try {
+      // Decode the stored map to get the rendered coordinate system
+      const mapRaw = this.getStoreValue('mapRawBase64');
+      if (!mapRaw) return null;
+      const model = this.getStoreValue('model') || '';
+      const header = this._getRenderedMapHeader(mapRaw, model);
+      if (!header) return null;
+
+      const { rX, rY } = this._robotPositionRaw;
+      const px = Math.round((rX - header.left) / header.gridSize);
+      const py = header.height - 1 - Math.round((rY - header.top) / header.gridSize);
+      // Clamp to map bounds
+      if (px < 0 || px >= header.width || py < 0 || py >= header.height) return null;
+      // Include current room info
+      const roomId = this._robotCurrentRoomId;
+      let roomName = null;
+      if (roomId && this._rooms) {
+        const room = this._rooms.find(r => r.id === roomId);
+        if (room) roomName = room.name;
+      }
+      return { x: px, y: py, roomId, roomName };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get the header params (gridSize, width, height, left, top) of the rendered map.
+   * Prefers rism (saved map) since that's what _renderMapPixels uses.
+   */
+  _getRenderedMapHeader(raw, model) {
+    try {
+      let mapStr = String(raw);
+      let aesKey = null;
+      if (mapStr.includes(',')) {
+        const parts = mapStr.split(',');
+        mapStr = parts[0];
+        aesKey = parts[1];
+      }
+      mapStr = mapStr.replace(/_/g, '/').replace(/-/g, '+');
+      let buf = Buffer.from(mapStr, 'base64');
+      if (aesKey) {
+        try {
+          const keyHash = crypto.createHash('sha256').update(aesKey).digest('hex').substring(0, 32);
+          const modelIv = getMapIvForModel(model);
+          const iv = modelIv ? Buffer.from(modelIv, 'utf8') : Buffer.alloc(16, 0);
+          const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), iv);
+          decipher.setAutoPadding(true);
+          buf = Buffer.concat([decipher.update(buf), decipher.final()]);
+        } catch {
+          buf = Buffer.from(mapStr, 'base64');
+        }
+      }
+      try { buf = zlib.inflateSync(buf); } catch { try { buf = zlib.inflateRawSync(buf); } catch { return null; } }
+      if (buf.length < MAP_HEADER_SIZE) return null;
+
+      const width = buf.readInt16LE(19);
+      const height = buf.readInt16LE(21);
+      const imageSize = MAP_HEADER_SIZE + (width * height);
+      if (buf.length <= imageSize) return { gridSize: buf.readInt16LE(17), width, height, left: buf.readInt16LE(23), top: buf.readInt16LE(25) };
+
+      // Check for rism — the rendered map prefers it
+      const jsonStr = buf.slice(imageSize).toString('utf8');
+      const dataJson = JSON.parse(jsonStr);
+      if (dataJson.rism) {
+        let rismStr = String(dataJson.rism).replace(/_/g, '/').replace(/-/g, '+');
+        let rismBuf = Buffer.from(rismStr, 'base64');
+        if (aesKey) {
+          try {
+            const keyHash = crypto.createHash('sha256').update(aesKey).digest('hex').substring(0, 32);
+            const modelIv = getMapIvForModel(model);
+            const iv = modelIv ? Buffer.from(modelIv, 'utf8') : Buffer.alloc(16, 0);
+            const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), iv);
+            decipher.setAutoPadding(true);
+            rismBuf = Buffer.concat([decipher.update(rismBuf), decipher.final()]);
+          } catch {
+            rismBuf = Buffer.from(rismStr, 'base64');
+          }
+        }
+        try { rismBuf = zlib.inflateSync(rismBuf); } catch { try { rismBuf = zlib.inflateRawSync(rismBuf); } catch { return null; } }
+        if (rismBuf.length >= MAP_HEADER_SIZE) {
+          const rW = rismBuf.readInt16LE(19);
+          const rH = rismBuf.readInt16LE(21);
+          if (rW > 2 && rH > 2) {
+            return { gridSize: rismBuf.readInt16LE(17), width: rW, height: rH, left: rismBuf.readInt16LE(23), top: rismBuf.readInt16LE(25) };
+          }
+        }
+      }
+      return { gridSize: buf.readInt16LE(17), width, height, left: buf.readInt16LE(23), top: buf.readInt16LE(25) };
+    } catch {
+      return null;
+    }
   }
 
   isStuck() {

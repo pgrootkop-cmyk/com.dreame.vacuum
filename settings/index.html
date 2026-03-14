@@ -140,52 +140,97 @@ function consumables(d) {
   }).join('');
 }
 
-// Shared map renderer (keep in sync with widget)
+// Map state for live position updates
+var _mapState = { canvas: null, ctx: null, scale: 1, baseImage: null };
+var _settingsPollTimer = null;
+
 function renderMapToCanvas(canvas, data, options) {
   var opts = options || {};
   var showRoomNames = opts.showRoomNames !== false;
+  _mapState.canvas = canvas;
   var w = data.width, h = data.height;
   var raw = atob(data.pixels);
   var scale = Math.max(1, Math.min(3, Math.floor(800 / Math.max(w, h))));
+  _mapState.scale = scale;
   canvas.width = w * scale;
   canvas.height = h * scale;
   var ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#eee';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  _mapState.ctx = ctx;
+
+  // Render base map to offscreen canvas (pixels + room labels + charger)
   var off = document.createElement('canvas');
-  off.width = w; off.height = h;
+  off.width = w * scale; off.height = h * scale;
   var offCtx = off.getContext('2d');
-  var img = offCtx.createImageData(w, h);
+  offCtx.fillStyle = '#eee';
+  offCtx.fillRect(0, 0, off.width, off.height);
+  var pixOff = document.createElement('canvas');
+  pixOff.width = w; pixOff.height = h;
+  var pixCtx = pixOff.getContext('2d');
+  var img = pixCtx.createImageData(w, h);
   for (var i = 0; i < raw.length; i++) img.data[i] = raw.charCodeAt(i);
-  offCtx.putImageData(img, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, 0, 0, w * scale, h * scale);
+  pixCtx.putImageData(img, 0, 0);
+  offCtx.imageSmoothingEnabled = false;
+  offCtx.drawImage(pixOff, 0, 0, w * scale, h * scale);
+
   if (data.chargerPos && data.chargerPos.x > 0) {
-    ctx.beginPath();
-    ctx.arc(data.chargerPos.x * scale, data.chargerPos.y * scale, Math.max(3, scale * 2), 0, Math.PI * 2);
-    ctx.fillStyle = '#ff9500'; ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, scale * 0.5); ctx.stroke();
-  }
-  if (data.robotPos && data.robotPos.x > 0) {
-    ctx.beginPath();
-    ctx.arc(data.robotPos.x * scale, data.robotPos.y * scale, Math.max(4, scale * 2.5), 0, Math.PI * 2);
-    ctx.fillStyle = '#007aff'; ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, scale * 0.5); ctx.stroke();
+    offCtx.beginPath();
+    offCtx.arc(data.chargerPos.x * scale, data.chargerPos.y * scale, Math.max(3, scale * 2), 0, Math.PI * 2);
+    offCtx.fillStyle = '#ff9500'; offCtx.fill();
+    offCtx.strokeStyle = '#fff'; offCtx.lineWidth = Math.max(1, scale * 0.5); offCtx.stroke();
   }
   if (showRoomNames && data.roomLabels && data.roomLabels.length > 0) {
     var fontSize = Math.max(9, Math.min(13, scale * 4));
-    ctx.font = '600 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    offCtx.font = '600 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+    offCtx.textAlign = 'center'; offCtx.textBaseline = 'middle';
     var sw = Math.max(2, scale);
     for (var j = 0; j < data.roomLabels.length; j++) {
       var label = data.roomLabels[j];
       var lx = label.x * scale, ly = label.y * scale;
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = sw; ctx.lineJoin = 'round';
-      ctx.strokeText(label.name, lx, ly);
-      ctx.fillStyle = 'rgba(15,15,15,0.9)';
-      ctx.fillText(label.name, lx, ly);
+      offCtx.strokeStyle = 'rgba(255,255,255,0.85)'; offCtx.lineWidth = sw; offCtx.lineJoin = 'round';
+      offCtx.strokeText(label.name, lx, ly);
+      offCtx.fillStyle = 'rgba(15,15,15,0.9)';
+      offCtx.fillText(label.name, lx, ly);
     }
   }
+
+  _mapState.baseImage = off;
+  drawSettingsRobotDot(data.robotPos);
+}
+
+function drawSettingsRobotDot(robotPos) {
+  if (!_mapState.ctx || !_mapState.baseImage) return;
+  var ctx = _mapState.ctx;
+  var scale = _mapState.scale;
+  ctx.drawImage(_mapState.baseImage, 0, 0);
+  if (robotPos && robotPos.x > 0) {
+    ctx.beginPath();
+    ctx.arc(robotPos.x * scale, robotPos.y * scale, Math.max(4, scale * 2.5), 0, Math.PI * 2);
+    ctx.fillStyle = '#007aff'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, scale * 0.5); ctx.stroke();
+  }
+}
+
+function startSettingsPolling() {
+  if (_settingsPollTimer || !_did) return;
+  _settingsPollTimer = setInterval(function() {
+    _homey.api('GET', '/robotPosition?did=' + encodeURIComponent(_did), null, function(err, pos) {
+      if (!err && pos && pos.x !== undefined) {
+        drawSettingsRobotDot(pos);
+      }
+    });
+    // Refresh status too
+    _homey.api('GET', '/vacuumData', null, function(err, data) {
+      if (err || !data || !data.length) return;
+      var d = data.find(function(x) { return x.id === _did; });
+      if (!d) return;
+      status(d); rooms(d); consumables(d);
+      var state = (d.capabilities || {}).vacuumcleaner_state || 'unknown';
+      if (state !== 'cleaning') {
+        clearInterval(_settingsPollTimer);
+        _settingsPollTimer = null;
+      }
+    });
+  }, 5000);
 }
 
 function map(d) {
@@ -203,6 +248,10 @@ function map(d) {
     renderMapToCanvas(canvas, data, { showRoomNames: true });
     canvas.style.display = 'block';
     noMap.style.display = 'none';
+
+    // Start polling if cleaning
+    var state = (d.capabilities || {}).vacuumcleaner_state || 'unknown';
+    if (state === 'cleaning') startSettingsPolling();
   });
 }
 

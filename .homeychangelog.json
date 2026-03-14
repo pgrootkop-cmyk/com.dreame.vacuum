@@ -46,5 +46,8 @@
   },
   "0.0.18": {
     "en": "fix map wrongly flipped vertically"
+  },
+  "0.0.19": {
+    "en": "Live tracking, current room status, dock status fixes\n- Live robot position on map widget and settings page during cleaning\n- Current room capability shows which room the robot is in (live during cleaning, dock room when charging)\n- Fixed water tank, dirty water tank, dust bag status using correct SIID/PIID mapping\n- Dock-specific properties (SIID 27) properly probed and auto-removed when unsupported\n- Fixed current room detection using stored full map instead of sparse P-frame pixels\n- Cached rism pixel data for fast room lookups on every P-frame (~3s)\n- Localized room type names (NL/DE/FR) for room discovery"
   }
 }

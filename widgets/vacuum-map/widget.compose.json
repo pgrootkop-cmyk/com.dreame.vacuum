@@ -25,6 +25,10 @@
     "getMapData": {
       "method": "GET",
       "path": "/map"
+    },
+    "getRobotPosition": {
+      "method": "GET",
+      "path": "/robot-pos"
     }
   },
   "devices": {

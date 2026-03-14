@@ -10,4 +10,10 @@ module.exports = {
     if (!did) return null;
     return homey.app.getRenderedMap(did);
   },
+
+  async getRobotPosition({ homey, query }) {
+    const did = query.did;
+    if (!did) return null;
+    return homey.app.getRobotPosition(did);
+  },
 };

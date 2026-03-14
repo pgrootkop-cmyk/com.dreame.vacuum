@@ -28,12 +28,14 @@ We recommend using a separate Dreame Home account for Homey to avoid potential s
 - Real-time MQTT: Persistent connection to Dreame cloud for instant state updates and room discovery. All 35+ properties pushed via MQTT
 - Adaptive Polling: 60s idle / 15s cleaning with MQTT, 5s fallback without. Automatic health monitoring
 - Room Cleaning: Single room or multi-room with autocomplete or manual room ID entry, per-room suction/water/repeats, per-room trigger cards
+- Live Tracking: Real-time robot position on map widget and settings page during cleaning (~5s updates)
+- Current Room: Shows which room the robot is in — live during cleaning, dock room when charging
 - Dashboard Widget: Vacuum map with room colors, labels, robot & charger position, status bar
 - App Settings: Device overview with rendered map, status grid, room list, consumable health bars
 - Carpet: Boost toggle, Sensitivity (Low/Medium/High), Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore)
 - Dock Settings: Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume
 - Toggles: Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND
-- Status: Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error, Charging, Dock Cleaning, Drying Progress, Drainage, Detergent, Hot Water, Water Tank, Dirty Water Tank, Dust Bag
+- Status: Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error, Current Room, Charging, Dock Cleaning, Drying Progress, Drainage, Detergent, Hot Water, Water Tank, Dirty Water Tank, Dust Bag, Dust Collection
 - Flow Cards: 31 actions, 17 conditions, 7 triggers
 
 **Not Supported**
