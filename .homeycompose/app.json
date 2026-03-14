@@ -1,6 +1,6 @@
 {
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -69,5 +69,6 @@
   "support": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues",
   "bugs": {
     "url": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues"
-  }
+  },
+  "homeyCommunityTopicId": 152442
 }

@@ -21,4 +21,11 @@ module.exports = {
     const dreameId = device.getData().id;
     return homey.app.getRenderedMap(dreameId);
   },
+
+  async getRobotPosition({ homey, query }) {
+    const did = query.did;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) return null;
+    return device.getRobotPosition();
+  },
 };

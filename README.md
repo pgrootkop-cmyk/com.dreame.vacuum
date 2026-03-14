@@ -48,6 +48,7 @@ If you signed up using Google, Apple, or another third-party login, you need to 
 | **Live Tracking** | Real-time robot position on map widget and settings page during cleaning (~5s updates) |
 | **Current Room** | Shows which room the robot is in — live during cleaning, dock room when charging |
 | **Dashboard Widget** | Live vacuum map widget with room colors, room labels, robot & charger position, battery status, and cleaning progress |
+| **Consumables Widget** | Dashboard widget with color-coded health bars for Main Brush, Side Brush, Filter, Mop Pad, and Sensor |
 | **App Settings** | Device overview with rendered map, status grid, room list, and consumable health bars |
 | **Carpet** | Carpet Boost toggle, Carpet Sensitivity (Low/Medium/High), Carpet Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore) |
 | **Dock Settings** | Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume |

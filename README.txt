@@ -31,6 +31,7 @@ We recommend using a separate Dreame Home account for Homey to avoid potential s
 - Live Tracking: Real-time robot position on map widget and settings page during cleaning (~5s updates)
 - Current Room: Shows which room the robot is in — live during cleaning, dock room when charging
 - Dashboard Widget: Vacuum map with room colors, labels, robot & charger position, status bar
+- Consumables Widget: Dashboard widget with color-coded health bars for brush, filter, mop pad, sensor
 - App Settings: Device overview with rendered map, status grid, room list, consumable health bars
 - Carpet: Boost toggle, Sensitivity (Low/Medium/High), Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore)
 - Dock Settings: Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume

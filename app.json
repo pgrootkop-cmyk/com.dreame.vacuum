@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -71,6 +71,7 @@
   "bugs": {
     "url": "https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues"
   },
+  "homeyCommunityTopicId": 152442,
   "flow": {
     "triggers": [
       {
@@ -2799,6 +2800,28 @@
     }
   ],
   "widgets": {
+    "consumables": {
+      "name": {
+        "en": "Vacuum Consumables"
+      },
+      "settings": [],
+      "height": "50%",
+      "api": {
+        "getDeviceData": {
+          "method": "GET",
+          "path": "/data"
+        }
+      },
+      "devices": {
+        "singular": true,
+        "type": "app",
+        "filter": {
+          "class": "vacuumcleaner",
+          "capabilities": "vacuumcleaner_state"
+        }
+      },
+      "id": "consumables"
+    },
     "vacuum-map": {
       "name": {
         "en": "Vacuum Map"

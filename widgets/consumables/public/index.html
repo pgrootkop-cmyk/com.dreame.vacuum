@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/homey-widget.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 12px; }
+    .cons-row { margin-bottom: 8px; }
+    .cons-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; color: var(--homey-text-color, #333); }
+    .cons-label { font-weight: 500; }
+    .cons-value { font-weight: 600; }
+    .cons-bar { height: 5px; background: var(--homey-background-color-dark, #eee); border-radius: 3px; overflow: hidden; }
+    .cons-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+    .no-data { color: var(--homey-text-color-light, #999); font-size: var(--homey-font-size-small, 13px); text-align: center; padding: 24px 0; }
+  </style>
+</head>
+<body>
+  <div id="content"></div>
+  <div class="no-data" id="loading">Loading...</div>
+
+<script>
+function onHomeyReady(Homey) {
+  Homey.api('GET', '/data').then(function(dev) {
+    document.getElementById('loading').style.display = 'none';
+    if (!dev) {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('loading').textContent = 'No device found';
+      Homey.ready();
+      return;
+    }
+    render(dev.capabilities || {});
+    Homey.ready();
+  }).catch(function() {
+    document.getElementById('loading').textContent = 'Could not load data';
+    Homey.ready();
+  });
+}
+
+function render(c) {
+  var items = [
+    ['Main Brush', c.dreame_main_brush_left],
+    ['Side Brush', c.dreame_side_brush_left],
+    ['Filter', c.dreame_filter_left],
+    ['Mop Pad', c.dreame_mop_pad_left],
+    ['Sensor', c.dreame_sensor_dirty_left],
+  ].filter(function(i) { return i[1] != null; });
+
+  var el = document.getElementById('content');
+  if (!items.length) {
+    el.innerHTML = '<div class="no-data">No consumable data</div>';
+    return;
+  }
+
+  el.innerHTML = items.map(function(i) {
+    var col = i[1] > 30 ? '#34c759' : i[1] > 10 ? '#ff9500' : '#ff3b30';
+    return '<div class="cons-row">'
+      + '<div class="cons-header"><span class="cons-label">' + i[0] + '</span><span class="cons-value">' + i[1] + '%</span></div>'
+      + '<div class="cons-bar"><div class="cons-fill" style="width:' + i[1] + '%;background:' + col + '"></div></div>'
+      + '</div>';
+  }).join('');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": {
+    "en": "Vacuum Consumables"
+  },
+  "settings": [],
+  "height": "50%",
+  "api": {
+    "getDeviceData": {
+      "method": "GET",
+      "path": "/data"
+    }
+  },
+  "devices": {
+    "singular": true,
+    "type": "app",
+    "filter": {
+      "class": "vacuumcleaner",
+      "capabilities": "vacuumcleaner_state"
+    }
+  }
+}

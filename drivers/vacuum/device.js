@@ -2103,9 +2103,6 @@ class DreameVacuumDevice extends Homey.Device {
     return this._rooms || [];
   }
 
-  getRobotPosition() {
-    return this._robotPosition || null;
-  }
 
   _getLanguage() {
     try {
@@ -2159,6 +2156,8 @@ class DreameVacuumDevice extends Homey.Device {
       const cY = buf.readInt16LE(13);
       if (cX === 32767 || cY === 32767) return;
 
+      // Set robot position to charger so the blue dot snaps to dock on the map
+      this._robotPositionRaw = { rX: cX, rY: cY };
       // Look up room from rism using charger coords
       this._detectCurrentRoom(cX, cY);
     } catch { /* ignore */ }
