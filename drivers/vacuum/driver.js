@@ -169,6 +169,27 @@ class DreameVacuumDriver extends Homey.Driver {
         await args.device.setMopWashFrequency(args.frequency);
       });
 
+    // Simple room cleaning cards (use current device settings)
+    const simpleRoomCard = this.homey.flow.getActionCard('start_room_cleaning_simple');
+    simpleRoomCard.registerRunListener(async (args) => {
+      const roomId = parseInt(args.room.id, 10);
+      if (isNaN(roomId) || roomId <= 0) throw new Error('Invalid room selected');
+      await args.device.startRoomCleaningSimple(roomId);
+    });
+    simpleRoomCard.registerArgumentAutocompleteListener('room', async (query, args) => {
+      return this._getRoomAutocomplete(query, args);
+    });
+
+    const simpleMultiRoomCard = this.homey.flow.getActionCard('start_multi_room_cleaning_simple');
+    simpleMultiRoomCard.registerRunListener(async (args) => {
+      const roomIds = String(args.rooms.id).split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
+      if (roomIds.length === 0) throw new Error('No valid rooms selected');
+      await args.device.startMultiRoomCleaningSimple(roomIds);
+    });
+    simpleMultiRoomCard.registerArgumentAutocompleteListener('rooms', async (query, args) => {
+      return this._getMultiRoomAutocomplete(query, args);
+    });
+
     const roomCleaningCard = this.homey.flow.getActionCard('start_room_cleaning');
     roomCleaningCard.registerRunListener(async (args) => {
       const roomId = parseInt(args.room.id, 10);

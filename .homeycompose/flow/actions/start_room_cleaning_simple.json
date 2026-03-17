@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Clean a room"
+  },
+  "titleFormatted": {
+    "en": "Clean [[room]]"
+  },
+  "hint": {
+    "en": "Start cleaning a room using the current device settings (suction, water, repeats are taken from the vacuum's active configuration)."
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "room",
+      "title": {
+        "en": "Room"
+      },
+      "placeholder": {
+        "en": "Search rooms..."
+      }
+    }
+  ]
+}

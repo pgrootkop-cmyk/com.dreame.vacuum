@@ -2396,6 +2396,18 @@ class DreameVacuumDevice extends Homey.Device {
     return this._cleaningRoomIds.includes(roomId);
   }
 
+  async startRoomCleaningSimple(roomId) {
+    const suction = this.getCapabilityValue('dreame_suction_level') || 'standard';
+    const water = this.getCapabilityValue('dreame_water_volume') || 'medium';
+    await this.startRoomCleaning(roomId, 1, suction, water);
+  }
+
+  async startMultiRoomCleaningSimple(roomIds) {
+    const suction = this.getCapabilityValue('dreame_suction_level') || 'standard';
+    const water = this.getCapabilityValue('dreame_water_volume') || 'medium';
+    await this.startMultiRoomCleaning(roomIds, 1, suction, water);
+  }
+
   async startRoomCleaning(roomId, repeats, suction, water) {
     this._lastCommandTime = Date.now();
     const api = this._getApi();

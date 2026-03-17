@@ -2433,6 +2433,64 @@
       },
       {
         "title": {
+          "en": "Clean a room"
+        },
+        "titleFormatted": {
+          "en": "Clean [[room]]"
+        },
+        "hint": {
+          "en": "Start cleaning a room using the current device settings (suction, water, repeats are taken from the vacuum's active configuration)."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "room",
+            "title": {
+              "en": "Room"
+            },
+            "placeholder": {
+              "en": "Search rooms..."
+            }
+          }
+        ],
+        "id": "start_room_cleaning_simple"
+      },
+      {
+        "title": {
+          "en": "Clean multiple rooms"
+        },
+        "titleFormatted": {
+          "en": "Clean rooms [[rooms]]"
+        },
+        "hint": {
+          "en": "Clean multiple rooms using the current device settings (suction, water, repeats are taken from the vacuum's active configuration)."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "rooms",
+            "title": {
+              "en": "Rooms"
+            },
+            "placeholder": {
+              "en": "Search rooms..."
+            }
+          }
+        ],
+        "id": "start_multi_room_cleaning_simple"
+      },
+      {
+        "title": {
           "en": "Clean room by ID"
         },
         "titleFormatted": {
