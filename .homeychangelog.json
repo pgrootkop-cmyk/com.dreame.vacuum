@@ -1,4 +1,7 @@
 {
+  "0.0.22": {
+    "en": "Room cleaning improvements and map readability\n- New simple room cleaning flow cards: 'Clean a room' and 'Clean multiple rooms' that use the vacuum's current settings (no need to specify suction, water, or repeats)\n- Increased room label font size and contrast on map widget and settings page for better readability on smaller screens\n- Updated README with flow tips for post-cleaning automations"
+  },
   "0.0.1": {
     "en": "Initial release\n- Control robot vacuums via Dreame Home cloud API\n- Cleaning modes: Sweeping, Mopping, Sweeping & Mopping\n- Suction level, water volume, and cleaning route control\n- CleanGenius intelligent cleaning with auto-start\n- Dock features: Auto Empty, Self Clean, Drying\n- Consumable monitoring with low alerts\n- Battery, cleaned area, cleaning time sensors\n- Flow cards for automations\n- Configurable polling interval"
   },
