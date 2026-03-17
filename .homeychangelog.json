@@ -1,4 +1,7 @@
 {
+  "0.0.23": {
+    "en": "Robot position fix, Australia region, and Sentry stability\n- Fixed: robot blue dot showing in wrong position when opening map widget (was reading stale saved-map data)\n- Added Australia, Russia to region selector (Australia uses EU server)\n- Removed broken Germany region option (no dedicated Dreame server)\n- Fixed Sentry crash on Homey containers (disabled incompatible memory context gathering)"
+  },
   "0.0.22": {
     "en": "Multi-device MQTT fix, room cleaning improvements, and better error reporting\n- Fixed: second vacuum not receiving real-time updates (MQTT connection was shared incorrectly)\n- Single MQTT connection now properly serves multiple devices with per-device topic subscriptions\n- New simple room cleaning flow cards: 'Clean a room' and 'Clean multiple rooms' that use the vacuum's current settings\n- Increased room label font size and contrast on map widget and settings page for better readability\n- Replaced legacy Sentry SDK with modern @sentry/node for proper error severity levels\n- Map download now retries on expired tokens and includes detailed error info\n- Consolidated diagnostic logging through a single path"
   },
