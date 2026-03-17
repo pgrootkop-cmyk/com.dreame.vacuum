@@ -358,7 +358,7 @@ class DreameVacuumDriver extends Homey.Driver {
         return true;
       } catch (err) {
         this.error('Login failed:', err.message);
-        this.homey.app.sendDiagnostic('Pairing: login failed', { region: country, error: err.message });
+        this.homey.app.sendDiagnostic('Pairing: login failed', { region: country, error: err.message }, 'warning');
         throw new Error(`Login failed: ${err.message}`);
       }
     });
@@ -507,7 +507,7 @@ class DreameVacuumDriver extends Homey.Driver {
         return true;
       } catch (err) {
         this.error('Repair login failed:', err.message);
-        this.homey.app.sendDiagnostic('Repair: login failed', { region: country, error: err.message }, 'error');
+        this.homey.app.sendDiagnostic('Repair: login failed', { region: country, error: err.message }, 'warning');
         throw new Error('Login failed. Check your credentials.');
       }
     });

@@ -831,15 +831,20 @@ class DreameVacuumDevice extends Homey.Device {
         await this.setStoreValue('bindDomain', this._bindDomain);
       }
     } catch (err) {
-      this.error('Failed to fetch bindDomain:', err.message);
+      this._diag(`[API] Failed to fetch bindDomain: ${err.message}`, null, 'warning');
     }
   }
 
   /**
-   * Send diagnostic log to Sentry when user has opted in.
+   * Log to console and send diagnostic to Sentry when user has opted in.
    * @param {'debug'|'info'|'warning'|'error'|'fatal'} level
    */
   _diag(message, extra, level = 'info') {
+    if (level === 'error' || level === 'fatal') {
+      this.error(message);
+    } else {
+      this.log(message);
+    }
     this.homey.app.sendDiagnostic(message, {
       ...extra,
       did: this._did,
@@ -848,10 +853,11 @@ class DreameVacuumDevice extends Homey.Device {
   }
 
   /**
-   * Send error to Sentry when user has opted in.
+   * Log error to console and send to Sentry when user has opted in.
    * @param {'warning'|'error'|'fatal'} level
    */
   _diagError(err, extra, level = 'error') {
+    this.error(err.message || err);
     this.homey.app.sendError(err, {
       ...extra,
       did: this._did,
@@ -935,14 +941,12 @@ class DreameVacuumDevice extends Homey.Device {
           this._startMapRefreshTimer();
         },
         auth_error: () => {
-          this.log('[MQTT] Auth error — refreshing token');
           this._diag('[MQTT] Auth error', null, 'error');
           this._mqttConnected = false;
           this._adjustPolling();
           this._handleMqttAuthError();
         },
         gave_up: () => {
-          this.log('[MQTT] Gave up reconnecting — relying on HTTP polling, will retry in 30min');
           this._diag('[MQTT] Gave up reconnecting', null, 'fatal');
           this._mqttConnected = false;
           this._adjustPolling();
@@ -971,7 +975,6 @@ class DreameVacuumDevice extends Homey.Device {
       // Start proactive token refresh to prevent auth expiry
       this._startTokenRefreshTimer();
     } catch (e) {
-      this.error('[MQTT] Connect error:', e.message);
       this._diagError(e, { context: 'mqtt_connect' });
       this._startMapRefreshTimer();
       this._mqttRetryTimer = this.homey.setTimeout(() => this._connectMqtt(), 30000);
@@ -1031,7 +1034,7 @@ class DreameVacuumDevice extends Homey.Device {
         // Schedule next refresh
         this._startTokenRefreshTimer();
       } catch (e) {
-        this.error('[TOKEN] Proactive refresh failed:', e.message);
+        this._diag(`[TOKEN] Proactive refresh failed: ${e.message}`, null, 'warning');
         // Retry in 5 minutes
         this._tokenRefreshTimer = this.homey.setTimeout(() => {
           this._tokenRefreshTimer = null;
@@ -1071,7 +1074,6 @@ class DreameVacuumDevice extends Homey.Device {
       await this._connectMqtt();
       this.log('[MQTT] Full restart succeeded');
     } catch (e) {
-      this.error('[MQTT] Full restart failed:', e.message);
       this._diagError(e, { context: 'mqtt_restart' });
       // Schedule another attempt
       this._scheduleMqttRestart();
@@ -1109,7 +1111,6 @@ class DreameVacuumDevice extends Homey.Device {
       const mqttClient = this.homey.app.getMqtt();
       mqttClient.updateToken(api.accessToken);
     } catch (e) {
-      this.error('[MQTT] Token refresh failed:', e.message);
       this._diagError(e, { context: 'mqtt_token_refresh' });
       // Polling continues as fallback
     } finally {
@@ -1160,7 +1161,8 @@ class DreameVacuumDevice extends Homey.Device {
         this._diag('[MAP] HTTP fallback: no cached map path available', null, 'warning');
       }
     } catch (e) {
-      this._diag(`[MAP] HTTP fallback error: ${e.message}`, null, 'warning');
+      this._diag(`[MAP] HTTP fallback error: ${e.message}`, null, 'error');
+      this._diagError(e, { context: 'http_map_fallback' });
     }
   }
 
@@ -1529,7 +1531,7 @@ class DreameVacuumDevice extends Homey.Device {
             }
           }
         } catch (e) {
-          this.error('Failed to parse AUTO_SWITCH_SETTINGS:', value);
+          this._diag(`[PROP] Failed to parse AUTO_SWITCH_SETTINGS: ${e.message}`, { rawValue: String(value).slice(0, 200) }, 'warning');
         }
         break;
       }
@@ -1802,7 +1804,7 @@ class DreameVacuumDevice extends Homey.Device {
       const results = await api.getProperties(this._did, this._bindDomain, props);
 
       if (!Array.isArray(results)) {
-        this.error('Unexpected poll result:', results);
+        this._diag('[POLL] Unexpected poll result (not an array)', { result: JSON.stringify(results).slice(0, 300) }, 'error');
         return;
       }
 
@@ -1850,9 +1852,10 @@ class DreameVacuumDevice extends Homey.Device {
         await this.setAvailable();
       }
     } catch (err) {
-      this.error('Poll failed:', err.message);
+      this._diagError(err, { context: 'poll' });
 
       if (err.message.includes('401') || err.message.includes('Authentication') || err.message.includes('Login failed')) {
+        this._diag('[POLL] Auth failure — device set unavailable', null, 'error');
         await this.setUnavailable('Authentication failed. Use Repair to reconnect.');
       }
     }

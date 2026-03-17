@@ -52,5 +52,8 @@
   },
   "0.0.20": {
     "en": "Consumables widget and robot position fix\n- New Vacuum Consumables dashboard widget with color-coded health bars\n- Fixed robot position (blue dot) snapping to dock when not cleaning instead of showing incorrect position\n- Added missing robot position handler for map widget live tracking\n- Community forum link added to App Store listing"
+  },
+  "0.0.21": {
+    "en": "Improved error reporting and map download reliability\n- Replaced legacy Sentry SDK (homey-log/raven) with modern @sentry/node\n- Proper severity levels: debug/info as breadcrumbs, warnings and errors as separate issue types\n- Map download now retries on expired tokens and logs actual API error responses\n- Map download error messages include per-endpoint failure details\n- HTTP map fallback now properly reports errors with stack traces\n- Consolidated logging: all diagnostic messages go through a single path"
   }
 }

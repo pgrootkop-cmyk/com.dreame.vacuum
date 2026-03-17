@@ -1,8 +1,7 @@
 'use strict';
 
 const Homey = require('homey');
-const { Log } = require('homey-log');
-const Raven = require('raven');
+const Sentry = require('@sentry/node');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const DreameApi = require('./lib/DreameApi');
@@ -20,10 +19,41 @@ const MAP_HEADER_SIZE = 27;
 class DreameApp extends Homey.App {
 
   async onInit() {
-    this.homeyLog = new Log({ homey: this.homey });
+    this._initSentry();
     this._api = null;
     this._mqtt = null;
     this._initApi();
+  }
+
+  _initSentry() {
+    const dsn = Homey.env.HOMEY_LOG_URL;
+    if (!dsn) {
+      this.log('[Sentry] No HOMEY_LOG_URL configured, Sentry disabled');
+      return;
+    }
+
+    const manifest = Homey.manifest || {};
+    Sentry.init({
+      dsn,
+      release: `${manifest.id}@${manifest.version}`,
+      environment: process.env.DEBUG === '1' ? 'development' : 'production',
+      beforeSend: (event) => {
+        if (!this.isDiagnosticEnabled()) return null;
+        return event;
+      },
+    });
+
+    // Set default context tags
+    Sentry.setTag('appId', manifest.id);
+    Sentry.setTag('appVersion', manifest.version);
+
+    // Async: get homey version and ID
+    this.homey.cloud.getHomeyId()
+      .then((homeyId) => {
+        Sentry.setTag('homeyId', homeyId);
+      })
+      .catch(() => {});
+    Sentry.setTag('homeyVersion', this.homey.version);
   }
 
   /**
@@ -34,32 +64,61 @@ class DreameApp extends Homey.App {
   }
 
   /**
-   * Send a diagnostic message to Sentry with severity level.
-   * Only sends when user has opted in.
-   * @param {'debug'|'info'|'warning'|'error'|'fatal'} level
+   * Send a diagnostic message to Sentry with proper severity level.
+   * Only sends when user has opted in (enforced by beforeSend).
+   *
+   * debug/info  → breadcrumb (attached as context to the next error/warning event)
+   * warning     → captureMessage level:warning (visible in Issues, filterable)
+   * error/fatal → captureMessage level:error/fatal (visible in Errors & Outages)
+   *
+   * @param {string} message
+   * @param {object} [extra]
+   * @param {'debug'|'info'|'warning'|'error'|'fatal'} [level='info']
    */
   sendDiagnostic(message, extra, level = 'info') {
     if (!this.isDiagnosticEnabled()) return;
-    const opts = { level };
-    if (extra) {
-      if (extra.model) this.homeyLog.setTags({ model: extra.model });
-      opts.extra = extra;
+
+    if (extra && extra.model) Sentry.setTag('model', extra.model);
+
+    if (level === 'debug' || level === 'info') {
+      Sentry.addBreadcrumb({
+        message,
+        category: 'diagnostic',
+        level,
+        data: extra || undefined,
+      });
+      return;
     }
-    Raven.captureMessage(message, opts);
+
+    Sentry.withScope((scope) => {
+      if (extra) scope.setExtras(extra);
+      scope.setTag('diagnostic', 'true');
+      scope.setLevel(level);
+      Sentry.captureMessage(message);
+    });
   }
 
   /**
-   * Send an error to Sentry (only when user has opted in).
-   * @param {'warning'|'error'|'fatal'} level
+   * Send an error to Sentry with proper severity level.
+   * Only sends when user has opted in (enforced by beforeSend).
+   * Always creates a proper error event in Sentry's Errors & Outages view.
+   *
+   * @param {Error} err
+   * @param {object} [extra]
+   * @param {'warning'|'error'|'fatal'} [level='error']
    */
   sendError(err, extra, level = 'error') {
     if (!this.isDiagnosticEnabled()) return;
-    const opts = { level };
-    if (extra) {
-      if (extra.model) this.homeyLog.setTags({ model: extra.model });
-      opts.extra = extra;
-    }
-    Raven.captureException(err, opts);
+
+    Sentry.withScope((scope) => {
+      if (extra) {
+        if (extra.model) scope.setTag('model', extra.model);
+        scope.setExtras(extra);
+      }
+      scope.setTag('diagnostic', 'true');
+      scope.setLevel(level);
+      Sentry.captureException(err);
+    });
   }
 
   _initApi() {
