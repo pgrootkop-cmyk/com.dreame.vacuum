@@ -154,6 +154,11 @@ function onHomeyReady(Homey) {
       renderMapToCanvas(document.getElementById('canvas'), data, { showRoomNames: showRoomNames });
       document.getElementById('canvas').style.display = 'block';
       document.getElementById('noMap').style.display = 'none';
+
+      // Always fetch live position to override stale saved-map header position
+      Homey.api('GET', '/robot-pos').then(function(pos) {
+        if (pos && pos.x !== undefined) drawRobotDot(pos);
+      }).catch(function() {});
     } else {
       document.getElementById('noMap').textContent = 'No map available';
     }

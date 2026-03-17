@@ -37,6 +37,7 @@ class DreameApp extends Homey.App {
       dsn,
       release: `${manifest.id}@${manifest.version}`,
       environment: process.env.DEBUG === '1' ? 'development' : 'production',
+      integrations: (defaults) => defaults.filter((i) => i.name !== 'Context'),
       beforeSend: (event) => {
         if (!this.isDiagnosticEnabled()) return null;
         return event;
