@@ -44,7 +44,7 @@ If you signed up using Google, Apple, or another third-party login, you need to 
 | **Dock Features** | Auto Empty, Self Clean, Drying, Draining |
 | **Consumables** | Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset) |
 | **Sensors** | Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error Status, Current Room |
-| **Room Cleaning** | Room discovery via MQTT + cloud map download. Single/multi-room cleaning with autocomplete selection or manual room ID entry, per-room suction/water/repeats. Per-room trigger cards (start/finish) |
+| **Room Cleaning** | Room discovery via MQTT + cloud map download. Simple room cleaning (uses current device settings) or advanced with per-room suction/water/repeats. Single/multi-room with autocomplete or manual room ID. Per-room trigger cards (start/finish) |
 | **Live Tracking** | Real-time robot position on map widget and settings page during cleaning (~5s updates) |
 | **Current Room** | Shows which room the robot is in — live during cleaning, dock room when charging |
 | **Dashboard Widget** | Live vacuum map widget with room colors, room labels, robot & charger position, battery status, and cleaning progress |
@@ -56,7 +56,13 @@ If you signed up using Google, Apple, or another third-party login, you need to 
 | **Status** | Charging Status, Dock Cleaning Status, Drying Progress, Drainage Status, Detergent Status, Hot Water Status, Water Tank, Dirty Water Tank, Dust Bag, Dust Collection |
 | **Real-time MQTT** | Persistent connection to Dreame MQTT broker for instant property updates and room discovery. All 35+ properties pushed via MQTT — ~80% fewer API calls |
 | **Adaptive Polling** | Automatic poll interval adjustment: 60s idle / 15s cleaning with MQTT, 5s fallback without. MQTT health monitoring with automatic fast-poll recovery |
-| **Flow Cards** | 31 action cards, 17 condition cards, 7 trigger cards |
+| **Flow Cards** | 33 action cards, 19 condition cards, 12 trigger cards |
+
+### Flow Tips
+
+**Run actions after cleaning finishes:** Use the **"The operational state changed to..."** trigger card with the state set to **"Returning"** (robot heading back to dock) or **"Charging"** (robot is back on the dock). You can also use **"Room cleaning finished"** to trigger actions when a specific room is done.
+
+**Simple room cleaning:** The **"Clean a room"** and **"Clean multiple rooms"** cards use whatever suction/water settings are currently active on the vacuum — no need to specify them in every flow. For fine-grained control, use the advanced cards that let you set suction, water volume, and repeats per room.
 
 ## Not Supported
 
