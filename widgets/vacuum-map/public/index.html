@@ -83,16 +83,16 @@ function renderMapToCanvas(canvas, data, options) {
 
   // Draw room labels (static)
   if (mapState.showRoomNames && data.roomLabels && data.roomLabels.length > 0) {
-    var fontSize = Math.max(9, Math.min(13, scale * 4));
-    offCtx.font = '600 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+    var fontSize = Math.max(11, Math.min(16, scale * 5));
+    offCtx.font = '700 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
     offCtx.textAlign = 'center'; offCtx.textBaseline = 'middle';
-    var sw = Math.max(2, scale);
+    var sw = Math.max(3, scale * 1.5);
     for (var j = 0; j < data.roomLabels.length; j++) {
       var label = data.roomLabels[j];
       var lx = label.x * scale, ly = label.y * scale;
-      offCtx.strokeStyle = 'rgba(255,255,255,0.85)'; offCtx.lineWidth = sw; offCtx.lineJoin = 'round';
+      offCtx.strokeStyle = 'rgba(255,255,255,0.95)'; offCtx.lineWidth = sw; offCtx.lineJoin = 'round';
       offCtx.strokeText(label.name, lx, ly);
-      offCtx.fillStyle = 'rgba(15,15,15,0.9)';
+      offCtx.fillStyle = 'rgba(0,0,0,0.85)';
       offCtx.fillText(label.name, lx, ly);
     }
   }
