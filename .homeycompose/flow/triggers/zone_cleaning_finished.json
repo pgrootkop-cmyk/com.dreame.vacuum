@@ -2,10 +2,19 @@
   "title": {
     "en": "Zone cleaning finished"
   },
+  "titleFormatted": {
+    "en": "Zone [[zone]] cleaning finished"
+  },
   "hint": {
-    "en": "Triggers when the vacuum finishes zone cleaning and returns to the dock."
+    "en": "Triggers when the vacuum finishes zone cleaning. Optionally filter by zone name (only works for zones started via Flow cards)."
   },
   "tokens": [
+    {
+      "name": "zone_name",
+      "type": "string",
+      "title": { "en": "Zone name" },
+      "example": { "en": "Under table" }
+    },
     {
       "name": "cleaned_area",
       "type": "number",
@@ -24,6 +33,16 @@
       "name": "device",
       "type": "device",
       "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "zone",
+      "title": {
+        "en": "Zone"
+      },
+      "placeholder": {
+        "en": "Any zone"
+      }
     }
   ]
 }

@@ -1,4 +1,7 @@
 {
+  "0.0.27": {
+    "en": "Multi-floor UX improvements, zone-specific triggers, map rotation in settings\n- Room autocomplete in action cards now shows rooms from ALL floors with floor labels\n- Floor selection in app settings persists across page visits\n- Map rotation dropdown added to app settings (0°/90°/180°/270°)\n- Zone cleaning finished trigger now includes zone name token and optional zone filter\n- Users can create flows like 'When Zone X is finished → Pause'\n- Zone name tracked from flow card through to completion trigger"
+  },
   "0.0.26": {
     "en": "Dreame shortcuts support\n- New 'Run a shortcut' Flow card to trigger shortcuts configured in the Dreame Home app\n- Shortcuts auto-discovered from device (property 4-48) with base64 name decoding\n- Autocomplete lists all available shortcuts by name"
   },

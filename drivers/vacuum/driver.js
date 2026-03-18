@@ -338,13 +338,28 @@ class DreameVacuumDriver extends Homey.Driver {
         if (zone && zone.coords) coords.push(zone.coords);
       }
       if (coords.length === 0) throw new Error('Zone not found. Reconfigure zones in app settings.');
-      await args.device.startZoneCleaning(coords, args.repeats);
+      await args.device.startZoneCleaning(coords, args.repeats, null, null, zoneData.name);
     });
     zoneCleanCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
       return this._getZoneAutocomplete(query, args);
     });
 
-    // --- Zone cleaning finished trigger (no args to filter) ---
+    // --- Zone cleaning finished trigger (with optional zone filter) ---
+    const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
+    zoneFinishedCard.registerRunListener(async (args, state) => {
+      if (!args.zone || !args.zone.id || args.zone.id === '') return true; // Any zone
+      return state.zone_name === args.zone.name;
+    });
+    zoneFinishedCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
+      const zones = args.device ? args.device.getZones() : [];
+      const results = [
+        { name: 'Any zone', description: 'Triggers for all zones', id: '' },
+        ...zones.map(z => ({ name: z.name, description: '', id: z.id })),
+      ];
+      if (!query) return results;
+      const q = query.toLowerCase();
+      return results.filter(r => r.name.toLowerCase().includes(q));
+    });
 
     // --- Select floor card ---
     const selectFloorCard = this.homey.flow.getActionCard('select_floor');
@@ -520,14 +535,20 @@ class DreameVacuumDriver extends Homey.Driver {
   }
 
   _getRoomAutocomplete(query, args) {
-    const rooms = args.device ? args.device.getRooms() : [];
-    if (rooms.length === 0) {
+    const floors = args.device ? args.device.getFloors() : [];
+    const hasMultiFloor = floors.length > 1;
+
+    // For multi-floor devices, show rooms from ALL floors so users don't need to switch floors first
+    const allRooms = args.device && hasMultiFloor
+      ? args.device.getAllFloorRooms()
+      : (args.device ? args.device.getRooms() : []).map(r => ({ ...r, floorId: null, floorName: null }));
+
+    if (allRooms.length === 0) {
       return [{ name: 'No rooms discovered yet', description: 'Rooms appear after the vacuum maps your home', id: '_none' }];
     }
-    const floorLabel = this._getFloorLabel(args);
-    const results = rooms.map(r => ({
+    const results = allRooms.map(r => ({
       name: `${r.name} (ID: ${r.id})`,
-      description: floorLabel || '',
+      description: r.floorName || '',
       id: String(r.id),
     }));
     if (!query) return results;

@@ -65,6 +65,18 @@
         </select>
       </div>
     </fieldset>
+
+    <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Map Rotation</legend>
+      <div class="homey-form-group">
+        <select class="homey-form-select" id="rotationSelect" onchange="changeRotation()">
+          <option value="0">0°</option>
+          <option value="90">90°</option>
+          <option value="180">180°</option>
+          <option value="270">270°</option>
+        </select>
+      </div>
+    </fieldset>
   </form>
 
   <div id="content" style="display:none;">
@@ -106,11 +118,18 @@ var _settingsPollTimer = null;
 var _zones = [];
 var _drawState = { active: false, startX: 0, startY: 0, endX: 0, endY: 0 };
 var _currentFloorId = null;
+var _rotation = 0;
 
 function onHomeyReady(Homey) {
   _homey = Homey;
   Homey.get('diagnosticLogging', function(err, val) {
     document.getElementById('diagnosticToggle').checked = val === true;
+  });
+  Homey.get('mapRotation', function(err, val) {
+    if (val) { _rotation = parseInt(val, 10) || 0; document.getElementById('rotationSelect').value = String(_rotation); }
+  });
+  Homey.get('settingsFloorId', function(err, val) {
+    if (val) _currentFloorId = val;
   });
   loadAll();
 
@@ -152,9 +171,13 @@ function selectDevice() {
 }
 
 function show(d) {
-  _currentFloorId = d.selectedFloorId || null;
+  // Use persisted floor selection if available, otherwise device's active floor
+  if (!_currentFloorId) _currentFloorId = d.selectedFloorId || null;
   status(d); consumables(d); floors(d); loadZones();
-  // Fetch rooms for the active floor specifically
+  // Apply rotation
+  var canvas = document.getElementById('mapCanvas');
+  canvas.style.transform = _rotation ? 'rotate(' + _rotation + 'deg)' : '';
+  // Fetch rooms for selected floor
   if (_currentFloorId) {
     _homey.api('GET', '/rooms?did=' + encodeURIComponent(d.id) + '&floorId=' + encodeURIComponent(_currentFloorId), null, function(err, data) {
       renderRoomList(!err && data ? data : d.rooms);
@@ -180,8 +203,9 @@ function floors(d) {
   var sel = document.getElementById('floorSelect');
   if (!d.floors || d.floors.length <= 1) { fieldset.style.display = 'none'; return; }
   fieldset.style.display = 'block';
+  var activeId = _currentFloorId || d.selectedFloorId;
   sel.innerHTML = d.floors.map(function(f) {
-    var selected = d.selectedFloorId && String(f.id) === String(d.selectedFloorId) ? ' selected' : '';
+    var selected = activeId && String(f.id) === String(activeId) ? ' selected' : '';
     return '<option value="' + f.id + '"' + selected + '>' + f.name + '</option>';
   }).join('');
 }
@@ -190,6 +214,7 @@ function selectFloor() {
   var floorId = document.getElementById('floorSelect').value;
   if (!floorId || !_did) return;
   _currentFloorId = floorId;
+  _homey.set('settingsFloorId', floorId); // Persist selection
   var d = _devices.find(function(x) { return x.id === _did; });
   if (!d) return;
   // Fetch rooms for selected floor
@@ -572,6 +597,12 @@ function consumables(d) {
 
 function toggleDiagnostic() {
   _homey.set('diagnosticLogging', document.getElementById('diagnosticToggle').checked);
+}
+function changeRotation() {
+  _rotation = parseInt(document.getElementById('rotationSelect').value, 10) || 0;
+  _homey.set('mapRotation', String(_rotation));
+  var canvas = document.getElementById('mapCanvas');
+  canvas.style.transform = _rotation ? 'rotate(' + _rotation + 'deg)' : '';
 }
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '-'; }
 </script>

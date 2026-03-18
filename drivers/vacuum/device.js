@@ -1341,9 +1341,11 @@ class DreameVacuumDevice extends Homey.Device {
                 .catch(e => this.error('Cleaning finished trigger:', e));
               // Fire zone_cleaning_finished if previous state was ZONE_CLEANING (34)
               if (prevDreameState === 34) {
+                const zoneName = this._lastZoneName || '';
                 const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
-                zoneFinishedCard.trigger(this, { cleaned_area: area, cleaning_time: time })
+                zoneFinishedCard.trigger(this, { cleaned_area: area, cleaning_time: time, zone_name: zoneName }, { zone_name: zoneName })
                   .catch(e => this.error('Zone cleaning finished trigger:', e));
+                this._lastZoneName = null;
               }
             }
             // When docked/charging, show the dock's room instead of clearing
@@ -2920,8 +2922,9 @@ class DreameVacuumDevice extends Homey.Device {
    * Start zone cleaning. Zones are arrays of [x0, y0, x1, y1] in device coordinates.
    * Uses current device suction/water settings unless overridden.
    */
-  async startZoneCleaning(zones, repeats, suction, water) {
+  async startZoneCleaning(zones, repeats, suction, water, zoneName) {
     this._lastCommandTime = Date.now();
+    this._lastZoneName = zoneName || null; // Track for zone_cleaning_finished trigger
     const api = this._getApi();
     const suctionValue = suction && SUCTION_MAP[suction] !== undefined ? SUCTION_MAP[suction] : this.getCapabilityValue('dreame_suction_level') ? SUCTION_MAP[this.getCapabilityValue('dreame_suction_level')] || 1 : 1;
     const waterValue = water && WATER_VOLUME_MAP[water] !== undefined ? WATER_VOLUME_MAP[water] : this.getCapabilityValue('dreame_water_volume') ? WATER_VOLUME_MAP[this.getCapabilityValue('dreame_water_volume')] || 2 : 2;
