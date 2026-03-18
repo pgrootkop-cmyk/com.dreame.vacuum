@@ -80,7 +80,8 @@ const PROP = {
   MAP_DATA: { siid: 6, piid: 1 },
   MAP_OBJECT_NAME: { siid: 6, piid: 2 },
   MAP_EXTEND_DATA: { siid: 6, piid: 3 },
-  MAP_LIST: { siid: 6, piid: 39 },
+  MAP_LIST: { siid: 6, piid: 8 },
+  MULTI_FLOOR_MAP: { siid: 6, piid: 7 },
 };
 
 // SIID/AIID action constants
@@ -100,6 +101,7 @@ const ACTION = {
   CLEAR_WARNING:    { siid: 4, aiid: 3 },
   START_WASHING:    { siid: 4, aiid: 4 },
   REQUEST_MAP:      { siid: 6, aiid: 1 },
+  UPDATE_MAP_DATA:  { siid: 6, aiid: 2 },
 };
 
 // Dreame state → Homey vacuumcleaner_state mapping
@@ -687,16 +689,24 @@ class DreameVacuumDevice extends Homey.Device {
     this._currentPollInterval = POLL_FAST;
     this._mqttListeners = null; // track our own listeners for cleanup
     this._mapRefreshTimer = null;
+    this._cleaningMapTimer = null; // periodic map re-request during cleaning
     this._mqttRetryTimer = null; // track connect retry timer
     this._mqttRestartTimer = null; // track full restart timer
     this._refreshingToken = false; // guard concurrent token refresh
     this._operationalState = 'idle'; // track detailed state for triggers
     this._isStuck = false;           // track stuck status for triggers
+    this._lastDreameState = 0;       // track raw Dreame state for zone/segment detection
     this._lastWaterTankInstalled = null; // track water tank for change triggers
     this._robotPositionRaw = null;    // live robot position (raw Dreame coords) from P-frames
     this._robotCurrentRoomId = null;  // segment ID the robot is currently in
     this._hasDocWaterTank = this.getStoreValue('hasDocWaterTank') || false;
     this._rismCache = null;           // cached decoded rism buffer for fast room lookups
+    this._multiFloorEnabled = this.getStoreValue('multiFloorEnabled') || false;
+    this._floors = this.getStoreValue('floors') || [];
+    this._floorMaps = {};             // per-floor saved map data (base64), keyed by map_id
+    this._floorRooms = this.getStoreValue('floorRooms') || {}; // per-floor rooms cache
+    this._mapListObjectName = null;   // cloud object name for map list file
+    this._selectedFloorId = this.getStoreValue('selectedFloorId') || null;
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -709,6 +719,7 @@ class DreameVacuumDevice extends Homey.Device {
       'dreame_main_brush_left', 'dreame_side_brush_left', 'dreame_filter_left',
       'dreame_sensor_dirty_left', 'dreame_error',
       'dreame_current_room',
+      'dreame_current_floor',
     ];
     for (const cap of requiredCapabilities) {
       if (!this.hasCapability(cap)) {
@@ -739,12 +750,14 @@ class DreameVacuumDevice extends Homey.Device {
     // Probe-once: detect which advanced properties the device supports
     // Re-probe when new probeable props are added (version bump resets probe)
     const probeVersion = this.getStoreValue('probeVersion') || 0;
-    if (probeVersion < 2) {
+    if (probeVersion < 7) {
       this._unsupportedProps = new Set();
       this._probeComplete = false;
-      await this.setStoreValue('probeVersion', 2);
+      this._floors = [];
+      await this.setStoreValue('probeVersion', 7);
       await this.setStoreValue('probeComplete', false);
       await this.setStoreValue('unsupportedProps', []);
+      await this.setStoreValue('floors', []);
     } else {
       this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
       this._probeComplete = this.getStoreValue('probeComplete') || false;
@@ -810,6 +823,20 @@ class DreameVacuumDevice extends Homey.Device {
     if (!this._bindDomain) {
       await this._fetchBindDomain();
     }
+
+    // Set initial floor capability from cached data
+    if (this._floors.length > 0 && this._selectedFloorId) {
+      this._updateCurrentFloorCapability();
+    }
+
+    this._diag('[INIT] Device ready', {
+      platform: this.homey.platform,
+      bindDomain: !!this._bindDomain,
+      cachedRooms: this._rooms.length,
+      cachedFloors: this._floors.length,
+      multiFloor: this._multiFloorEnabled,
+      probeComplete: this._probeComplete,
+    }, 'info');
 
     // Start polling (HTTP as primary on Cloud, fallback on Local)
     this.restartPolling();
@@ -1114,6 +1141,26 @@ class DreameVacuumDevice extends Homey.Device {
   }
 
   /**
+   * Start periodic map re-request during cleaning so the device pushes fresh 6-3 map data.
+   * This keeps the stored map up-to-date with newly explored areas.
+   */
+  _startCleaningMapRefresh() {
+    if (this._cleaningMapTimer) return;
+    this._cleaningMapTimer = this.homey.setInterval(() => {
+      if (this._mqttConnected) {
+        this._requestMapViaMqtt().catch(() => {});
+      }
+    }, 15000); // Every 15s during cleaning
+  }
+
+  _stopCleaningMapRefresh() {
+    if (this._cleaningMapTimer) {
+      this.homey.clearInterval(this._cleaningMapTimer);
+      this._cleaningMapTimer = null;
+    }
+  }
+
+  /**
    * Refresh map data via HTTP API as fallback when MQTT is down.
    */
   async _refreshMapViaHttp() {
@@ -1202,6 +1249,9 @@ class DreameVacuumDevice extends Homey.Device {
     this.setStoreValue('mapObjectName', objectName).catch(this.error);
     this.setStoreValue('mapRawBase64', mapKey ? mapStr + ',' + mapKey : mapStr).catch(this.error);
     this._rismCache = null; // invalidate cached rism so _detectCurrentRoom re-decodes
+
+    // Extract current map ID for multi-floor tracking
+    this._extractFloorInfoFromMap(mapStr, mapKey, modelIv);
   }
 
   /**
@@ -1266,12 +1316,35 @@ class DreameVacuumDevice extends Homey.Device {
       case '2-1': { // STATE
         if (STATE_MAP[value]) {
           const homeyState = STATE_MAP[value];
+          const prevState = this.getCapabilityValue('vacuumcleaner_state');
+          const prevDreameState = this._lastDreameState || 0;
+          this._lastDreameState = value;
           await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
           await this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
+          // Start/stop periodic map refresh during cleaning
+          if (homeyState === 'cleaning') {
+            this._startCleaningMapRefresh();
+          } else {
+            this._stopCleaningMapRefresh();
+          }
           if (homeyState !== 'cleaning') {
             if (this._cleaningRoomIds.length > 0) this._fireRoomFinishedTriggers();
             this._robotCurrentRoomId = null;
             this._robotPositionRaw = null;
+            // Fire cleaning_finished when transitioning from cleaning to docked/charging
+            if (prevState === 'cleaning' && (homeyState === 'docked' || homeyState === 'charging')) {
+              const area = this.getCapabilityValue('dreame_cleaned_area') || 0;
+              const time = this.getCapabilityValue('dreame_cleaning_time') || 0;
+              const finishedCard = this.homey.flow.getDeviceTriggerCard('cleaning_finished');
+              finishedCard.trigger(this, { cleaned_area: area, cleaning_time: time })
+                .catch(e => this.error('Cleaning finished trigger:', e));
+              // Fire zone_cleaning_finished if previous state was ZONE_CLEANING (34)
+              if (prevDreameState === 34) {
+                const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
+                zoneFinishedCard.trigger(this, { cleaned_area: area, cleaning_time: time })
+                  .catch(e => this.error('Zone cleaning finished trigger:', e));
+              }
+            }
             // When docked/charging, show the dock's room instead of clearing
             if (homeyState === 'docked' || homeyState === 'charging') {
               this._detectChargerRoom();
@@ -1646,6 +1719,38 @@ class DreameVacuumDevice extends Homey.Device {
       case '12-4': // TOTAL_CLEANED_AREA
         await this.setCapabilityValue('dreame_total_cleaned_area', value).catch(this.error);
         break;
+
+      case '6-7': { // MULTI_FLOOR_MAP (0 = disabled, 1 = enabled)
+        const wasEnabled = this._multiFloorEnabled;
+        this._multiFloorEnabled = !!value;
+        if (this._multiFloorEnabled !== wasEnabled) {
+          this.setStoreValue('multiFloorEnabled', this._multiFloorEnabled).catch(this.error);
+          this._diag(`[MAP] Multi-floor map: ${this._multiFloorEnabled}`, null, 'info');
+        }
+        // When multi-floor is first detected, request map to trigger MAP_LIST push via MQTT
+        if (this._multiFloorEnabled && !wasEnabled) {
+          this._requestMapViaMqtt().catch(() => {});
+        }
+        break;
+      }
+
+      case '6-8': { // MAP_LIST (JSON with object_name for map list file)
+        this._diag(`[MAP] MAP_LIST raw (type=${typeof value}): ${String(value).slice(0, 200)}`, null, 'debug');
+        if (value && typeof value === 'string' && value !== '') {
+          try {
+            const mapListInfo = JSON.parse(value);
+            const objectName = mapListInfo.object_name;
+            if (objectName && objectName !== this._mapListObjectName) {
+              this._mapListObjectName = objectName;
+              this._diag(`[MAP] Map list object: ${objectName}`, null, 'debug');
+              this._fetchMapList().catch(e => this._diag(`[MAP] Fetch map list error: ${e.message}`, null, 'error'));
+            }
+          } catch (e) {
+            this._diag(`[MAP] MAP_LIST parse error: ${e.message}`, null, 'error');
+          }
+        }
+        break;
+      }
     }
   }
 
@@ -1748,6 +1853,7 @@ class DreameVacuumDevice extends Homey.Device {
         PROP.CHARGING_STATUS, PROP.DRYING_PROGRESS, PROP.DRAINAGE_STATUS,
         PROP.DETERGENT_STATUS, PROP.HOT_WATER_STATUS, PROP.DOCK_CLEANING_STATUS,
         PROP.STATUS, PROP.TASK_STATUS,
+        PROP.MULTI_FLOOR_MAP, PROP.MAP_LIST,
       ];
       for (const p of probeableEvery) {
         const pk = `${p.siid}-${p.piid}`;
@@ -1765,6 +1871,13 @@ class DreameVacuumDevice extends Homey.Device {
           PROP.AUTO_EMPTY_STATUS,
           PROP.LOW_WATER_WARNING,
         );
+
+        // Multi-floor map properties (skip if known unsupported)
+        const floorProps = [PROP.MULTI_FLOOR_MAP, PROP.MAP_LIST];
+        for (const p of floorProps) {
+          const pk = `${p.siid}-${p.piid}`;
+          if (!this._unsupportedProps.has(pk)) props.push(p);
+        }
 
         // Probeable consumables + dock sensors (skip if known unsupported)
         const probeableInfrequent = [
@@ -1788,10 +1901,16 @@ class DreameVacuumDevice extends Homey.Device {
 
       for (const r of results) {
         if (r.code !== undefined && r.code !== 0) {
-          // Track unsupported properties (code -2)
+          // Track unsupported properties (code -2), but exclude floor props (intermittent)
           if (r.code === -2 && !this._probeComplete) {
             const propKey = `${r.siid}-${r.piid}`;
-            this._unsupportedProps.add(propKey);
+            if (propKey !== '6-7' && propKey !== '6-8') {
+              this._unsupportedProps.add(propKey);
+            }
+          }
+          // Log floor prop errors specifically
+          if (r.siid === 6 && (r.piid === 7 || r.piid === 8)) {
+            this._diag(`[MAP] Floor prop ${r.siid}-${r.piid} error: code=${r.code}`, null, 'warning');
           }
           continue;
         }
@@ -1823,6 +1942,13 @@ class DreameVacuumDevice extends Homey.Device {
             await this.removeCapability(capName);
           }
         }
+
+        this._diag('[PROBE] Complete', {
+          unsupported: [...this._unsupportedProps],
+          capabilities: this.getCapabilities().length,
+          multiFloor: this._multiFloorEnabled,
+          floors: this._floors.length,
+        }, 'info');
       }
 
       // Mark device available after successful poll
@@ -2084,6 +2210,245 @@ class DreameVacuumDevice extends Homey.Device {
     return this._rooms || [];
   }
 
+  getFloors() {
+    return this._floors || [];
+  }
+
+  _updateCurrentFloorCapability() {
+    if (!this._floors.length) return;
+    const floor = this._floors.find(f => f.id === this._selectedFloorId);
+    const name = floor ? floor.name : '-';
+    this.setCapabilityValue('dreame_current_floor', name).catch(this.error);
+  }
+
+  isMultiFloor() {
+    return this._floors.length > 1 || this._multiFloorEnabled;
+  }
+
+  /**
+   * Get raw map data for a specific floor (from the map list cache).
+   * Returns the base64 saved map string or null.
+   */
+  getFloorMapData(floorId) {
+    if (!this._floorMaps) return null;
+    return this._floorMaps[floorId] || null;
+  }
+
+  /**
+   * Get rooms for all floors (for trigger/condition cards that need cross-floor rooms).
+   * Uses cached per-floor rooms from _floorRooms (populated by _fetchMapList).
+   * Returns [{ id, name, floorId, floorName }] or falls back to current rooms.
+   */
+  getAllFloorRooms() {
+    if (!this._floors.length || this._floors.length <= 1 || !Object.keys(this._floorRooms).length) {
+      return this._rooms.map(r => ({ ...r, floorId: null, floorName: null }));
+    }
+
+    const allRooms = [];
+    for (const floor of this._floors) {
+      const rooms = this._floorRooms[floor.id] || [];
+      for (const r of rooms) {
+        allRooms.push({ ...r, floorId: floor.id, floorName: floor.name });
+      }
+    }
+
+    return allRooms.length > 0 ? allRooms : this._rooms.map(r => ({ ...r, floorId: null, floorName: null }));
+  }
+
+  /**
+   * Fetch the map list file from cloud and extract floor/map info.
+   * The MAP_LIST property (6-8) gives us a JSON with an object_name
+   * pointing to a cloud file containing all saved maps.
+   */
+  async _fetchMapList() {
+    if (!this._mapListObjectName) return;
+
+    try {
+      const api = this._getApi();
+      const model = this.getStoreValue('model') || '';
+      const buffer = await api.getMapData(this._did, this._mapListObjectName, model);
+      const raw = buffer.toString('utf8');
+      const mapInfo = JSON.parse(raw);
+      const mapstr = mapInfo.mapstr;
+      if (!Array.isArray(mapstr) || mapstr.length === 0) {
+        this._diag('[MAP] Map list: no saved maps found', null, 'debug');
+        return;
+      }
+
+      const floors = [];
+      for (const entry of mapstr) {
+        if (!entry.map) continue;
+        const mapId = this._extractMapIdFromSavedMap(entry.map, model);
+        if (mapId == null) continue;
+
+        // Parse custom name (plain text or base64 depending on firmware)
+        let customName = null;
+        if (entry.name) {
+          try {
+            const decoded = Buffer.from(entry.name, 'base64').toString('utf8');
+            customName = (Buffer.from(decoded, 'utf8').toString('base64') === entry.name)
+              ? decoded : entry.name;
+          } catch {
+            customName = entry.name;
+          }
+        }
+        floors.push({ id: mapId, customName, mapData: entry.map });
+      }
+
+      if (floors.length > 0) {
+        // Sort by map_id (ascending) to match Dreame app floor order
+        floors.sort((a, b) => a.id - b.id);
+        // Store per-floor map data in memory (not device store — too large)
+        this._floorMaps = {};
+        // Assign index and default name AFTER sorting
+        floors.forEach((f, i) => {
+          f.index = i + 1;
+          f.name = f.customName || `Floor ${f.index}`;
+          if (f.mapData) {
+            this._floorMaps[f.id] = f.mapData;
+          }
+          delete f.customName;
+          delete f.mapData;
+        });
+        // Extract and cache rooms per floor for cross-floor autocomplete
+        const modelIv = getMapIvForModel(model);
+        const lang = this._getLanguage();
+        this._floorRooms = {};
+        for (const f of floors) {
+          const mapData = this._floorMaps[f.id];
+          if (mapData) {
+            try {
+              this._floorRooms[f.id] = parseMapRooms(mapData, () => {}, null, modelIv, lang);
+            } catch { this._floorRooms[f.id] = []; }
+          }
+          const roomCount = (this._floorRooms[f.id] || []).length;
+          this._diag(`[MAP] Floor ${f.index}: id=${f.id}, name=${f.name}, rooms=${roomCount}`, null, 'info');
+        }
+        this.setStoreValue('floorRooms', this._floorRooms).catch(this.error);
+
+        this._floors = floors;
+        this.setStoreValue('floors', floors).catch(this.error);
+
+        // Track selected floor from map list's curr_id
+        const currId = mapInfo.curr_id;
+        if (currId != null && floors.some(f => f.id === currId)) {
+          this._selectedFloorId = currId;
+          this.setStoreValue('selectedFloorId', currId).catch(this.error);
+        } else if (!this._selectedFloorId) {
+          this._selectedFloorId = floors[0].id;
+          this.setStoreValue('selectedFloorId', this._selectedFloorId).catch(this.error);
+        }
+        this._diag(`[MAP] Discovered ${floors.length} floors: ${floors.map(f => f.name).join(', ')} (selected: ${this._selectedFloorId})`, null, 'debug');
+        this._updateCurrentFloorCapability();
+      }
+    } catch (e) {
+      this._diag(`[MAP] Fetch map list failed: ${e.message}`, null, 'error');
+    }
+  }
+
+  /**
+   * Extract map_id from a base64-encoded saved map binary.
+   * After base64-decode + zlib inflate, map_id is at offset 0 as LE int16
+   * (per Tasshack: DreameVacuumMapDecoder._read_int_16_le(raw_map) at offset 0).
+   */
+  _extractMapIdFromSavedMap(base64Data, model) {
+    try {
+      let buf = Buffer.from(base64Data, 'base64');
+      // Decrypt if needed (same as in parseMapRooms)
+      const modelIv = getMapIvForModel(model);
+      if (modelIv) {
+        try {
+          const keyHash = crypto.createHash('sha256').update(base64Data.slice(0, 16)).digest('hex').slice(0, 32);
+          const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), Buffer.from(modelIv, 'utf8'));
+          decipher.setAutoPadding(false);
+          buf = Buffer.concat([decipher.update(buf), decipher.final()]);
+        } catch { /* not encrypted, use raw */ }
+      }
+      // Decompress
+      try { buf = zlib.inflateSync(buf); } catch { /* may not be compressed */ }
+      if (buf.length < MAP_HEADER_SIZE) return null;
+      // map_id at offset 0, LE int16
+      return buf.readInt16LE(0);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Switch to a different floor/saved map.
+   * Sends UPDATE_MAP_DATA action with {"sm":{},"mapid":<mapId>}.
+   */
+  async selectFloor(mapId) {
+    if (!this._multiFloorEnabled && this._floors.length <= 1) {
+      throw new Error('Multi-floor map is not enabled on this device');
+    }
+
+    const api = this._getApi();
+    const payload = JSON.stringify({ sm: {}, mapid: mapId });
+
+    await api.callAction(
+      this._did, this._bindDomain,
+      ACTION.UPDATE_MAP_DATA.siid, ACTION.UPDATE_MAP_DATA.aiid,
+      [{ piid: PROP.MAP_EXTEND_DATA.piid, value: payload }],
+    );
+
+    this._selectedFloorId = mapId;
+    this.setStoreValue('selectedFloorId', mapId).catch(this.error);
+    this._updateCurrentFloorCapability();
+    this._diag(`[MAP] Floor selected: mapId=${mapId}`, null, 'debug');
+
+    // Re-request map to get the new floor's data
+    this.homey.setTimeout(async () => {
+      try {
+        await this._requestMapViaMqtt();
+      } catch (e) {
+        this._diag(`[MAP] Map re-request after floor switch failed: ${e.message}`, null, 'warning');
+      }
+    }, 2000);
+  }
+
+  /**
+   * Extract floor info from the map data JSON.
+   * The outer map's JSON has 'curid' (current map ID) and when multi-floor is
+   * enabled, we can track which floor is active. The full map list comes via
+   * MQTT prop 6-8, but as a fallback we build a minimal floor list from what we know.
+   */
+  _extractFloorInfoFromMap(mapStr, mapKey, modelIv) {
+    try {
+      let data = mapStr;
+      if (mapStr.includes(',')) data = mapStr.split(',')[0];
+      let buf = Buffer.from(data.replace(/_/g, '/').replace(/-/g, '+'), 'base64');
+
+      // Decrypt if needed
+      if (mapKey && modelIv) {
+        try {
+          const keyHash = crypto.createHash('sha256').update(mapKey).digest('hex').slice(0, 32);
+          const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(keyHash, 'utf8'), Buffer.from(modelIv, 'utf8'));
+          decipher.setAutoPadding(true);
+          buf = Buffer.concat([decipher.update(buf), decipher.final()]);
+        } catch { /* not encrypted */ }
+      }
+      try { buf = zlib.inflateSync(buf); } catch { return; }
+      if (buf.length < MAP_HEADER_SIZE) return;
+
+      const width = buf.readInt16LE(19);
+      const height = buf.readInt16LE(21);
+      const imageSize = MAP_HEADER_SIZE + (width * height);
+      if (buf.length <= imageSize) return;
+
+      const json = JSON.parse(buf.slice(imageSize).toString('utf8'));
+      const curid = json.curid;
+      const mapId = buf.readInt16LE(0); // map_id from header
+
+      if (curid != null) {
+        this._selectedFloorId = curid;
+        this.setStoreValue('selectedFloorId', curid).catch(this.error);
+      }
+
+      // Track curid for selected floor — don't create floor entries here,
+      // the authoritative floor list comes from _fetchMapList via MQTT 6-8
+    } catch { /* ignore parse errors */ }
+  }
 
   _getLanguage() {
     try {
@@ -2384,6 +2749,45 @@ class DreameVacuumDevice extends Homey.Device {
     const suction = this.getCapabilityValue('dreame_suction_level') || 'standard';
     const water = this.getCapabilityValue('dreame_water_volume') || 'medium';
     await this.startMultiRoomCleaning(roomIds, 1, suction, water);
+  }
+
+  /**
+   * Start zone cleaning. Zones are arrays of [x0, y0, x1, y1] in device coordinates.
+   * Uses current device suction/water settings unless overridden.
+   */
+  async startZoneCleaning(zones, repeats, suction, water) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    const suctionValue = suction && SUCTION_MAP[suction] !== undefined ? SUCTION_MAP[suction] : this.getCapabilityValue('dreame_suction_level') ? SUCTION_MAP[this.getCapabilityValue('dreame_suction_level')] || 1 : 1;
+    const waterValue = water && WATER_VOLUME_MAP[water] !== undefined ? WATER_VOLUME_MAP[water] : this.getCapabilityValue('dreame_water_volume') ? WATER_VOLUME_MAP[this.getCapabilityValue('dreame_water_volume')] || 2 : 2;
+    const repeatCount = Math.max(1, Math.min(3, repeats || 1));
+
+    const cleanlist = zones.map(z => [
+      Math.round(z[0]), Math.round(z[1]), Math.round(z[2]), Math.round(z[3]),
+      repeatCount, suctionValue, waterValue,
+    ]);
+    const params = JSON.stringify({ areas: cleanlist }).replace(/ /g, '');
+
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 19 },  // 19 = ZONE_CLEANING
+      { piid: 10, value: params },
+    ]);
+
+    this._diag(`[ZONE] Zone cleaning started: ${zones.length} zones`, null, 'info');
+  }
+
+  /**
+   * Get saved zones for this device.
+   */
+  getZones() {
+    return this.getStoreValue('zones') || [];
+  }
+
+  /**
+   * Save zones for this device.
+   */
+  async setZones(zones) {
+    await this.setStoreValue('zones', zones);
   }
 
   async startRoomCleaning(roomId, repeats, suction, water) {
@@ -2694,3 +3098,5 @@ class DreameVacuumDevice extends Homey.Device {
 }
 
 module.exports = DreameVacuumDevice;
+module.exports.parseMapRooms = parseMapRooms;
+module.exports.getMapIvForModel = getMapIvForModel;

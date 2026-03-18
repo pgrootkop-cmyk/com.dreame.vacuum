@@ -7,7 +7,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; }
     .container { position: relative; width: 100%; height: 100vh; display: flex; flex-direction: column; }
-    .map-area { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; background: #eee; }
+    .map-area { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; background: #eee; transition: background 0.2s; }
+    .map-area.dark { background: #1a1a1a; }
     .map-area canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
     .no-map { color: var(--homey-text-color-light); font-size: var(--homey-font-size-small); text-align: center; padding: 20px; }
     .status-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; gap: 8px; border-top: var(--homey-line-light); }
@@ -41,11 +42,15 @@
 
 <script>
 // Map state for live position updates
-var mapState = { canvas: null, ctx: null, scale: 1, baseImage: null, data: null, showRoomNames: true };
+var mapState = { canvas: null, ctx: null, scale: 1, baseImage: null, data: null, showRoomNames: true, dark: false, textColor: [0, 0, 0], labelSize: 'medium', lastRobotPos: null };
+var LABEL_SIZES = { small: { min: 8, max: 12, mult: 3.5 }, medium: { min: 11, max: 16, mult: 5 }, large: { min: 14, max: 22, mult: 7 }, xxl: { min: 18, max: 30, mult: 10 } };
 
 function renderMapToCanvas(canvas, data, options) {
   var opts = options || {};
   mapState.showRoomNames = opts.showRoomNames !== false;
+  mapState.labelSize = opts.labelSize || 'medium';
+  mapState.dark = !!data.dark;
+  mapState.textColor = data.textColor || (data.dark ? [255, 255, 255] : [0, 0, 0]);
   mapState.canvas = canvas;
   mapState.data = data;
   var w = data.width, h = data.height;
@@ -57,11 +62,19 @@ function renderMapToCanvas(canvas, data, options) {
   var ctx = canvas.getContext('2d');
   mapState.ctx = ctx;
 
+  // Set background based on scheme
+  var mapArea = document.getElementById('mapArea');
+  if (data.dark) {
+    mapArea.classList.add('dark');
+  } else {
+    mapArea.classList.remove('dark');
+  }
+
   // Render base map to offscreen canvas (pixels + room labels + charger)
   var off = document.createElement('canvas');
   off.width = w * scale; off.height = h * scale;
   var offCtx = off.getContext('2d');
-  offCtx.fillStyle = '#eee';
+  offCtx.fillStyle = data.dark ? '#1a1a1a' : '#eee';
   offCtx.fillRect(0, 0, off.width, off.height);
 
   var pixOff = document.createElement('canvas');
@@ -73,26 +86,30 @@ function renderMapToCanvas(canvas, data, options) {
   offCtx.imageSmoothingEnabled = false;
   offCtx.drawImage(pixOff, 0, 0, w * scale, h * scale);
 
-  // Draw charger (static — doesn't move)
+  // Draw charger (static)
   if (data.chargerPos && data.chargerPos.x > 0) {
     offCtx.beginPath();
     offCtx.arc(data.chargerPos.x * scale, data.chargerPos.y * scale, Math.max(3, scale * 2), 0, Math.PI * 2);
     offCtx.fillStyle = '#ff9500'; offCtx.fill();
-    offCtx.strokeStyle = '#fff'; offCtx.lineWidth = Math.max(1, scale * 0.5); offCtx.stroke();
+    offCtx.strokeStyle = data.dark ? '#333' : '#fff'; offCtx.lineWidth = Math.max(1, scale * 0.5); offCtx.stroke();
   }
 
   // Draw room labels (static)
   if (mapState.showRoomNames && data.roomLabels && data.roomLabels.length > 0) {
-    var fontSize = Math.max(11, Math.min(16, scale * 5));
+    var tc = mapState.textColor;
+    var textFill = 'rgba(' + tc[0] + ',' + tc[1] + ',' + tc[2] + ',0.85)';
+    var strokeCol = data.dark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.95)';
+    var ls = LABEL_SIZES[mapState.labelSize] || LABEL_SIZES.medium;
+    var fontSize = Math.max(ls.min, Math.min(ls.max, scale * ls.mult));
     offCtx.font = '700 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
     offCtx.textAlign = 'center'; offCtx.textBaseline = 'middle';
     var sw = Math.max(3, scale * 1.5);
     for (var j = 0; j < data.roomLabels.length; j++) {
       var label = data.roomLabels[j];
       var lx = label.x * scale, ly = label.y * scale;
-      offCtx.strokeStyle = 'rgba(255,255,255,0.95)'; offCtx.lineWidth = sw; offCtx.lineJoin = 'round';
+      offCtx.strokeStyle = strokeCol; offCtx.lineWidth = sw; offCtx.lineJoin = 'round';
       offCtx.strokeText(label.name, lx, ly);
-      offCtx.fillStyle = 'rgba(0,0,0,0.85)';
+      offCtx.fillStyle = textFill;
       offCtx.fillText(label.name, lx, ly);
     }
   }
@@ -103,27 +120,30 @@ function renderMapToCanvas(canvas, data, options) {
 
 function drawRobotDot(robotPos) {
   if (!mapState.ctx || !mapState.baseImage) return;
+  if (robotPos && robotPos.x > 0) mapState.lastRobotPos = robotPos;
+  var pos = robotPos || mapState.lastRobotPos;
   var ctx = mapState.ctx;
   var scale = mapState.scale;
   // Restore base map (clears previous robot dot)
   ctx.drawImage(mapState.baseImage, 0, 0);
   // Draw robot dot with room label
-  if (robotPos && robotPos.x > 0) {
-    var rx = robotPos.x * scale, ry = robotPos.y * scale;
+  if (pos && pos.x > 0) {
+    var rx = pos.x * scale, ry = pos.y * scale;
     ctx.beginPath();
     ctx.arc(rx, ry, Math.max(4, scale * 2.5), 0, Math.PI * 2);
     ctx.fillStyle = '#007aff'; ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, scale * 0.5); ctx.stroke();
+    ctx.strokeStyle = mapState.dark ? '#333' : '#fff'; ctx.lineWidth = Math.max(1, scale * 0.5); ctx.stroke();
     // Show room name label near the robot
-    if (robotPos.roomName) {
+    if (pos.roomName) {
       var fontSize = Math.max(8, Math.min(11, scale * 3));
       ctx.font = '600 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       var labelX = rx + Math.max(5, scale * 3);
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(2, scale); ctx.lineJoin = 'round';
-      ctx.strokeText(robotPos.roomName, labelX, ry);
+      ctx.strokeStyle = mapState.dark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = Math.max(2, scale); ctx.lineJoin = 'round';
+      ctx.strokeText(pos.roomName, labelX, ry);
       ctx.fillStyle = '#007aff';
-      ctx.fillText(robotPos.roomName, labelX, ry);
+      ctx.fillText(pos.roomName, labelX, ry);
     }
   }
 }
@@ -135,6 +155,10 @@ function onHomeyReady(Homey) {
   var settings = Homey.getSettings();
   var showStatus = settings.showStatus !== false;
   var showRoomNames = settings.showRoomNames !== false;
+  var colorScheme = settings.colorScheme || 'Dreame Light';
+  var labelSize = settings.labelSize || 'medium';
+  var floorSetting = settings.floor;
+  var floorId = floorSetting ? floorSetting.id : null;
   var currentState = 'unknown';
 
   if (showStatus) {
@@ -145,13 +169,15 @@ function onHomeyReady(Homey) {
     if (dev) {
       updateStatus(dev);
       currentState = (dev.capabilities || {}).vacuumcleaner_state || 'unknown';
-      if (currentState !== 'charging') startPolling(Homey);
+      if (currentState !== 'charging') startPolling(Homey, colorScheme);
     }
   }).catch(function() {});
 
-  Homey.api('GET', '/map').then(function(data) {
+  var mapUrl = '/map?colorScheme=' + encodeURIComponent(colorScheme);
+  if (floorId) mapUrl += '&floorId=' + encodeURIComponent(floorId);
+  Homey.api('GET', mapUrl).then(function(data) {
     if (data && data.width) {
-      renderMapToCanvas(document.getElementById('canvas'), data, { showRoomNames: showRoomNames });
+      renderMapToCanvas(document.getElementById('canvas'), data, { showRoomNames: showRoomNames, labelSize: labelSize });
       document.getElementById('canvas').style.display = 'block';
       document.getElementById('noMap').style.display = 'none';
 
@@ -169,18 +195,36 @@ function onHomeyReady(Homey) {
   });
 }
 
-function startPolling(Homey) {
+var widgetPollCycle = 0;
+
+function startPolling(Homey, colorScheme) {
   if (pollTimer) return;
+  var settings = Homey.getSettings();
+  var showRoomNames = settings.showRoomNames !== false;
+  var labelSize = settings.labelSize || 'medium';
+  var mapUrl = '/map?colorScheme=' + encodeURIComponent(colorScheme);
+
   // Fetch position immediately
   Homey.api('GET', '/robot-pos').then(function(pos) {
     if (pos && pos.x !== undefined) drawRobotDot(pos);
   }).catch(function() {});
   pollTimer = setInterval(function() {
+    widgetPollCycle++;
     Homey.api('GET', '/robot-pos').then(function(pos) {
       if (pos && pos.x !== undefined) {
         drawRobotDot(pos);
       }
     }).catch(function() {});
+    // Re-fetch map every 3rd cycle (~15s) to show newly explored areas
+    if (widgetPollCycle % 3 === 0) {
+      Homey.api('GET', mapUrl).then(function(data) {
+        if (data && data.width) {
+          var livePos = mapState.lastRobotPos;
+          renderMapToCanvas(document.getElementById('canvas'), data, { showRoomNames: showRoomNames, labelSize: labelSize });
+          if (livePos) drawRobotDot(livePos);
+        }
+      }).catch(function() {});
+    }
     // Also update status
     Homey.api('GET', '/data').then(function(dev) {
       if (dev) {
@@ -189,6 +233,13 @@ function startPolling(Homey) {
         if (state === 'charging') {
           clearInterval(pollTimer);
           pollTimer = null;
+          widgetPollCycle = 0;
+          // Final map refresh
+          Homey.api('GET', mapUrl).then(function(data) {
+            if (data && data.width) {
+              renderMapToCanvas(document.getElementById('canvas'), data, { showRoomNames: showRoomNames, labelSize: labelSize });
+            }
+          }).catch(function() {});
         }
       }
     }).catch(function() {});

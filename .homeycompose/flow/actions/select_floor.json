@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Select floor"
+  },
+  "titleFormatted": {
+    "en": "Switch to floor [[floor]]"
+  },
+  "hint": {
+    "en": "Switch to a different floor map. Only available on devices with multi-floor map enabled. After switching, room cleaning will use the selected floor's rooms."
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "floor",
+      "title": {
+        "en": "Floor"
+      },
+      "placeholder": {
+        "en": "Search floors..."
+      }
+    }
+  ]
+}

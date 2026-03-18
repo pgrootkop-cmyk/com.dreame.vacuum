@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -30,6 +30,26 @@
     "getRobotPosition": {
       "method": "GET",
       "path": "/robotPosition"
+    },
+    "getFloors": {
+      "method": "GET",
+      "path": "/floors"
+    },
+    "selectFloor": {
+      "method": "PUT",
+      "path": "/selectFloor"
+    },
+    "getZones": {
+      "method": "GET",
+      "path": "/zones"
+    },
+    "saveZone": {
+      "method": "PUT",
+      "path": "/zones"
+    },
+    "deleteZone": {
+      "method": "DELETE",
+      "path": "/zones"
     }
   },
   "tags": {
@@ -74,6 +94,44 @@
   "homeyCommunityTopicId": 152442,
   "flow": {
     "triggers": [
+      {
+        "title": {
+          "en": "Cleaning finished"
+        },
+        "hint": {
+          "en": "Triggers when the vacuum finishes any cleaning task and returns to the dock."
+        },
+        "tokens": [
+          {
+            "name": "cleaned_area",
+            "type": "number",
+            "title": {
+              "en": "Cleaned area (m²)"
+            },
+            "example": {
+              "en": "42"
+            }
+          },
+          {
+            "name": "cleaning_time",
+            "type": "number",
+            "title": {
+              "en": "Cleaning time (min)"
+            },
+            "example": {
+              "en": "35"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "cleaning_finished"
+      },
       {
         "title": {
           "en": "A consumable is running low"
@@ -587,6 +645,44 @@
           }
         ],
         "id": "water_tank_changed"
+      },
+      {
+        "title": {
+          "en": "Zone cleaning finished"
+        },
+        "hint": {
+          "en": "Triggers when the vacuum finishes zone cleaning and returns to the dock."
+        },
+        "tokens": [
+          {
+            "name": "cleaned_area",
+            "type": "number",
+            "title": {
+              "en": "Cleaned area (m²)"
+            },
+            "example": {
+              "en": "12"
+            }
+          },
+          {
+            "name": "cleaning_time",
+            "type": "number",
+            "title": {
+              "en": "Cleaning time (min)"
+            },
+            "example": {
+              "en": "15"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "zone_cleaning_finished"
       }
     ],
     "conditions": [
@@ -1369,6 +1465,35 @@
           }
         ],
         "id": "reset_side_brush"
+      },
+      {
+        "title": {
+          "en": "Select floor"
+        },
+        "titleFormatted": {
+          "en": "Switch to floor [[floor]]"
+        },
+        "hint": {
+          "en": "Switch to a different floor map. Only available on devices with multi-floor map enabled. After switching, room cleaning will use the selected floor's rooms."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "floor",
+            "title": {
+              "en": "Floor"
+            },
+            "placeholder": {
+              "en": "Search floors..."
+            }
+          }
+        ],
+        "id": "select_floor"
       },
       {
         "title": {
@@ -2609,6 +2734,45 @@
       },
       {
         "title": {
+          "en": "Clean a zone"
+        },
+        "titleFormatted": {
+          "en": "Clean zone [[zone]] [[repeats]]x"
+        },
+        "hint": {
+          "en": "Start cleaning a saved zone. Configure zones in the app settings by drawing rectangles on the map."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "zone",
+            "title": {
+              "en": "Zone"
+            },
+            "placeholder": {
+              "en": "Search zones..."
+            }
+          },
+          {
+            "type": "number",
+            "name": "repeats",
+            "title": {
+              "en": "Repeats"
+            },
+            "min": 1,
+            "max": 3,
+            "step": 1
+          }
+        ],
+        "id": "start_zone_cleaning"
+      },
+      {
+        "title": {
           "en": "Play locate sound"
         },
         "titleFormatted": {
@@ -2886,6 +3050,80 @@
       },
       "settings": [
         {
+          "id": "colorScheme",
+          "type": "dropdown",
+          "title": {
+            "en": "Color scheme"
+          },
+          "value": "Dreame Light",
+          "values": [
+            {
+              "id": "Dreame Light",
+              "title": {
+                "en": "Dreame Light"
+              }
+            },
+            {
+              "id": "Dreame Dark",
+              "title": {
+                "en": "Dreame Dark"
+              }
+            },
+            {
+              "id": "Mijia Light",
+              "title": {
+                "en": "Mijia Light"
+              }
+            },
+            {
+              "id": "Mijia Dark",
+              "title": {
+                "en": "Mijia Dark"
+              }
+            },
+            {
+              "id": "Grayscale",
+              "title": {
+                "en": "Grayscale"
+              }
+            }
+          ]
+        },
+        {
+          "id": "labelSize",
+          "type": "dropdown",
+          "title": {
+            "en": "Room label size"
+          },
+          "value": "medium",
+          "values": [
+            {
+              "id": "small",
+              "title": {
+                "en": "Small"
+              }
+            },
+            {
+              "id": "medium",
+              "title": {
+                "en": "Medium"
+              }
+            },
+            {
+              "id": "large",
+              "title": {
+                "en": "Large"
+              }
+            },
+            {
+              "id": "xxl",
+              "title": {
+                "en": "XXL"
+              }
+            }
+          ]
+        },
+        {
           "id": "showRoomNames",
           "type": "checkbox",
           "title": {
@@ -2900,6 +3138,16 @@
             "en": "Show status bar"
           },
           "value": true
+        },
+        {
+          "id": "floor",
+          "type": "autocomplete",
+          "title": {
+            "en": "Floor"
+          },
+          "hint": {
+            "en": "Select which floor map to display (only for multi-floor setups)"
+          }
         }
       ],
       "height": "75%",
@@ -3201,6 +3449,15 @@
         "en": "min"
       },
       "insights": true
+    },
+    "dreame_current_floor": {
+      "type": "string",
+      "title": {
+        "en": "Current floor"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
     },
     "dreame_current_room": {
       "type": "string",

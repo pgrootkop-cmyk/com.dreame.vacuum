@@ -22,41 +22,59 @@ We recommend using a separate Dreame Home account for Homey to avoid potential s
 - CleanGenius: Off, Routine Cleaning, Deep Cleaning (with auto-start)
 - CleanGenius Mode: Vacuum & Mop, Mop after Vacuum
 - Cleaning Route: Standard, Intensive, Deep, Quick
-- Mop Wash Frequency: By Room, every 5/10/15/20/25 m²
+- Mop Wash Frequency: By Room, every 5/10/15/20/25 m2
 - Dock Features: Auto Empty, Self Clean, Drying, Draining
 - Consumable Monitoring: Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset via flow cards)
-- Real-time MQTT: Persistent connection to Dreame cloud for instant state updates and room discovery. All 35+ properties pushed via MQTT
-- Adaptive Polling: 60s idle / 15s cleaning with MQTT, 5s fallback without. Automatic health monitoring
-- Room Cleaning: Single room or multi-room with autocomplete or manual room ID entry, per-room suction/water/repeats, per-room trigger cards
+- Real-time MQTT: Persistent connection to Dreame cloud for instant state updates and room discovery
+- Adaptive Polling: 60s idle / 15s cleaning with MQTT, 5s fallback without
+- Room Cleaning: Single room or multi-room with autocomplete or manual room ID, per-room suction/water/repeats, per-room trigger cards
+- Zone Cleaning: Draw custom cleaning zones on the map in App Settings. Use them in Flow cards for precise area cleaning
+- Multi-Floor Support: Automatic detection of multi-floor setups. View different floor maps, switch floors via Flow card, current floor shown as device capability
 - Live Tracking: Real-time robot position on map widget and settings page during cleaning (~5s updates)
 - Current Room: Shows which room the robot is in — live during cleaning, dock room when charging
-- Dashboard Widget: Vacuum map with room colors, labels, robot & charger position, status bar
+- Current Floor: Shows which floor the robot is on (multi-floor devices)
+- Dashboard Widget: Vacuum map with 5 color schemes (Dreame Light/Dark, Mijia Light/Dark, Grayscale), configurable room label size, floor selection, robot & charger position, status bar
 - Consumables Widget: Dashboard widget with color-coded health bars for brush, filter, mop pad, sensor
-- App Settings: Device overview with rendered map, status grid, room list, consumable health bars
+- App Settings: Device overview with rendered map, floor selector, visual zone editor, status grid, room list, consumable health bars
 - Carpet: Boost toggle, Sensitivity (Low/Medium/High), Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore)
 - Dock Settings: Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume
 - Toggles: Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND
-- Status: Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error, Current Room, Charging, Dock Cleaning, Drying Progress, Drainage, Detergent, Hot Water, Water Tank, Dirty Water Tank, Dust Bag, Dust Collection
-- Flow Cards: 31 actions, 17 conditions, 7 triggers
+- Status: Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error, Current Room, Current Floor, Charging, Dock Cleaning, Drying Progress, Drainage, Detergent, Hot Water, Water Tank, Dirty Water Tank, Dust Bag, Dust Collection
+- Flow Cards: 34 actions, 19 conditions, 14 triggers
+
+**Setting Up Zones**
+1. Open Dreame app settings in Homey
+2. Select your device (and floor, if multi-floor)
+3. Scroll to the Zones section
+4. Enter a zone name (e.g. "Under dining table")
+5. Click + Draw, then drag a rectangle on the map
+6. Click Save to store the zone
+7. Use the "Clean a zone" Flow card to clean saved zones
+
+You can create multiple zones per floor. Delete zones with the X button.
+
+**Flow Tips**
+- Cleaning finished: use the "Cleaning finished" trigger card (fires when any cleaning completes and the robot docks)
+- Simple room cleaning: "Clean a room" uses whatever settings are active on the vacuum
+- Zone cleaning: draw zones in App Settings, then use "Clean a zone" Flow card
+- Multi-floor: use "Select floor" card before room or zone cleaning to switch floors
 
 **Not Supported**
 Some features from the Dreame Home app or Tasshack/dreame-vacuum (Home Assistant) cannot be implemented on Homey:
 - Interactive map / room selection: Dashboard widget shows a rendered map, but tapping rooms to clean is not possible. Use Flow cards.
 - Live camera feed: Homey does not support real-time video streams.
-- Map editing: No map editing UI on Homey. Configure in Dreame Home app.
-- Virtual walls / no-go zones: Requires interactive map editing.
+- Map editing: Virtual walls and no-go zones must be configured in Dreame Home app. Custom cleaning zones can be drawn in Homey's App Settings.
 - Furniture / obstacle detection: Requires image/map overlay.
 - Cleaning history / statistics: No historical charts on Homey. Current session data (area, time) is available.
 - Custom room schedules: Use Homey Flows for time-based automations instead.
-- OTA firmware updates: Not relevant for a Homey app.
 
 Homey excels at automations (Flow cards), device control, and status monitoring. For map-based features, camera, or visual AI, use the Dreame Home app alongside Homey.
 
 **Reporting Issues**
 Found a bug or have a feature request? Open an issue at https://github.com/pgrootkop-cmyk/com.dreame.vacuum.cloud/issues and include:
 1. Your exact vacuum model (e.g. Dreame X40 Ultra, L20 Ultra, L10 Pro)
-2. A description of the problem — what happened and what you expected
-3. Enable diagnostic logging — go to the app settings in Homey, enable Diagnostic Logging, and reproduce the issue. This sends anonymous logs to the developer to help debug your problem. You can disable it again afterwards.
+2. A description of the problem
+3. Enable diagnostic logging in app settings and reproduce the issue
 
 **Supported Devices**
 Works with Dreame robot vacuums controllable via the Dreame Home app, including the X40, X30, L20, L10, and other models.

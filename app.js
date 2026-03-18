@@ -7,13 +7,55 @@ const crypto = require('crypto');
 const DreameApi = require('./lib/DreameApi');
 const DreameMqtt = require('./lib/DreameMqtt');
 
-// Dreame Light color scheme (matches Tasshack/dreame-vacuum)
-const SEGMENT_COLORS = [
-  [171, 199, 248], [249, 224, 125], [184, 227, 255], [184, 217, 141],
-];
-const WALL_COLOR = [159, 159, 159];
-const FLOOR_COLOR = [221, 221, 221];
-const NEW_SEGMENT_COLOR = [153, 191, 255];
+// Color schemes (from Tasshack/dreame-vacuum)
+const COLOR_SCHEMES = {
+  'Dreame Light': {
+    segment: [[171, 199, 248], [249, 224, 125], [184, 227, 255], [184, 217, 141]],
+    wall: [159, 159, 159],
+    floor: [221, 221, 221],
+    newSegment: [153, 191, 255],
+    outside: [0, 0, 0, 0],
+    dark: false,
+    text: [0, 0, 0],
+  },
+  'Dreame Dark': {
+    segment: [[13, 64, 155], [143, 75, 7], [0, 106, 176], [76, 107, 36]],
+    wall: [64, 64, 64],
+    floor: [110, 110, 110],
+    newSegment: [0, 91, 244],
+    outside: [0, 0, 0, 0],
+    dark: true,
+    text: [255, 255, 255],
+  },
+  'Mijia Light': {
+    segment: [[131, 178, 255], [245, 201, 66], [103, 207, 229], [255, 155, 101]],
+    wall: [159, 159, 159],
+    floor: [221, 221, 221],
+    newSegment: [131, 178, 255],
+    outside: [0, 0, 0, 0],
+    dark: false,
+    text: [0, 0, 0],
+  },
+  'Mijia Dark': {
+    segment: [[108, 141, 195], [188, 157, 62], [88, 161, 176], [195, 125, 87]],
+    wall: [119, 133, 153],
+    floor: [150, 150, 150],
+    newSegment: [99, 148, 230],
+    outside: [0, 0, 0, 0],
+    dark: true,
+    text: [255, 255, 255],
+  },
+  'Grayscale': {
+    segment: [[90, 90, 90], [80, 80, 80], [70, 70, 70], [60, 60, 60]],
+    wall: [40, 40, 40],
+    floor: [100, 100, 100],
+    newSegment: [80, 80, 80],
+    outside: [0, 0, 0, 0],
+    dark: true,
+    text: [255, 255, 255],
+  },
+};
+const DEFAULT_COLOR_SCHEME = 'Dreame Light';
 const MAP_HEADER_SIZE = 27;
 
 class DreameApp extends Homey.App {
@@ -23,6 +65,31 @@ class DreameApp extends Homey.App {
     this._api = null;
     this._mqtt = null;
     this._initApi();
+    this._initWidgets();
+  }
+
+  /**
+   * Register widget autocomplete listeners (must be in app, not widget api.js).
+   */
+  _initWidgets() {
+    try {
+      const mapWidget = this.homey.dashboards.getWidget('vacuum-map');
+
+      mapWidget.registerSettingAutocompleteListener('floor', async (query, settings) => {
+        const devices = this.getVacuumData();
+        const device = devices[0];
+        if (!device || !device.floors || device.floors.length <= 1) {
+          return [{ name: 'Floor 1', description: 'Default floor', id: '0' }];
+        }
+        const q = (query || '').toLowerCase();
+        return device.floors
+          .filter(f => !q || f.name.toLowerCase().includes(q))
+          .map(f => ({ name: f.name, description: `Map ${f.index}`, id: String(f.id) }));
+      });
+      this.log('[Widget] vacuum-map autocomplete listeners registered');
+    } catch (e) {
+      this.log('[Widget] Dashboard widgets not available:', e.message);
+    }
   }
 
   _initSentry() {
@@ -238,6 +305,9 @@ class DreameApp extends Homey.App {
         id: d.getData().id,
         name: d.getName(),
         rooms: d.getRooms(),
+        floors: d.getFloors(),
+        multiFloor: d.isMultiFloor(),
+        selectedFloorId: d._selectedFloorId || null,
         capabilities: caps,
         store: {
           model: d.getStoreValue('model'),
@@ -265,16 +335,46 @@ class DreameApp extends Homey.App {
    * Get rendered map as RGBA pixel data + dimensions for a device.
    * Returns { width, height, pixels: base64-encoded RGBA, rooms: [...] } or null.
    */
-  getRenderedMap(did) {
+  getRenderedMap(did, colorScheme, floorId) {
     const device = this._findVacuumDevice(did);
     if (!device) return null;
 
+    const model = device.getStoreValue('model') || '';
+
+    // If a non-active floor is requested and we have its saved map data, render that
+    if (floorId != null) {
+      const requestedFloor = parseInt(floorId, 10);
+      const activeFloor = device._selectedFloorId;
+      // Only use saved map snapshot for floors that are NOT the currently active floor
+      if (requestedFloor !== activeFloor) {
+        const floorMapData = device.getFloorMapData(requestedFloor);
+        if (floorMapData) {
+          const rooms = this._extractRoomsFromSavedMap(floorMapData, model);
+          return this._renderMapPixels(floorMapData, rooms, model, colorScheme);
+        }
+      }
+    }
+
+    // Default: render the device's current active map
     const raw = device.getStoreValue('mapRawBase64');
     if (!raw) return null;
 
-    const model = device.getStoreValue('model') || '';
     const rooms = device.getRooms() || [];
-    return this._renderMapPixels(raw, rooms, model);
+    return this._renderMapPixels(raw, rooms, model, colorScheme);
+  }
+
+  /**
+   * Extract rooms from a saved map's base64 data (for floor-specific rendering).
+   */
+  _extractRoomsFromSavedMap(base64Data, model) {
+    try {
+      const { parseMapRooms, getMapIvForModel } = require('./drivers/vacuum/device');
+      const modelIv = getMapIvForModel(model);
+      const log = () => {};
+      return parseMapRooms(base64Data, log, null, modelIv, 'en');
+    } catch {
+      return [];
+    }
   }
 
   getRobotPosition(did) {
@@ -397,8 +497,10 @@ class DreameApp extends Homey.App {
     return { type: 'outside' };
   }
 
-  _renderMapPixels(raw, rooms, model) {
+  _renderMapPixels(raw, rooms, model, colorSchemeName) {
     try {
+      const scheme = COLOR_SCHEMES[colorSchemeName] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
+
       // Decode the outer map
       const outer = this._decodeMapData(raw, model);
       if (!outer) return null;
@@ -422,8 +524,9 @@ class DreameApp extends Homey.App {
       }
 
       const { buf, width, height } = renderData;
+      const segColors = scheme.segment;
       const roomColorMap = {};
-      rooms.forEach((r, i) => { roomColorMap[r.id] = i % SEGMENT_COLORS.length; });
+      rooms.forEach((r, i) => { roomColorMap[r.id] = i % segColors.length; });
 
       const rgba = Buffer.alloc(width * height * 4);
       // Track segment pixel positions for room label placement
@@ -442,19 +545,19 @@ class DreameApp extends Homey.App {
           let col;
           switch (pxType.type) {
             case 'wall':
-              col = WALL_COLOR;
+              col = scheme.wall;
               break;
             case 'floor':
-              col = FLOOR_COLOR;
+              col = scheme.floor;
               break;
             case 'new_segment':
-              col = NEW_SEGMENT_COLOR;
+              col = scheme.newSegment;
               break;
             case 'segment': {
               const colorIdx = roomColorMap[pxType.id] !== undefined
                 ? roomColorMap[pxType.id]
-                : (pxType.id - 1) % SEGMENT_COLORS.length;
-              col = SEGMENT_COLORS[colorIdx];
+                : (pxType.id - 1) % segColors.length;
+              col = segColors[colorIdx];
               // Track bounds for room labels
               const flippedY = height - 1 - y;
               if (!segBounds[pxType.id]) segBounds[pxType.id] = { minX: x, maxX: x, minY: flippedY, maxY: flippedY, count: 0 };
@@ -514,12 +617,25 @@ class DreameApp extends Homey.App {
         }
       }
 
+      // Map coordinate metadata for pixel↔device conversion (needed for zone drawing)
+      let mapMeta = null;
+      if (headerBuf.length >= MAP_HEADER_SIZE) {
+        mapMeta = {
+          gridSize: headerBuf.readInt16LE(17),
+          left: headerBuf.readInt16LE(23),
+          top: headerBuf.readInt16LE(25),
+        };
+      }
+
       return {
         width, height,
         pixels: rgba.toString('base64'),
         roomLabels,
         robotPos,
         chargerPos,
+        dark: scheme.dark,
+        textColor: scheme.text,
+        mapMeta,
       };
     } catch (_) {
       return null;

@@ -1,0 +1,29 @@
+{
+  "title": {
+    "en": "Zone cleaning finished"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum finishes zone cleaning and returns to the dock."
+  },
+  "tokens": [
+    {
+      "name": "cleaned_area",
+      "type": "number",
+      "title": { "en": "Cleaned area (m\u00B2)" },
+      "example": { "en": "12" }
+    },
+    {
+      "name": "cleaning_time",
+      "type": "number",
+      "title": { "en": "Cleaning time (min)" },
+      "example": { "en": "15" }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

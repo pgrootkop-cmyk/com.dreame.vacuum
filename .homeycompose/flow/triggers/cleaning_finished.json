@@ -1,0 +1,29 @@
+{
+  "title": {
+    "en": "Cleaning finished"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum finishes any cleaning task and returns to the dock."
+  },
+  "tokens": [
+    {
+      "name": "cleaned_area",
+      "type": "number",
+      "title": { "en": "Cleaned area (m\u00B2)" },
+      "example": { "en": "42" }
+    },
+    {
+      "name": "cleaning_time",
+      "type": "number",
+      "title": { "en": "Cleaning time (min)" },
+      "example": { "en": "35" }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    }
+  ]
+}

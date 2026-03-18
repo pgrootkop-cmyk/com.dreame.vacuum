@@ -267,7 +267,7 @@ class DreameVacuumDriver extends Homey.Driver {
       return args.device.isCleaningRoom(roomId);
     });
     isCleaningRoomCard.registerArgumentAutocompleteListener('room', async (query, args) => {
-      return this._getRoomAutocomplete(query, args);
+      return this._getRoomAutocompleteWithAny(query, args);
     });
 
     // Room trigger cards with autocomplete filtering
@@ -313,6 +313,39 @@ class DreameVacuumDriver extends Homey.Driver {
         return args.device.isCleaningRoom(roomId);
       });
 
+    // --- Zone cleaning card ---
+    const zoneCleanCard = this.homey.flow.getActionCard('start_zone_cleaning');
+    zoneCleanCard.registerRunListener(async (args) => {
+      const zoneData = args.zone;
+      if (!zoneData || !zoneData.id || zoneData.id === '_none') throw new Error('No zone selected');
+      const zones = args.device.getZones();
+      // Support multi-zone: id can be comma-separated zone IDs
+      const zoneIds = String(zoneData.id).split(',');
+      const coords = [];
+      for (const zid of zoneIds) {
+        const zone = zones.find(z => z.id === zid);
+        if (zone && zone.coords) coords.push(zone.coords);
+      }
+      if (coords.length === 0) throw new Error('Zone not found. Reconfigure zones in app settings.');
+      await args.device.startZoneCleaning(coords, args.repeats);
+    });
+    zoneCleanCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
+      return this._getZoneAutocomplete(query, args);
+    });
+
+    // --- Zone cleaning finished trigger (no args to filter) ---
+
+    // --- Select floor card ---
+    const selectFloorCard = this.homey.flow.getActionCard('select_floor');
+    selectFloorCard.registerRunListener(async (args) => {
+      const mapId = parseInt(args.floor.id, 10);
+      if (isNaN(mapId)) throw new Error('Invalid floor selected');
+      await args.device.selectFloor(mapId);
+    });
+    selectFloorCard.registerArgumentAutocompleteListener('floor', async (query, args) => {
+      return this._getFloorAutocomplete(query, args);
+    });
+
     // --- Operational state trigger ---
     const stateChangedCard = this.homey.flow.getDeviceTriggerCard('operational_state_changed');
     stateChangedCard.registerRunListener(async (args, state) => {
@@ -323,6 +356,8 @@ class DreameVacuumDriver extends Homey.Driver {
     // --- Stuck triggers (no run listener needed — no args to filter) ---
 
     // --- Dust bin full trigger (no args to filter) ---
+
+    // --- Cleaning finished trigger (no args to filter) ---
 
     // --- Water tank changed trigger ---
     const waterTankChangedCard = this.homey.flow.getDeviceTriggerCard('water_tank_changed');
@@ -425,16 +460,49 @@ class DreameVacuumDriver extends Homey.Driver {
     });
   }
 
+  _getFloorLabel(args) {
+    const floors = args.device ? args.device.getFloors() : [];
+    if (floors.length <= 1) return '';
+    const selectedId = args.device._selectedFloorId;
+    const floor = floors.find(f => f.id === selectedId);
+    return floor ? floor.name : 'Current floor';
+  }
+
   _getRoomAutocompleteWithAny(query, args) {
-    const rooms = args.device ? args.device.getRooms() : [];
+    const floors = args.device ? args.device.getFloors() : [];
+    const hasMultiFloor = floors.length > 1;
+    const allRooms = args.device && hasMultiFloor
+      ? args.device.getAllFloorRooms()
+      : (args.device ? args.device.getRooms() : []).map(r => ({ ...r, floorId: null, floorName: null }));
+
     const results = [
-      { name: 'Any room', description: 'Triggers for all rooms', id: '' },
-      ...rooms.map(r => ({
-        name: r.name,
-        description: `Room ID: ${r.id}`,
-        id: String(r.id),
-      })),
+      { name: 'Any room', description: 'Triggers for all rooms on all floors', id: '' },
     ];
+
+    if (hasMultiFloor) {
+      // Add "All rooms on <floor>" options
+      for (const floor of floors) {
+        const floorRooms = allRooms.filter(r => r.floorId === floor.id);
+        if (floorRooms.length > 0) {
+          const ids = floorRooms.map(r => r.id).join(',');
+          results.push({
+            name: `All rooms on ${floor.name}`,
+            description: floorRooms.map(r => r.name).join(', '),
+            id: ids,
+          });
+        }
+      }
+    }
+
+    // Add individual rooms with floor label
+    for (const r of allRooms) {
+      results.push({
+        name: r.name,
+        description: r.floorName ? `${r.floorName} — Room ID: ${r.id}` : `Room ID: ${r.id}`,
+        id: String(r.id),
+      });
+    }
+
     if (!query) return results;
     const q = query.toLowerCase();
     return results.filter(r => r.name.toLowerCase().includes(q));
@@ -445,14 +513,50 @@ class DreameVacuumDriver extends Homey.Driver {
     if (rooms.length === 0) {
       return [{ name: 'No rooms discovered yet', description: 'Rooms appear after the vacuum maps your home', id: '_none' }];
     }
+    const floorLabel = this._getFloorLabel(args);
     const results = rooms.map(r => ({
       name: `${r.name} (ID: ${r.id})`,
-      description: r.customName && r.customName !== r.name ? r.customName : '',
+      description: floorLabel || '',
       id: String(r.id),
     }));
     if (!query) return results;
     const q = query.toLowerCase();
     return results.filter(r => r.name.toLowerCase().includes(q) || r.id === query);
+  }
+
+  _getZoneAutocomplete(query, args) {
+    const zones = args.device ? args.device.getZones() : [];
+    if (zones.length === 0) {
+      return [{ name: 'No zones configured', description: 'Draw zones on the map in app settings', id: '_none' }];
+    }
+    const floors = args.device ? args.device.getFloors() : [];
+    const results = zones.map(z => {
+      const floor = floors.find(f => f.id === z.floorId);
+      const floorLabel = floor ? floor.name : '';
+      return {
+        name: z.name,
+        description: floorLabel ? `${floorLabel}` : 'Custom zone',
+        id: z.id,
+      };
+    });
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  _getFloorAutocomplete(query, args) {
+    const floors = args.device ? args.device.getFloors() : [];
+    if (floors.length === 0) {
+      return [{ name: 'Floor 1', description: 'Default floor (single-floor device)', id: '0' }];
+    }
+    const results = floors.map(f => ({
+      name: f.name,
+      description: `Floor ${f.index}`,
+      id: String(f.id),
+    }));
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
   }
 
   _getMultiRoomAutocomplete(query, args) {
@@ -461,6 +565,7 @@ class DreameVacuumDriver extends Homey.Driver {
       return [{ name: 'No rooms discovered yet', description: 'Rooms appear after the vacuum maps your home', id: '_none' }];
     }
 
+    const floorLabel = this._getFloorLabel(args);
     const results = [];
 
     // Add "All rooms" option
@@ -468,7 +573,7 @@ class DreameVacuumDriver extends Homey.Driver {
     const allNames = rooms.map(r => r.name).join(', ');
     results.push({
       name: 'All rooms',
-      description: allNames,
+      description: floorLabel ? `${floorLabel} — ${allNames}` : allNames,
       id: allIds,
     });
 
@@ -476,7 +581,7 @@ class DreameVacuumDriver extends Homey.Driver {
     for (const r of rooms) {
       results.push({
         name: r.name,
-        description: `Room ID: ${r.id}`,
+        description: floorLabel ? `${floorLabel} — Room ID: ${r.id}` : `Room ID: ${r.id}`,
         id: String(r.id),
       });
     }

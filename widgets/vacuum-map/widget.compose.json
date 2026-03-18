@@ -4,6 +4,31 @@
   },
   "settings": [
     {
+      "id": "colorScheme",
+      "type": "dropdown",
+      "title": { "en": "Color scheme" },
+      "value": "Dreame Light",
+      "values": [
+        { "id": "Dreame Light", "title": { "en": "Dreame Light" } },
+        { "id": "Dreame Dark", "title": { "en": "Dreame Dark" } },
+        { "id": "Mijia Light", "title": { "en": "Mijia Light" } },
+        { "id": "Mijia Dark", "title": { "en": "Mijia Dark" } },
+        { "id": "Grayscale", "title": { "en": "Grayscale" } }
+      ]
+    },
+    {
+      "id": "labelSize",
+      "type": "dropdown",
+      "title": { "en": "Room label size" },
+      "value": "medium",
+      "values": [
+        { "id": "small", "title": { "en": "Small" } },
+        { "id": "medium", "title": { "en": "Medium" } },
+        { "id": "large", "title": { "en": "Large" } },
+        { "id": "xxl", "title": { "en": "XXL" } }
+      ]
+    },
+    {
       "id": "showRoomNames",
       "type": "checkbox",
       "title": { "en": "Show room names" },
@@ -14,6 +39,12 @@
       "type": "checkbox",
       "title": { "en": "Show status bar" },
       "value": true
+    },
+    {
+      "id": "floor",
+      "type": "autocomplete",
+      "title": { "en": "Floor" },
+      "hint": { "en": "Select which floor map to display (only for multi-floor setups)" }
     }
   ],
   "height": "75%",
