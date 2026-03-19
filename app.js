@@ -1,7 +1,7 @@
 'use strict';
 
 const Homey = require('homey');
-const Sentry = require('@sentry/node');
+const Sentry = require('./lib/SentryLite');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const DreameApi = require('./lib/DreameApi');
@@ -104,7 +104,6 @@ class DreameApp extends Homey.App {
       dsn,
       release: `${manifest.id}@${manifest.version}`,
       environment: process.env.DEBUG === '1' ? 'development' : 'production',
-      integrations: (defaults) => defaults.filter((i) => i.name !== 'Context'),
       beforeSend: (event) => {
         if (!this.isDiagnosticEnabled()) return null;
         return event;
