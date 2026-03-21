@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Run a shortcut"
+  },
+  "titleFormatted": {
+    "en": "Run shortcut [[shortcut]]"
+  },
+  "hint": {
+    "en": "Run a shortcut configured in the Dreame Home app. Shortcuts appear automatically after they are created in the Dreame app."
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "shortcut",
+      "title": {
+        "en": "Shortcut"
+      },
+      "placeholder": {
+        "en": "Search shortcuts..."
+      }
+    }
+  ]
+}

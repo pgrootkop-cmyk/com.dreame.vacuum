@@ -3,34 +3,145 @@
 <head>
   <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
   <style>
-    .map-wrap { text-align: center; background: #eee; border-radius: 12px; padding: 8px; margin-bottom: 16px; min-height: 80px; }
-    .map-wrap canvas { max-width: 100%; height: auto; border-radius: 6px; }
-    .no-data { color: #999; padding: 24px 0; font-size: 13px; text-align: center; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
-    .stat { padding: 8px 10px; background: var(--homey-background-color, #f8f8f8); border-radius: 8px; border: 1px solid var(--homey-border-color, #eee); }
-    .stat-label { font-size: 10px; color: #999; text-transform: uppercase; }
-    .stat-value { font-size: 15px; font-weight: 600; margin-top: 1px; }
-    .good { color: #34c759; } .warn { color: #ff9500; } .bad { color: #ff3b30; }
-    .room-list { list-style: none; padding: 0; margin: 0 0 16px; }
-    .room-list li { padding: 7px 10px; background: var(--homey-background-color, #fff); border-radius: 6px; margin-bottom: 3px; border: 1px solid var(--homey-border-color, #eee); font-size: 13px; display: flex; justify-content: space-between; }
-    .room-id { color: #aaa; font-size: 11px; }
+    /* ── Base: use Homey native spacing + typography tokens ── */
+    legend.homey-form-legend {
+      padding-bottom: var(--homey-su-3, 12px) !important;
+    }
+
+    /* ── Map ── */
+    .map-wrap {
+      text-align: center;
+      background: var(--homey-color-mono-100, #f0f0f0);
+      border-radius: var(--homey-border-radius-small, 8px);
+      padding: var(--homey-su-2, 8px);
+      margin-bottom: var(--homey-su-4, 16px);
+      min-height: 80px;
+      position: relative;
+    }
+    .map-wrap canvas {
+      max-width: 100%; height: auto;
+      border-radius: var(--homey-border-radius-small, 6px);
+      cursor: crosshair; display: block; margin: 0 auto;
+    }
+    .map-wrap canvas.default-cursor { cursor: default; }
+
+    /* ── Shared card grid ── */
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .card {
+      padding: 8px 10px;
+      background: var(--homey-background-color, #f8f8f8);
+      border-radius: var(--homey-border-radius-small, 8px);
+      border: var(--homey-line-light, 1px solid #e8e8e8);
+    }
+    .card-label {
+      font-size: 10px;
+      color: var(--homey-text-color-light, #888);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .card-value {
+      font-size: 15px;
+      font-weight: var(--homey-font-weight-medium, 500);
+      color: var(--homey-text-color, inherit);
+      margin-top: 1px;
+    }
+
+    /* ── Status colors ── */
+    .good { color: var(--homey-text-color-green, #34c759); }
+    .warn { color: var(--homey-text-color-orange, #ff9500); }
+    .bad  { color: var(--homey-text-color-red, #ff3b30); }
+
+    /* ── Empty / loading states ── */
+    .no-data {
+      color: var(--homey-text-color-light, #999);
+      padding: var(--homey-su-4, 16px) 0;
+      font-size: 13px;
+      text-align: center;
+    }
+    .empty-state {
+      color: var(--homey-text-color-light, #999);
+      font-size: 12px;
+      text-align: center;
+      padding: var(--homey-su-2, 8px) 0;
+      grid-column: 1 / -1;
+    }
+
+    /* ── Room list ── */
+    .room-list { list-style: none; padding: 0; margin: 0; }
+    .room-list li {
+      padding: 7px 10px;
+      background: var(--homey-background-color, #f8f8f8);
+      border-radius: var(--homey-border-radius-small, 8px);
+      margin-bottom: 3px;
+      border: var(--homey-line-light, 1px solid #e8e8e8);
+      font-size: 13px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .room-id {
+      color: var(--homey-text-color-light, #aaa);
+      font-size: 11px;
+      font-weight: var(--homey-font-weight-medium, 500);
+    }
+
+    /* ── Consumables ── */
     .cons-row { margin-bottom: 8px; }
-    .cons-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
-    .cons-bar { height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+    .cons-header {
+      display: flex; justify-content: space-between;
+      font-size: 12px;
+      font-weight: var(--homey-font-weight-medium, 500);
+      margin-bottom: 3px;
+      color: var(--homey-text-color, inherit);
+    }
+    .cons-bar {
+      height: 5px;
+      background: var(--homey-color-mono-200, #e0e0e0);
+      border-radius: 3px; overflow: hidden;
+    }
     .cons-fill { height: 100%; border-radius: 3px; }
+
+    /* ── Zone cards ── */
+    .zone-card {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .zone-card-name {
+      font-size: 13px;
+      font-weight: var(--homey-font-weight-medium, 500);
+      color: var(--homey-text-color, inherit);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .zone-card-delete {
+      background: none; border: none; cursor: pointer;
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: var(--homey-border-radius-small, 6px);
+      color: var(--homey-text-color-red, #ff3b30);
+      flex-shrink: 0;
+    }
+    .zone-card-delete:hover { background: var(--homey-color-red-050, rgba(255,59,48,0.08)); }
+
+    /* ── Zone add bar ── */
+    .zone-add {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .zone-hint {
+      font-size: 11px;
+      color: var(--homey-text-color-light, #888);
+      margin-top: 4px;
+      padding-inline-start: 2px;
+    }
+    .drawing-active {
+      outline: 2px solid var(--homey-color-blue, #007aff);
+      outline-offset: 2px;
+      border-radius: var(--homey-border-radius-small, 8px);
+    }
   </style>
 </head>
 <body>
   <form class="homey-form">
-    <fieldset class="homey-form-fieldset">
-      <legend class="homey-form-legend">Diagnostics</legend>
-      <label class="homey-form-checkbox">
-        <input class="homey-form-checkbox-input" type="checkbox" id="diagnosticToggle" onchange="toggleDiagnostic()" />
-        <span class="homey-form-checkbox-checkmark"></span>
-        <span class="homey-form-checkbox-text">Share diagnostic logs to help improve app stability. No personal data is collected.</span>
-      </label>
-    </fieldset>
-
     <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend">Device</legend>
       <div class="homey-form-group">
@@ -41,12 +152,29 @@
     </fieldset>
   </form>
 
-  <div id="content" style="display:none;">
-    <div class="map-wrap"><canvas id="mapCanvas" style="display:none;"></canvas><div class="no-data" id="noMap">No map data</div></div>
+  <div id="content" style="display:none;padding-top:15px;">
+    <div class="map-wrap" id="mapWrap">
+      <canvas id="mapCanvas" class="default-cursor" style="display:none;"></canvas>
+      <div class="no-data" id="noMap">No map data</div>
+    </div>
+
+    <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Zones</legend>
+      <div class="card-grid" id="zoneGrid"><div class="empty-state">No zones configured</div></div>
+      <div class="zone-add" id="zoneBar">
+        <input class="homey-form-input" type="text" id="zoneNameInput" placeholder="Zone name (e.g. Under table)" />
+        <span id="zoneButtons">
+          <button type="button" class="homey-button-primary-shadow" id="btnDraw" onclick="startDrawZone()">+ Draw zone</button>
+          <button type="button" class="homey-button-primary-shadow" id="btnSave" onclick="saveDrawnZone()" style="display:none;">Save</button>
+          <button type="button" class="homey-button-secondary-shadow" id="btnCancel" onclick="cancelDrawZone()" style="display:none;">Cancel</button>
+        </span>
+      </div>
+      <div class="zone-hint" id="zoneHint"></div>
+    </fieldset>
 
     <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend">Status</legend>
-      <div class="grid" id="statusGrid"></div>
+      <div class="card-grid" id="statusGrid"></div>
     </fieldset>
 
     <fieldset class="homey-form-fieldset">
@@ -58,31 +186,59 @@
       <legend class="homey-form-legend">Consumables</legend>
       <div id="consumables"></div>
     </fieldset>
+
+    <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Diagnostics</legend>
+      <label class="homey-form-checkbox">
+        <input class="homey-form-checkbox-input" type="checkbox" id="diagnosticToggle" onchange="toggleDiagnostic()" />
+        <span class="homey-form-checkbox-checkmark"></span>
+        <span class="homey-form-checkbox-text">Share diagnostic logs to help improve app stability. No personal data is collected.</span>
+      </label>
+    </fieldset>
   </div>
   <div class="no-data" id="loading">Loading...</div>
 
 <script>
 var _homey, _devices = [], _did = null;
+var _mapState = { canvas: null, ctx: null, scale: 1, baseImage: null, mapMeta: null, mapWidth: 0, mapHeight: 0, lastRobotPos: null };
+var _settingsPollTimer = null;
+var _zones = [];
+var _drawState = { active: false, startX: 0, startY: 0, endX: 0, endY: 0 };
 
 function onHomeyReady(Homey) {
   _homey = Homey;
   Homey.get('diagnosticLogging', function(err, val) {
     document.getElementById('diagnosticToggle').checked = val === true;
   });
-  Homey.api('GET', '/vacuumData', null, function(err, data) {
+  loadAll();
+
+  // Refresh data when page becomes visible (e.g. navigating back to settings)
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && _did) loadAll();
+  });
+}
+
+function loadAll() {
+  _homey.api('GET', '/vacuumData', null, function(err, data) {
     document.getElementById('loading').style.display = 'none';
     if (err || !data || !data.length) {
       document.getElementById('loading').style.display = 'block';
       document.getElementById('loading').textContent = 'No devices found. Pair a vacuum first.';
-      return Homey.ready();
+      return _homey.ready();
     }
     _devices = data;
     var sel = document.getElementById('deviceSelect');
+    var prevDid = _did;
     sel.innerHTML = data.map(function(d) { return '<option value="' + d.id + '">' + d.name + '</option>'; }).join('');
-    _did = data[0].id;
-    show(data[0]);
+    if (prevDid && data.find(function(d) { return d.id === prevDid; })) {
+      sel.value = prevDid;
+    } else {
+      _did = data[0].id;
+    }
+    var d = data.find(function(x) { return x.id === _did; });
+    if (d) show(d);
     document.getElementById('content').style.display = 'block';
-    Homey.ready();
+    _homey.ready();
   });
 }
 
@@ -93,7 +249,7 @@ function selectDevice() {
 }
 
 function show(d) {
-  status(d); rooms(d); consumables(d); map(d);
+  status(d); rooms(d); consumables(d); map(d); loadZones();
 }
 
 function status(d) {
@@ -111,7 +267,7 @@ function status(d) {
     ['Error', c.dreame_error || 'None', (c.dreame_error && c.dreame_error !== 'None') ? 'bad' : 'good'],
   ];
   document.getElementById('statusGrid').innerHTML = items.map(function(i) {
-    return '<div class="stat"><div class="stat-label">' + i[0] + '</div><div class="stat-value ' + i[2] + '">' + i[1] + '</div></div>';
+    return '<div class="card"><div class="card-label">' + i[0] + '</div><div class="card-value ' + i[2] + '">' + i[1] + '</div></div>';
   }).join('');
 }
 
@@ -140,29 +296,206 @@ function consumables(d) {
   }).join('');
 }
 
-// Map state for live position updates
-var _mapState = { canvas: null, ctx: null, scale: 1, baseImage: null };
-var _settingsPollTimer = null;
+// ---- Zone Drawing ----
+
+function loadZones() {
+  _homey.api('GET', '/zones?did=' + encodeURIComponent(_did), null, function(err, data) {
+    _zones = (!err && Array.isArray(data)) ? data : [];
+    renderZoneList();
+    drawZonesOverlay();
+  });
+}
+
+function renderZoneList() {
+  var el = document.getElementById('zoneGrid');
+  if (_zones.length === 0) { el.innerHTML = '<div class="empty-state">No zones configured</div>'; return; }
+  el.innerHTML = _zones.map(function(z) {
+    var eid = z.id.replace(/'/g, "\\'");
+    return '<div class="card zone-card"><span class="zone-card-name">' + z.name + '</span>'
+      + '<button class="zone-card-delete" onclick="deleteZone(\'' + eid + '\')" title="Delete">\u2715</button></div>';
+  }).join('');
+  drawZonesOverlay();
+}
+
+function startDrawZone() {
+  var name = document.getElementById('zoneNameInput').value.trim();
+  if (!name) { _homey.alert('Enter a zone name first'); return; }
+  if (!_mapState.mapMeta) { _homey.alert('Map not loaded yet. Wait for the map to appear.'); return; }
+  _drawState = { active: true, startX: 0, startY: 0, endX: 0, endY: 0 };
+  document.getElementById('btnDraw').style.display = 'none';
+  document.getElementById('btnSave').style.display = 'inline-block';
+  document.getElementById('btnCancel').style.display = 'inline-block';
+  document.getElementById('zoneHint').textContent = 'Draw a rectangle on the map by clicking and dragging.';
+  document.getElementById('mapCanvas').classList.remove('default-cursor');
+  document.getElementById('mapWrap').classList.add('drawing-active');
+}
+
+function cancelDrawZone() {
+  _drawState.active = false;
+  document.getElementById('btnDraw').style.display = 'inline-block';
+  document.getElementById('btnSave').style.display = 'none';
+  document.getElementById('btnCancel').style.display = 'none';
+  document.getElementById('zoneHint').textContent = '';
+  document.getElementById('mapCanvas').classList.add('default-cursor');
+  document.getElementById('mapWrap').classList.remove('drawing-active');
+  redrawMap();
+}
+
+function saveDrawnZone() {
+  var dx = Math.abs(_drawState.endX - _drawState.startX);
+  var dy = Math.abs(_drawState.endY - _drawState.startY);
+  if (dx < 5 || dy < 5) { _homey.alert('Zone too small. Draw a larger rectangle on the map.'); return; }
+
+  var name = document.getElementById('zoneNameInput').value.trim();
+  var scale = _mapState.scale;
+  var meta = _mapState.mapMeta;
+  var h = _mapState.mapHeight;
+
+  // Convert canvas coords to map pixel coords, then to device coords
+  var px0 = Math.min(_drawState.startX, _drawState.endX) / scale;
+  var py0 = Math.min(_drawState.startY, _drawState.endY) / scale;
+  var px1 = Math.max(_drawState.startX, _drawState.endX) / scale;
+  var py1 = Math.max(_drawState.startY, _drawState.endY) / scale;
+
+  var x0 = Math.round(px0 * meta.gridSize + meta.left);
+  var y0 = Math.round((h - 1 - py1) * meta.gridSize + meta.top);
+  var x1 = Math.round(px1 * meta.gridSize + meta.left);
+  var y1 = Math.round((h - 1 - py0) * meta.gridSize + meta.top);
+
+  var newCoords = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)];
+  var newPixelCoords = [Math.round(px0), Math.round(py0), Math.round(px1), Math.round(py1)];
+
+  var zone = {
+    name: name,
+    coords: newCoords,
+    pixelCoords: newPixelCoords,
+  };
+
+  _homey.api('PUT', '/zones', { did: _did, zone: zone }, function(err, saved) {
+    if (err) { _homey.alert('Failed to save zone: ' + (err.message || err)); return; }
+    document.getElementById('zoneNameInput').value = '';
+    cancelDrawZone();
+    loadZones();
+  });
+}
+
+function deleteZone(zoneId) {
+  _homey.api('GET', '/deleteZone?did=' + encodeURIComponent(_did) + '&zoneId=' + encodeURIComponent(zoneId), null, function(err2, result) {
+    if (err2) {
+      _homey.alert('Failed to delete zone: ' + (err2.message || JSON.stringify(err2)));
+      return;
+    }
+    _zones = _zones.filter(function(z) { return z.id !== zoneId; });
+    renderZoneList();
+    redrawMap();
+    drawZonesOverlay();
+  });
+}
+
+function drawZonesOverlay() {
+  if (!_mapState.ctx || !_mapState.baseImage) return;
+  var ctx = _mapState.ctx;
+  var scale = _mapState.scale;
+  var filtered = _zones.filter(function(z) { return z.pixelCoords; });
+  ctx.lineWidth = 2;
+  for (var i = 0; i < filtered.length; i++) {
+    var pc = filtered[i].pixelCoords;
+    ctx.strokeStyle = 'rgba(0, 122, 255, 0.8)';
+    ctx.fillStyle = 'rgba(0, 122, 255, 0.15)';
+    var x = pc[0] * scale, y = pc[1] * scale, w = (pc[2] - pc[0]) * scale, h = (pc[3] - pc[1]) * scale;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+    // Label
+    ctx.font = '600 ' + Math.max(9, scale * 3.5) + 'px -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(0, 122, 255, 0.9)';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(filtered[i].name, x + 3, y + 2);
+  }
+}
+
+function redrawMap() {
+  if (!_mapState.ctx || !_mapState.baseImage) return;
+  _mapState.ctx.drawImage(_mapState.baseImage, 0, 0);
+}
+
+// Canvas mouse/touch handlers for zone drawing
+(function() {
+  var canvas = document.getElementById('mapCanvas');
+  function getPos(e) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var clientX, clientY;
+    if (e.touches) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+    else { clientX = e.clientX; clientY = e.clientY; }
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  }
+  function onStart(e) {
+    if (!_drawState.active) return;
+    e.preventDefault();
+    var pos = getPos(e);
+    _drawState.startX = pos.x; _drawState.startY = pos.y;
+    _drawState.endX = pos.x; _drawState.endY = pos.y;
+  }
+  function onMove(e) {
+    if (!_drawState.active || !_drawState.startX) return;
+    e.preventDefault();
+    var pos = getPos(e);
+    _drawState.endX = pos.x; _drawState.endY = pos.y;
+    // Draw preview rectangle
+    redrawMap();
+    drawZonesOverlay();
+    var ctx = _mapState.ctx;
+    ctx.strokeStyle = 'rgba(255, 59, 48, 0.9)';
+    ctx.fillStyle = 'rgba(255, 59, 48, 0.15)';
+    ctx.lineWidth = 2;
+    var x = Math.min(_drawState.startX, _drawState.endX);
+    var y = Math.min(_drawState.startY, _drawState.endY);
+    var w = Math.abs(_drawState.endX - _drawState.startX);
+    var h = Math.abs(_drawState.endY - _drawState.startY);
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  }
+  function onEnd(e) {
+    if (!_drawState.active) return;
+    // Keep the rectangle visible -- user can save or cancel
+  }
+  canvas.addEventListener('mousedown', onStart);
+  canvas.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
+  canvas.addEventListener('touchstart', onStart, { passive: false });
+  canvas.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
+
+  // Keyboard support: Enter to save, Escape to cancel
+  document.addEventListener('keydown', function(e) {
+    if (!_drawState.active) return;
+    if (e.key === 'Enter') { e.preventDefault(); saveDrawnZone(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelDrawZone(); }
+  });
+})();
+
+// ---- Standard rendering ----
 
 function renderMapToCanvas(canvas, data, options) {
   var opts = options || {};
   var showRoomNames = opts.showRoomNames !== false;
   _mapState.canvas = canvas;
+  _mapState.mapMeta = data.mapMeta || null;
+  _mapState.mapWidth = data.width;
+  _mapState.mapHeight = data.height;
   var w = data.width, h = data.height;
   var raw = atob(data.pixels);
   var scale = Math.max(1, Math.min(3, Math.floor(800 / Math.max(w, h))));
   _mapState.scale = scale;
-  canvas.width = w * scale;
-  canvas.height = h * scale;
+  canvas.width = w * scale; canvas.height = h * scale;
   var ctx = canvas.getContext('2d');
   _mapState.ctx = ctx;
 
-  // Render base map to offscreen canvas (pixels + room labels + charger)
   var off = document.createElement('canvas');
   off.width = w * scale; off.height = h * scale;
   var offCtx = off.getContext('2d');
-  offCtx.fillStyle = '#eee';
-  offCtx.fillRect(0, 0, off.width, off.height);
+  offCtx.fillStyle = '#eee'; offCtx.fillRect(0, 0, off.width, off.height);
   var pixOff = document.createElement('canvas');
   pixOff.width = w; pixOff.height = h;
   var pixCtx = pixOff.getContext('2d');
@@ -179,85 +512,99 @@ function renderMapToCanvas(canvas, data, options) {
     offCtx.strokeStyle = '#fff'; offCtx.lineWidth = Math.max(1, scale * 0.5); offCtx.stroke();
   }
   if (showRoomNames && data.roomLabels && data.roomLabels.length > 0) {
-    var fontSize = Math.max(9, Math.min(13, scale * 4));
-    offCtx.font = '600 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+    var fontSize = Math.max(11, Math.min(16, scale * 5));
+    offCtx.font = '700 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
     offCtx.textAlign = 'center'; offCtx.textBaseline = 'middle';
-    var sw = Math.max(2, scale);
+    var sw = Math.max(3, scale * 1.5);
     for (var j = 0; j < data.roomLabels.length; j++) {
       var label = data.roomLabels[j];
       var lx = label.x * scale, ly = label.y * scale;
-      offCtx.strokeStyle = 'rgba(255,255,255,0.85)'; offCtx.lineWidth = sw; offCtx.lineJoin = 'round';
+      offCtx.strokeStyle = 'rgba(255,255,255,0.95)'; offCtx.lineWidth = sw; offCtx.lineJoin = 'round';
       offCtx.strokeText(label.name, lx, ly);
-      offCtx.fillStyle = 'rgba(15,15,15,0.9)';
+      offCtx.fillStyle = 'rgba(0,0,0,0.85)';
       offCtx.fillText(label.name, lx, ly);
     }
   }
-
   _mapState.baseImage = off;
   drawSettingsRobotDot(data.robotPos);
 }
 
 function drawSettingsRobotDot(robotPos) {
   if (!_mapState.ctx || !_mapState.baseImage) return;
-  var ctx = _mapState.ctx;
-  var scale = _mapState.scale;
+  if (robotPos && robotPos.x > 0) _mapState.lastRobotPos = robotPos;
+  var pos = robotPos || _mapState.lastRobotPos;
+  var ctx = _mapState.ctx; var scale = _mapState.scale;
+  // Draw order: base image -> zones -> robot dot (dot always on top)
   ctx.drawImage(_mapState.baseImage, 0, 0);
-  if (robotPos && robotPos.x > 0) {
+  drawZonesOverlay();
+  if (pos && pos.x > 0) {
     ctx.beginPath();
-    ctx.arc(robotPos.x * scale, robotPos.y * scale, Math.max(4, scale * 2.5), 0, Math.PI * 2);
+    ctx.arc(pos.x * scale, pos.y * scale, Math.max(4, scale * 2.5), 0, Math.PI * 2);
     ctx.fillStyle = '#007aff'; ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, scale * 0.5); ctx.stroke();
   }
 }
 
+var _settingsPollCycle = 0;
+
 function startSettingsPolling() {
   if (_settingsPollTimer || !_did) return;
+  fetchRobotPosition();
   _settingsPollTimer = setInterval(function() {
-    _homey.api('GET', '/robotPosition?did=' + encodeURIComponent(_did), null, function(err, pos) {
-      if (!err && pos && pos.x !== undefined) {
-        drawSettingsRobotDot(pos);
-      }
-    });
-    // Refresh status too
+    _settingsPollCycle++;
+    fetchRobotPosition();
+    // Re-fetch map every 3rd cycle (~15s) to show newly explored areas
+    if (_settingsPollCycle % 3 === 0) {
+      refreshMap();
+    }
     _homey.api('GET', '/vacuumData', null, function(err, data) {
       if (err || !data || !data.length) return;
       var d = data.find(function(x) { return x.id === _did; });
       if (!d) return;
       status(d); rooms(d); consumables(d);
-      var state = (d.capabilities || {}).vacuumcleaner_state || 'unknown';
-      if (state !== 'cleaning') {
-        clearInterval(_settingsPollTimer);
-        _settingsPollTimer = null;
+      if ((d.capabilities || {}).vacuumcleaner_state === 'charging') {
+        clearInterval(_settingsPollTimer); _settingsPollTimer = null;
+        _settingsPollCycle = 0;
+        refreshMap();
       }
     });
   }, 5000);
 }
 
+function refreshMap() {
+  _homey.api('GET', '/renderedMap?did=' + encodeURIComponent(_did), null, function(err, data) {
+    if (err || !data || !data.width) return;
+    var canvas = document.getElementById('mapCanvas');
+    var livePos = _mapState.lastRobotPos;
+    renderMapToCanvas(canvas, data, { showRoomNames: true });
+    if (livePos) drawSettingsRobotDot(livePos);
+    canvas.style.display = 'block';
+    document.getElementById('noMap').style.display = 'none';
+  });
+}
+
+function fetchRobotPosition() {
+  _homey.api('GET', '/robotPosition?did=' + encodeURIComponent(_did), null, function(err, pos) {
+    if (!err && pos && pos.x !== undefined) drawSettingsRobotDot(pos);
+  });
+}
+
 function map(d) {
   var canvas = document.getElementById('mapCanvas');
   var noMap = document.getElementById('noMap');
-  canvas.style.display = 'none';
-  noMap.style.display = 'block';
-  noMap.textContent = 'Loading map...';
-
+  canvas.style.display = 'none'; noMap.style.display = 'block'; noMap.textContent = 'Loading map...';
   _homey.api('GET', '/renderedMap?did=' + encodeURIComponent(d.id), null, function(err, data) {
-    if (err || !data || !data.width) {
-      noMap.textContent = 'No map data available';
-      return;
-    }
+    if (err || !data || !data.width) { noMap.textContent = 'No map data available'; return; }
     renderMapToCanvas(canvas, data, { showRoomNames: true });
-    canvas.style.display = 'block';
-    noMap.style.display = 'none';
-
-    // Start polling if cleaning
+    canvas.style.display = 'block'; noMap.style.display = 'none';
+    drawZonesOverlay();
     var state = (d.capabilities || {}).vacuumcleaner_state || 'unknown';
-    if (state === 'cleaning') startSettingsPolling();
+    if (state !== 'charging') startSettingsPolling();
   });
 }
 
 function toggleDiagnostic() {
-  var checked = document.getElementById('diagnosticToggle').checked;
-  _homey.set('diagnosticLogging', checked);
+  _homey.set('diagnosticLogging', document.getElementById('diagnosticToggle').checked);
 }
 
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '-'; }

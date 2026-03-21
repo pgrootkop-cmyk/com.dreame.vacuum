@@ -72,6 +72,9 @@ const PROP = {
   MOP_PAD_INSTALLED:    { siid: 4, piid: 53 },
   DUST_COLLECTION:      { siid: 15, piid: 3 },
 
+  // Shortcuts
+  QUICK_COMMAND: { siid: 4, piid: 48 },
+
   // Lifetime stats
   FIRST_CLEANING_DATE: { siid: 12, piid: 1 },
   TOTAL_CLEANED_AREA:  { siid: 12, piid: 4 },
@@ -281,9 +284,10 @@ const PROP_TO_CAPABILITY = {
 };
 
 // Grouped value encoding for self-wash-base cleaning mode (siid:4, piid:23)
-function splitGroupedMode(value) {
+// Devices with mop_pad_lifting use 2-bit mask (values 0-3), others use 1-bit (values 0-1)
+function splitGroupedMode(value, mopPadLifting) {
   return {
-    mode: value & 0xFF,
+    mode: mopPadLifting ? (value & 0x03) : (value & 0x01),
     washFreq: (value >> 8) & 0xFF,
     waterLevel: (value >> 16) & 0xFF,
   };
@@ -291,6 +295,15 @@ function splitGroupedMode(value) {
 
 function combineGroupedMode(mode, washFreq, waterLevel) {
   return ((waterLevel & 0xFF) << 16) | ((washFreq & 0xFF) << 8) | (mode & 0xFF);
+}
+
+// On mop_pad_lifting devices (combo dock), wire values 0 and 2 are swapped:
+// Wire 0 = Sweeping & Mopping (enum 2), Wire 2 = Sweeping (enum 0)
+// This matches Tasshack device.py lines 965-980 and 1952-1976
+function swapMopPadLiftingMode(wireValue) {
+  if (wireValue === 0) return 2;
+  if (wireValue === 2) return 0;
+  return wireValue;
 }
 
 // Dock status codes reported as error codes but not actual errors
@@ -697,6 +710,21 @@ class DreameVacuumDevice extends Homey.Device {
     this._robotCurrentRoomId = null;  // segment ID the robot is currently in
     this._hasDocWaterTank = this.getStoreValue('hasDocWaterTank') || false;
     this._rismCache = null;           // cached decoded rism buffer for fast room lookups
+    this._mopPadLifting = this.getStoreValue('mopPadLifting') || false; // combo dock: swap cleaning mode 0↔2
+    this._shortcuts = this.getStoreValue('shortcuts') || [];
+    this._zones = this.getStoreValue('zones') || [];
+    this._wasCleaningSession = false; // track cleaning→charging for finished trigger
+    this._wasZoneCleaning = false;    // track zone cleaning for zone finished trigger
+    this._lastZoneName = null;        // zone name for trigger token
+    this._lastDreameState = null;     // raw dreame state value for transition detection
+
+    // Remove orphaned capabilities from previous versions (v0.0.24-v0.0.29 multi-floor)
+    const orphanedCapabilities = ['dreame_current_floor'];
+    for (const cap of orphanedCapabilities) {
+      if (this.hasCapability(cap)) {
+        await this.removeCapability(cap).catch(this.error);
+      }
+    }
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -739,12 +767,13 @@ class DreameVacuumDevice extends Homey.Device {
     // Probe-once: detect which advanced properties the device supports
     // Re-probe when new probeable props are added (version bump resets probe)
     const probeVersion = this.getStoreValue('probeVersion') || 0;
-    if (probeVersion < 2) {
-      this._unsupportedProps = new Set();
+    if (probeVersion < 3) { // v3: detect mopPadLifting capability
+      // Keep previously discovered unsupported props to avoid re-adding + removing capabilities
+      // which causes transient UI crashes in the Homey mobile app
+      this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
       this._probeComplete = false;
-      await this.setStoreValue('probeVersion', 2);
+      await this.setStoreValue('probeVersion', 3);
       await this.setStoreValue('probeComplete', false);
-      await this.setStoreValue('unsupportedProps', []);
     } else {
       this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
       this._probeComplete = this.getStoreValue('probeComplete') || false;
@@ -1284,15 +1313,51 @@ class DreameVacuumDevice extends Homey.Device {
   async _applyProperty(key, value) {
     switch (key) {
       case '2-1': { // STATE
+        // Track zone cleaning state (34 = ZONE_CLEANING)
+        if (value === 34) this._wasZoneCleaning = true;
+
         if (STATE_MAP[value]) {
           const homeyState = STATE_MAP[value];
+          const prevHomeyState = this.getCapabilityValue('vacuumcleaner_state');
           await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
           await this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
-          if (homeyState !== 'cleaning') {
+
+          // Detect cleaning→non-cleaning transition: mark session for deferred trigger
+          if (prevHomeyState === 'cleaning' && homeyState !== 'cleaning') {
+            this._wasCleaningSession = true;
             if (this._cleaningRoomIds.length > 0) this._fireRoomFinishedTriggers();
             this._robotCurrentRoomId = null;
             this._robotPositionRaw = null;
-            // When docked/charging, show the dock's room instead of clearing
+          }
+
+          // Fire cleaning_finished + zone_cleaning_finished when robot reaches CHARGING
+          if (homeyState === 'charging' && this._wasCleaningSession) {
+            this._wasCleaningSession = false;
+            const area = this.getCapabilityValue('dreame_cleaned_area') || 0;
+            const time = this.getCapabilityValue('dreame_cleaning_time') || 0;
+
+            const finishedCard = this.homey.flow.getDeviceTriggerCard('cleaning_finished');
+            finishedCard.trigger(this, { cleaned_area: area, cleaning_time: time })
+              .catch(e => this.error('Cleaning finished trigger:', e));
+
+            if (this._wasZoneCleaning) {
+              const zoneName = this._lastZoneName || '';
+              const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
+              zoneFinishedCard.trigger(this, { cleaned_area: area, cleaning_time: time, zone_name: zoneName }, { zone_name: zoneName })
+                .catch(e => this.error('Zone cleaning finished trigger:', e));
+              this._wasZoneCleaning = false;
+              this._lastZoneName = null;
+            }
+          }
+
+          // If stopped/error (not transitioning through to dock), reset session flag
+          if (homeyState === 'stopped' && this._wasCleaningSession) {
+            this._wasCleaningSession = false;
+            this._wasZoneCleaning = false;
+            this._lastZoneName = null;
+          }
+
+          if (homeyState !== 'cleaning') {
             if (homeyState === 'docked' || homeyState === 'charging') {
               this._detectChargerRoom();
             } else {
@@ -1308,6 +1373,7 @@ class DreameVacuumDevice extends Homey.Device {
           const card = this.homey.flow.getDeviceTriggerCard('operational_state_changed');
           card.trigger(this, { state: label }, { state: newOpState }).catch(e => this.error('State trigger:', e));
         }
+        this._lastDreameState = value;
         break;
       }
 
@@ -1388,12 +1454,14 @@ class DreameVacuumDevice extends Homey.Device {
         const currentState = this.getCapabilityValue('vacuumcleaner_state');
         const isCleaning = currentState === 'cleaning';
         if (value > 255) {
-          const grouped = splitGroupedMode(value);
+          const grouped = splitGroupedMode(value, this._mopPadLifting);
           this._isGroupedMode = true;
           this._groupedModeRaw = value;
-          if (CLEANING_MODE_REVERSE[grouped.mode] !== undefined) {
+          // On mop_pad_lifting devices, wire values 0↔2 are swapped
+          const modeEnum = this._mopPadLifting ? swapMopPadLiftingMode(grouped.mode) : grouped.mode;
+          if (CLEANING_MODE_REVERSE[modeEnum] !== undefined) {
             if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
-              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[grouped.mode]).catch(this.error);
+              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[modeEnum]).catch(this.error);
             }
           }
           if (this.hasCapability('dreame_mop_wash_frequency')) {
@@ -1404,9 +1472,11 @@ class DreameVacuumDevice extends Homey.Device {
           }
         } else {
           this._isGroupedMode = false;
-          if (CLEANING_MODE_REVERSE[value] !== undefined) {
+          // On mop_pad_lifting devices, wire values 0↔2 are swapped
+          const modeEnum = this._mopPadLifting ? swapMopPadLiftingMode(value) : value;
+          if (CLEANING_MODE_REVERSE[modeEnum] !== undefined) {
             if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
-              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[value]).catch(this.error);
+              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[modeEnum]).catch(this.error);
             }
           }
         }
@@ -1543,6 +1613,25 @@ class DreameVacuumDevice extends Homey.Device {
       case '4-58': // TASK_TYPE
         this._taskType = value;
         break;
+
+      case '4-48': { // QUICK_COMMAND (shortcuts)
+        try {
+          if (typeof value === 'string' && value.trim().startsWith('[')) {
+            const list = JSON.parse(value);
+            this._shortcuts = list.map((s, i) => {
+              let name = `Shortcut ${s.id || i + 1}`;
+              if (s.name) {
+                try { name = Buffer.from(s.name, 'base64').toString('utf-8'); } catch { name = s.name; }
+              }
+              return { id: s.id, name, index: i + 1, running: s.state === 0 || s.state === 1 };
+            });
+            await this.setStoreValue('shortcuts', this._shortcuts);
+          }
+        } catch (e) {
+          this.error('Failed to parse shortcuts:', e.message);
+        }
+        break;
+      }
 
       case '4-27': // CHILD_LOCK
         await this.setCapabilityValue('dreame_child_lock', !!value).catch(this.error);
@@ -1786,6 +1875,9 @@ class DreameVacuumDevice extends Homey.Device {
           PROP.LOW_WATER_WARNING,
         );
 
+        // Shortcuts (polled infrequently)
+        if (!this._unsupportedProps.has('4-48')) props.push(PROP.QUICK_COMMAND);
+
         // Probeable consumables + dock sensors (skip if known unsupported)
         const probeableInfrequent = [
           PROP.MOP_PAD_LEFT, PROP.DUST_BAG_STATUS, PROP.CLEAN_WATER_TANK,
@@ -1837,6 +1929,15 @@ class DreameVacuumDevice extends Homey.Device {
           // No CleanGenius mode support (handled via flow cards only)
         }
 
+        // Detect mop_pad_lifting: device has combo dock (self-wash base + auto-empty base)
+        // Self-wash: prop 4-25 supported; Auto-empty: prop 15-5 supported
+        // Matches Tasshack types.py: mop_pad_lifting = self_wash_base AND auto_empty_base
+        const hasSelfWash = !this._unsupportedProps.has('4-25');
+        const hasAutoEmpty = !this._unsupportedProps.has('15-5');
+        this._mopPadLifting = hasSelfWash && hasAutoEmpty;
+        await this.setStoreValue('mopPadLifting', this._mopPadLifting);
+        this._diag(`[PROBE] mopPadLifting=${this._mopPadLifting} (selfWash=${hasSelfWash}, autoEmpty=${hasAutoEmpty})`);
+
         // Remove probeable capabilities for unsupported props
         for (const [propKey, capName] of Object.entries(PROP_TO_CAPABILITY)) {
           if (this._unsupportedProps.has(propKey) && this.hasCapability(capName)) {
@@ -1878,9 +1979,11 @@ class DreameVacuumDevice extends Homey.Device {
     const water = this.getCapabilityValue('dreame_water_volume');
     const propsToSet = [];
     if (mode && CLEANING_MODE_MAP[mode] !== undefined) {
+      // On mop_pad_lifting devices, swap wire values 0↔2
       let modeValue = CLEANING_MODE_MAP[mode];
+      modeValue = this._mopPadLifting ? swapMopPadLiftingMode(modeValue) : modeValue;
       if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
-        const grouped = splitGroupedMode(this._groupedModeRaw);
+        const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
         modeValue = combineGroupedMode(modeValue, grouped.washFreq, grouped.waterLevel);
       }
       propsToSet.push({ siid: PROP.CLEANING_MODE.siid, piid: PROP.CLEANING_MODE.piid, value: modeValue });
@@ -1971,11 +2074,14 @@ class DreameVacuumDevice extends Homey.Device {
       throw new Error(`Invalid cleaning mode: ${mode}`);
     }
 
-    let valueToSend = dreameValue;
+    // On mop_pad_lifting devices, swap wire values 0↔2 (sweeping↔sweeping_and_mopping)
+    let wireValue = this._mopPadLifting ? swapMopPadLiftingMode(dreameValue) : dreameValue;
+
+    let valueToSend = wireValue;
     // If device uses grouped mode, preserve wash frequency and water level
     if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
-      const grouped = splitGroupedMode(this._groupedModeRaw);
-      valueToSend = combineGroupedMode(dreameValue, grouped.washFreq, grouped.waterLevel);
+      const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
+      valueToSend = combineGroupedMode(wireValue, grouped.washFreq, grouped.waterLevel);
     }
 
     await api.setProperties(this._did, this._bindDomain, [
@@ -2077,12 +2183,14 @@ class DreameVacuumDevice extends Homey.Device {
     // When idle, device reports 4-23=0 so _isGroupedMode may be false — construct from current caps
     let mode, waterLevel;
     if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
-      const grouped = splitGroupedMode(this._groupedModeRaw);
+      const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
       mode = grouped.mode;
       waterLevel = grouped.waterLevel;
     } else {
       const currentMode = this.getCapabilityValue('dreame_cleaning_mode');
-      mode = (currentMode && CLEANING_MODE_MAP[currentMode] !== undefined) ? CLEANING_MODE_MAP[currentMode] : 2;
+      // Convert enum to wire value: need swap for mop_pad_lifting devices
+      let modeEnum = (currentMode && CLEANING_MODE_MAP[currentMode] !== undefined) ? CLEANING_MODE_MAP[currentMode] : 2;
+      mode = this._mopPadLifting ? swapMopPadLiftingMode(modeEnum) : modeEnum;
       const currentWater = this.getCapabilityValue('dreame_water_volume');
       waterLevel = (currentWater && WATER_VOLUME_MAP[currentWater] !== undefined) ? WATER_VOLUME_MAP[currentWater] : 2;
     }
@@ -2613,6 +2721,81 @@ class DreameVacuumDevice extends Homey.Device {
     ]);
 
     this._fireRoomStartedTriggers(roomIds);
+  }
+
+  // Simple room cleaning (use current device settings)
+  async startRoomCleaningSimple(roomId) {
+    const suction = this.getCapabilityValue('dreame_suction_level') || 'standard';
+    const water = this.getCapabilityValue('dreame_water_volume') || 'medium';
+    await this.startRoomCleaning(roomId, 1, suction, water);
+  }
+
+  async startMultiRoomCleaningSimple(roomIds) {
+    const suction = this.getCapabilityValue('dreame_suction_level') || 'standard';
+    const water = this.getCapabilityValue('dreame_water_volume') || 'medium';
+    await this.startMultiRoomCleaning(roomIds, 1, suction, water);
+  }
+
+  // Shortcuts
+  getShortcuts() {
+    return this._shortcuts || [];
+  }
+
+  async startShortcut(shortcutId) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 25 },
+      { piid: 10, value: String(shortcutId) },
+    ]);
+    this._diag(`[SHORTCUT] Started shortcut ${shortcutId}`, null, 'info');
+  }
+
+  // Zone CRUD (single-floor, stored flat in device store)
+  getZones() {
+    return this._zones || [];
+  }
+
+  async saveZone(zone) {
+    if (!zone.id) {
+      zone.id = `zone_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    }
+    this._zones.push(zone);
+    await this.setStoreValue('zones', this._zones);
+    this._diag(`[ZONE] Saved zone: ${zone.name} (${zone.id})`, null, 'info');
+    return zone;
+  }
+
+async deleteZone(zoneId) {
+    this._zones = this._zones.filter(z => z.id !== zoneId);
+    await this.setStoreValue('zones', this._zones);
+    this._diag(`[ZONE] Deleted zone: ${zoneId}`, null, 'info');
+  }
+
+  // Zone cleaning
+  async startZoneCleaning(zones, repeats, suction, water, zoneName) {
+    this._lastCommandTime = Date.now();
+    this._lastZoneName = zoneName || null;
+    const api = this._getApi();
+    const suctionValue = suction && SUCTION_MAP[suction] !== undefined
+      ? SUCTION_MAP[suction]
+      : (SUCTION_MAP[this.getCapabilityValue('dreame_suction_level')] || 1);
+    const waterValue = water && WATER_VOLUME_MAP[water] !== undefined
+      ? WATER_VOLUME_MAP[water]
+      : (WATER_VOLUME_MAP[this.getCapabilityValue('dreame_water_volume')] || 2);
+    const repeatCount = Math.max(1, Math.min(3, repeats || 1));
+
+    const cleanlist = zones.map(z => [
+      Math.round(z[0]), Math.round(z[1]), Math.round(z[2]), Math.round(z[3]),
+      repeatCount, suctionValue, waterValue,
+    ]);
+    const params = JSON.stringify({ areas: cleanlist }).replace(/ /g, '');
+
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 19 },
+      { piid: 10, value: params },
+    ]);
+    this._diag(`[ZONE] Zone cleaning started: ${zones.length} zones`, null, 'info');
   }
 
   // Warning/dock actions

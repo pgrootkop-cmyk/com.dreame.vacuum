@@ -1,0 +1,48 @@
+{
+  "title": {
+    "en": "Zone cleaning finished"
+  },
+  "titleFormatted": {
+    "en": "Zone [[zone]] cleaning finished"
+  },
+  "hint": {
+    "en": "Triggers when the vacuum finishes zone cleaning. Optionally filter by zone name (only works for zones started via Flow cards)."
+  },
+  "tokens": [
+    {
+      "name": "zone_name",
+      "type": "string",
+      "title": { "en": "Zone name" },
+      "example": { "en": "Under table" }
+    },
+    {
+      "name": "cleaned_area",
+      "type": "number",
+      "title": { "en": "Cleaned area (m\u00B2)" },
+      "example": { "en": "12" }
+    },
+    {
+      "name": "cleaning_time",
+      "type": "number",
+      "title": { "en": "Cleaning time (min)" },
+      "example": { "en": "15" }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "zone",
+      "title": {
+        "en": "Zone"
+      },
+      "placeholder": {
+        "en": "Any zone"
+      }
+    }
+  ]
+}

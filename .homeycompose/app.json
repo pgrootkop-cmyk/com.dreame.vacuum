@@ -1,6 +1,6 @@
 {
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.20",
+  "version": "0.0.30",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -29,6 +29,26 @@
     "getRobotPosition": {
       "method": "GET",
       "path": "/robotPosition"
+    },
+    "getRooms": {
+      "method": "GET",
+      "path": "/rooms"
+    },
+    "getZones": {
+      "method": "GET",
+      "path": "/zones"
+    },
+    "saveZone": {
+      "method": "PUT",
+      "path": "/zones"
+    },
+"deleteZone": {
+      "method": "DELETE",
+      "path": "/zones"
+    },
+    "deleteZoneGet": {
+      "method": "GET",
+      "path": "/deleteZone"
     }
   },
   "tags": {
