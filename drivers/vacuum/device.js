@@ -722,6 +722,7 @@ class DreameVacuumDevice extends Homey.Device {
     this._lastWaypointName = null;    // waypoint name for trigger token
     this._lastWaypointId = null;      // waypoint id for trigger matching
     this._lastDreameState = null;     // raw dreame state value for transition detection
+    this._lastDreameStatus = null;    // raw STATUS (4-1) value for zone completion detection
 
     // Remove orphaned capabilities from previous versions (v0.0.24-v0.0.29 multi-floor)
     const orphanedCapabilities = ['dreame_current_floor'];
@@ -874,6 +875,10 @@ class DreameVacuumDevice extends Homey.Device {
    * @param {'debug'|'info'|'warning'|'error'|'fatal'} level
    */
   _diag(message, extra, level = 'info') {
+    // Always log to console so --remote captures it
+    if (level === 'error' || level === 'fatal') this.error(`[DIAG] ${message}`);
+    else if (level === 'warning') this.log(`[DIAG:WARN] ${message}`);
+    else this.log(`[DIAG] ${message}`);
     this.homey.app.sendDiagnostic(message, {
       ...extra,
       did: this._did,
@@ -1318,8 +1323,6 @@ class DreameVacuumDevice extends Homey.Device {
   async _applyProperty(key, value) {
     switch (key) {
       case '2-1': { // STATE
-        // Track zone cleaning state (34 = ZONE_CLEANING)
-        if (value === 34) this._wasZoneCleaning = true;
 
         if (STATE_MAP[value]) {
           const homeyState = STATE_MAP[value];
@@ -1746,11 +1749,37 @@ class DreameVacuumDevice extends Homey.Device {
         }
         break;
 
-      case '4-1': // STATUS (cleaning substatus)
+      case '4-1': { // STATUS (cleaning substatus)
+        // Track zone cleaning: STATUS 19 = Zone Cleaning (Tasshack DreameVacuumStatus.ZONE_CLEANING)
+        if (value === 19 && !this._wasCruisingPoint) this._wasZoneCleaning = true;
+        // Detect zone/waypoint completion: transition FROM zone cleaning (19) to returning (3)
+        // Fire triggers here so user can react BEFORE robot reaches dock
+        if (this._lastDreameStatus === 19 && value === 3) {
+          this._diag(`[STATUS] Zone cleaning → Returning (firing early triggers)`, null, 'info');
+          if (this._wasZoneCleaning) {
+            const area = this.getCapabilityValue('dreame_cleaned_area') || 0;
+            const time = this.getCapabilityValue('dreame_cleaning_time') || 0;
+            const zoneName = this._lastZoneName || '';
+            const zoneId = this._lastZoneId || '';
+            const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
+            zoneFinishedCard.trigger(this,
+              { cleaned_area: area, cleaning_time: time, zone_name: zoneName },
+              { zone_name: zoneName, zone_id: zoneId }
+            ).catch(e => this.error('Zone cleaning finished trigger:', e));
+            this._wasZoneCleaning = false;
+            this._lastZoneName = null;
+            this._lastZoneId = null;
+          }
+          if (this._wasCruisingPoint) {
+            this._fireWaypointArrivedTrigger();
+          }
+        }
+        this._lastDreameStatus = value;
         if (STATUS_REVERSE[value] !== undefined) {
           await this.setCapabilityValue('dreame_status', STATUS_REVERSE[value]).catch(this.error);
         }
         break;
+      }
 
       case '4-7': // TASK_STATUS
         if (TASK_STATUS_REVERSE[value] !== undefined) {
