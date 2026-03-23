@@ -378,7 +378,8 @@ class DreameVacuumDriver extends Homey.Driver {
         if (zone && zone.coords) coords.push(zone.coords);
       }
       if (coords.length === 0) throw new Error('Zone not found. Reconfigure zones in app settings.');
-      await args.device.startZoneCleaning(coords, args.repeats, null, null, zoneData.name, zoneData.id);
+      const stopAfter = args.after_clean === 'stop';
+      await args.device.startZoneCleaning(coords, args.repeats, null, null, zoneData.name, zoneData.id, stopAfter);
     });
     zoneCleanCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
       return this._getZoneAutocomplete(query, args);
@@ -411,7 +412,8 @@ class DreameVacuumDriver extends Homey.Driver {
       const waypoints = args.device.getWaypoints();
       const wp = waypoints.find(w => w.id === wpData.id);
       if (!wp || !wp.coords) throw new Error('Waypoint not found. Reconfigure waypoints in app settings.');
-      await args.device.navigateToWaypoint(wp.coords[0], wp.coords[1], wpData.name, wpData.id);
+      const stopAfter = args.after_arrival === 'stop';
+      await args.device.navigateToWaypoint(wp.coords[0], wp.coords[1], wpData.name, wpData.id, stopAfter);
     });
     waypointCard.registerArgumentAutocompleteListener('waypoint', async (query, args) => {
       return this._getWaypointAutocomplete(query, args);

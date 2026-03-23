@@ -1449,7 +1449,7 @@
           "en": "Navigate to waypoint"
         },
         "titleFormatted": {
-          "en": "Navigate to [[waypoint]]"
+          "en": "Navigate to [[waypoint]], then [[after_arrival]]"
         },
         "hint": {
           "en": "Send the vacuum to a specific point on the map using a tiny zone clean. Configure waypoints in app settings."
@@ -1469,6 +1469,27 @@
             "placeholder": {
               "en": "Select a waypoint..."
             }
+          },
+          {
+            "type": "dropdown",
+            "name": "after_arrival",
+            "title": {
+              "en": "After arrival"
+            },
+            "values": [
+              {
+                "id": "dock",
+                "title": {
+                  "en": "Return to dock"
+                }
+              },
+              {
+                "id": "stop",
+                "title": {
+                  "en": "Stop in place"
+                }
+              }
+            ]
           }
         ],
         "id": "navigate_to_waypoint"
@@ -2858,7 +2879,7 @@
           "en": "Clean a zone"
         },
         "titleFormatted": {
-          "en": "Clean zone [[zone]] [[repeats]]x"
+          "en": "Clean zone [[zone]] [[repeats]]x, then [[after_clean]]"
         },
         "hint": {
           "en": "Start cleaning a saved zone. Configure zones in the app settings by drawing rectangles on the map."
@@ -2888,6 +2909,27 @@
             "min": 1,
             "max": 3,
             "step": 1
+          },
+          {
+            "type": "dropdown",
+            "name": "after_clean",
+            "title": {
+              "en": "After cleaning"
+            },
+            "values": [
+              {
+                "id": "dock",
+                "title": {
+                  "en": "Return to dock"
+                }
+              },
+              {
+                "id": "stop",
+                "title": {
+                  "en": "Stop in place"
+                }
+              }
+            ]
           }
         ],
         "id": "start_zone_cleaning"
