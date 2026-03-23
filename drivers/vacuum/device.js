@@ -723,6 +723,8 @@ class DreameVacuumDevice extends Homey.Device {
     this._lastWaypointId = null;      // waypoint id for trigger matching
     this._lastDreameState = null;     // raw dreame state value for transition detection
     this._lastDreameStatus = null;    // raw STATUS (4-1) value for zone completion detection
+    this._stopAfterZone = false;      // stop in place after zone cleaning (set by flow card)
+    this._stopAfterWaypoint = false;  // stop in place after waypoint arrival (set by flow card)
 
     // Remove orphaned capabilities from previous versions (v0.0.24-v0.0.29 multi-floor)
     const orphanedCapabilities = ['dreame_current_floor'];
@@ -1757,11 +1759,12 @@ class DreameVacuumDevice extends Homey.Device {
         if (this._lastDreameStatus === 19 && value === 3) {
           this._diag(`[STATUS] Zone cleaning → Returning (firing early triggers)`, null, 'info');
           if (this._wasZoneCleaning) {
-            // Immediately STOP so user's flow actions (pause, etc.) can act before robot docks
-            const api = this._getApi();
-            api.callAction(this._did, this._bindDomain, ACTION.STOP.siid, ACTION.STOP.aiid)
-              .then(() => this._diag('[ZONE] Sent STOP after zone cleaning finished', null, 'info'))
-              .catch(e => this.error('Failed to stop after zone clean:', e));
+            if (this._stopAfterZone) {
+              const api = this._getApi();
+              api.callAction(this._did, this._bindDomain, ACTION.STOP.siid, ACTION.STOP.aiid)
+                .then(() => this._diag('[ZONE] Sent STOP — stop in place enabled', null, 'info'))
+                .catch(e => this.error('Failed to stop after zone clean:', e));
+            }
 
             const area = this.getCapabilityValue('dreame_cleaned_area') || 0;
             const time = this.getCapabilityValue('dreame_cleaning_time') || 0;
@@ -1777,12 +1780,12 @@ class DreameVacuumDevice extends Homey.Device {
             this._lastZoneId = null;
           }
           if (this._wasCruisingPoint) {
-            // Immediately STOP the robot so it stays at the waypoint instead of returning to dock
-            // Matches Tasshack _restore_go_to_zone(stopped=True) behavior
-            const api = this._getApi();
-            api.callAction(this._did, this._bindDomain, ACTION.STOP.siid, ACTION.STOP.aiid)
-              .then(() => this._diag('[WAYPOINT] Sent STOP to hold robot at waypoint', null, 'info'))
-              .catch(e => this.error('Failed to stop at waypoint:', e));
+            if (this._stopAfterWaypoint) {
+              const api = this._getApi();
+              api.callAction(this._did, this._bindDomain, ACTION.STOP.siid, ACTION.STOP.aiid)
+                .then(() => this._diag('[WAYPOINT] Sent STOP — stop in place enabled', null, 'info'))
+                .catch(e => this.error('Failed to stop at waypoint:', e));
+            }
             this._fireWaypointArrivedTrigger();
           }
         }
@@ -2833,10 +2836,11 @@ async deleteZone(zoneId) {
   }
 
   // Zone cleaning
-  async startZoneCleaning(zones, repeats, suction, water, zoneName, zoneId) {
+  async startZoneCleaning(zones, repeats, suction, water, zoneName, zoneId, stopAfter) {
     this._lastCommandTime = Date.now();
     this._lastZoneName = zoneName || null;
     this._lastZoneId = zoneId || null;
+    this._stopAfterZone = !!stopAfter;
     const api = this._getApi();
     const suctionValue = suction && SUCTION_MAP[suction] !== undefined
       ? SUCTION_MAP[suction]
@@ -2882,11 +2886,12 @@ async deleteZone(zoneId) {
 
   // Navigate to waypoint using tiny zone (avoids camera/monitoring mode entirely)
   // Matches Tasshack's fallback: switch to sweeping+quiet, tiny zone, restore after
-  async navigateToWaypoint(x, y, waypointName, waypointId) {
+  async navigateToWaypoint(x, y, waypointName, waypointId, stopAfter) {
     this._lastCommandTime = Date.now();
     this._lastWaypointName = waypointName || null;
     this._lastWaypointId = waypointId || null;
     this._wasCruisingPoint = true;
+    this._stopAfterWaypoint = !!stopAfter;
     const api = this._getApi();
     const rx = Math.round(x);
     const ry = Math.round(y);
