@@ -70,4 +70,30 @@ async deleteZone({ homey, query }) {
       throw e;
     }
   },
+
+  async getWaypoints({ homey, query }) {
+    const did = query.did;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) return [];
+    return device.getWaypoints();
+  },
+
+  async saveWaypoint({ homey, body }) {
+    const did = body.did;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) throw new Error('Device not found');
+    const wp = body.waypoint;
+    if (!wp || !wp.name || !wp.coords) throw new Error('Invalid waypoint data');
+    return await device.saveWaypoint(wp);
+  },
+
+  async deleteWaypointGet({ homey, query }) {
+    const did = query.did;
+    const wpId = query.wpId;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) throw new Error('Device not found');
+    if (!wpId) throw new Error('Missing wpId');
+    await device.deleteWaypoint(wpId);
+    return { ok: true };
+  },
 };

@@ -173,6 +173,19 @@
     </fieldset>
 
     <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Waypoints</legend>
+      <div class="card-grid" id="waypointGrid"><div class="empty-state">No waypoints configured</div></div>
+      <div class="zone-add" id="waypointBar">
+        <input class="homey-form-input" type="text" id="waypointNameInput" placeholder="Waypoint name (e.g. Kitchen corner)" />
+        <span id="waypointButtons">
+          <button type="button" class="homey-button-primary-shadow" id="btnPlaceWp" onclick="startPlaceWaypoint()">+ Place on map</button>
+          <button type="button" class="homey-button-secondary-shadow" id="btnCancelWp" onclick="cancelPlaceWaypoint()" style="display:none;">Cancel</button>
+        </span>
+      </div>
+      <div class="zone-hint" id="waypointHint"></div>
+    </fieldset>
+
+    <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend">Status</legend>
       <div class="card-grid" id="statusGrid"></div>
     </fieldset>
@@ -203,7 +216,9 @@ var _homey, _devices = [], _did = null;
 var _mapState = { canvas: null, ctx: null, scale: 1, baseImage: null, mapMeta: null, mapWidth: 0, mapHeight: 0, lastRobotPos: null };
 var _settingsPollTimer = null;
 var _zones = [];
+var _waypoints = [];
 var _drawState = { active: false, startX: 0, startY: 0, endX: 0, endY: 0 };
+var _wpPlaceState = { active: false };
 
 function onHomeyReady(Homey) {
   _homey = Homey;
@@ -249,7 +264,7 @@ function selectDevice() {
 }
 
 function show(d) {
-  status(d); rooms(d); consumables(d); map(d); loadZones();
+  status(d); rooms(d); consumables(d); map(d); loadZones(); loadWaypoints();
 }
 
 function status(d) {
@@ -392,6 +407,108 @@ function deleteZone(zoneId) {
   });
 }
 
+// ---- Waypoint Management ----
+
+function loadWaypoints() {
+  _homey.api('GET', '/waypoints?did=' + encodeURIComponent(_did), null, function(err, data) {
+    _waypoints = (!err && Array.isArray(data)) ? data : [];
+    renderWaypointList();
+  });
+}
+
+function renderWaypointList() {
+  var el = document.getElementById('waypointGrid');
+  if (_waypoints.length === 0) { el.innerHTML = '<div class="empty-state">No waypoints configured</div>'; return; }
+  el.innerHTML = _waypoints.map(function(w) {
+    var eid = w.id.replace(/'/g, "\\'");
+    return '<div class="card zone-card"><span class="zone-card-name">' + w.name + '</span>'
+      + '<button class="zone-card-delete" onclick="deleteWaypoint(\'' + eid + '\')" title="Delete">\u2715</button></div>';
+  }).join('');
+}
+
+function startPlaceWaypoint() {
+  var name = document.getElementById('waypointNameInput').value.trim();
+  if (!name) { _homey.alert('Enter a waypoint name first'); return; }
+  if (!_mapState.mapMeta) { _homey.alert('Map not loaded yet. Wait for the map to appear.'); return; }
+  _wpPlaceState.active = true;
+  document.getElementById('btnPlaceWp').style.display = 'none';
+  document.getElementById('btnCancelWp').style.display = 'inline-block';
+  document.getElementById('waypointHint').textContent = 'Click on the map to place the waypoint.';
+  document.getElementById('mapCanvas').classList.remove('default-cursor');
+  document.getElementById('mapWrap').classList.add('drawing-active');
+}
+
+function cancelPlaceWaypoint() {
+  _wpPlaceState.active = false;
+  document.getElementById('btnPlaceWp').style.display = 'inline-block';
+  document.getElementById('btnCancelWp').style.display = 'none';
+  document.getElementById('waypointHint').textContent = '';
+  document.getElementById('mapCanvas').classList.add('default-cursor');
+  document.getElementById('mapWrap').classList.remove('drawing-active');
+  redrawMap();
+  drawZonesOverlay();
+  drawWaypointsOverlay();
+}
+
+function placeWaypointAt(canvasX, canvasY) {
+  var name = document.getElementById('waypointNameInput').value.trim();
+  if (!name) return;
+  var scale = _mapState.scale;
+  var meta = _mapState.mapMeta;
+  var h = _mapState.mapHeight;
+
+  // Convert canvas coords to device coords
+  var px = canvasX / scale;
+  var py = canvasY / scale;
+  var x = Math.round(px * meta.gridSize + meta.left);
+  var y = Math.round((h - 1 - py) * meta.gridSize + meta.top);
+
+  var wp = { name: name, coords: [x, y], pixelCoords: [Math.round(px), Math.round(py)] };
+  _homey.api('PUT', '/waypoints', { did: _did, waypoint: wp }, function(err, saved) {
+    if (err) { _homey.alert('Failed to save waypoint: ' + (err.message || err)); return; }
+    document.getElementById('waypointNameInput').value = '';
+    cancelPlaceWaypoint();
+    loadWaypoints();
+  });
+}
+
+function deleteWaypoint(wpId) {
+  _homey.api('GET', '/deleteWaypoint?did=' + encodeURIComponent(_did) + '&wpId=' + encodeURIComponent(wpId), null, function(err) {
+    if (err) { _homey.alert('Failed to delete waypoint: ' + (err.message || JSON.stringify(err))); return; }
+    _waypoints = _waypoints.filter(function(w) { return w.id !== wpId; });
+    renderWaypointList();
+    redrawMap();
+    drawZonesOverlay();
+    drawWaypointsOverlay();
+  });
+}
+
+function drawWaypointsOverlay() {
+  if (!_mapState.ctx || !_mapState.baseImage) return;
+  var ctx = _mapState.ctx;
+  var scale = _mapState.scale;
+  for (var i = 0; i < _waypoints.length; i++) {
+    var w = _waypoints[i];
+    if (!w.pixelCoords) continue;
+    var x = w.pixelCoords[0] * scale;
+    var y = w.pixelCoords[1] * scale;
+    var r = Math.max(4, scale * 2.5);
+    // Draw marker dot
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 59, 48, 0.9)';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(1, scale * 0.5);
+    ctx.stroke();
+    // Label
+    ctx.font = '600 ' + Math.max(9, scale * 3.5) + 'px -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255, 59, 48, 0.9)';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(w.name, x + r + 2, y - 2);
+  }
+}
+
 function drawZonesOverlay() {
   if (!_mapState.ctx || !_mapState.baseImage) return;
   var ctx = _mapState.ctx;
@@ -431,6 +548,13 @@ function redrawMap() {
     return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   }
   function onStart(e) {
+    // Waypoint placement: single click
+    if (_wpPlaceState.active) {
+      e.preventDefault();
+      var pos = getPos(e);
+      placeWaypointAt(pos.x, pos.y);
+      return;
+    }
     if (!_drawState.active) return;
     e.preventDefault();
     var pos = getPos(e);
@@ -445,6 +569,7 @@ function redrawMap() {
     // Draw preview rectangle
     redrawMap();
     drawZonesOverlay();
+    drawWaypointsOverlay();
     var ctx = _mapState.ctx;
     ctx.strokeStyle = 'rgba(255, 59, 48, 0.9)';
     ctx.fillStyle = 'rgba(255, 59, 48, 0.15)';
@@ -534,9 +659,10 @@ function drawSettingsRobotDot(robotPos) {
   if (robotPos && robotPos.x > 0) _mapState.lastRobotPos = robotPos;
   var pos = robotPos || _mapState.lastRobotPos;
   var ctx = _mapState.ctx; var scale = _mapState.scale;
-  // Draw order: base image -> zones -> robot dot (dot always on top)
+  // Draw order: base image -> zones -> waypoints -> robot dot (dot always on top)
   ctx.drawImage(_mapState.baseImage, 0, 0);
   drawZonesOverlay();
+  drawWaypointsOverlay();
   if (pos && pos.x > 0) {
     ctx.beginPath();
     ctx.arc(pos.x * scale, pos.y * scale, Math.max(4, scale * 2.5), 0, Math.PI * 2);
