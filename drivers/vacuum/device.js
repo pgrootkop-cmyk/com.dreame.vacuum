@@ -1771,6 +1771,12 @@ class DreameVacuumDevice extends Homey.Device {
             this._lastZoneId = null;
           }
           if (this._wasCruisingPoint) {
+            // Immediately STOP the robot so it stays at the waypoint instead of returning to dock
+            // Matches Tasshack _restore_go_to_zone(stopped=True) behavior
+            const api = this._getApi();
+            api.callAction(this._did, this._bindDomain, ACTION.STOP.siid, ACTION.STOP.aiid)
+              .then(() => this._diag('[WAYPOINT] Sent STOP to hold robot at waypoint', null, 'info'))
+              .catch(e => this.error('Failed to stop at waypoint:', e));
             this._fireWaypointArrivedTrigger();
           }
         }
