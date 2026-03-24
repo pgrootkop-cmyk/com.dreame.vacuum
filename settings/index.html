@@ -3,52 +3,145 @@
 <head>
   <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
   <style>
-    .map-wrap { text-align: center; background: #eee; border-radius: 12px; padding: 8px; margin-bottom: 16px; min-height: 80px; position: relative; }
-    .map-wrap canvas { max-width: 100%; height: auto; border-radius: 6px; cursor: crosshair; }
+    /* ── Base: use Homey native spacing + typography tokens ── */
+    legend.homey-form-legend {
+      padding-bottom: var(--homey-su-3, 12px) !important;
+    }
+
+    /* ── Map ── */
+    .map-wrap {
+      text-align: center;
+      background: var(--homey-color-mono-100, #f0f0f0);
+      border-radius: var(--homey-border-radius-small, 8px);
+      padding: var(--homey-su-2, 8px);
+      margin-bottom: var(--homey-su-4, 16px);
+      min-height: 80px;
+      position: relative;
+    }
+    .map-wrap canvas {
+      max-width: 100%; height: auto;
+      border-radius: var(--homey-border-radius-small, 6px);
+      cursor: crosshair; display: block; margin: 0 auto;
+    }
     .map-wrap canvas.default-cursor { cursor: default; }
-    .no-data { color: #999; padding: 24px 0; font-size: 13px; text-align: center; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
-    .stat { padding: 8px 10px; background: var(--homey-background-color, #f8f8f8); border-radius: 8px; border: 1px solid var(--homey-border-color, #eee); }
-    .stat-label { font-size: 10px; color: #999; text-transform: uppercase; }
-    .stat-value { font-size: 15px; font-weight: 600; margin-top: 1px; }
-    .good { color: #34c759; } .warn { color: #ff9500; } .bad { color: #ff3b30; }
-    .room-list { list-style: none; padding: 0; margin: 0 0 16px; }
-    .room-list li { padding: 7px 10px; background: var(--homey-background-color, #fff); border-radius: 6px; margin-bottom: 3px; border: 1px solid var(--homey-border-color, #eee); font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
-    .room-id { color: #aaa; font-size: 11px; }
+
+    /* ── Shared card grid ── */
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .card {
+      padding: 8px 10px;
+      background: var(--homey-background-color, #f8f8f8);
+      border-radius: var(--homey-border-radius-small, 8px);
+      border: var(--homey-line-light, 1px solid #e8e8e8);
+    }
+    .card-label {
+      font-size: 10px;
+      color: var(--homey-text-color-light, #888);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .card-value {
+      font-size: 15px;
+      font-weight: var(--homey-font-weight-medium, 500);
+      color: var(--homey-text-color, inherit);
+      margin-top: 1px;
+    }
+
+    /* ── Status colors ── */
+    .good { color: var(--homey-text-color-green, #34c759); }
+    .warn { color: var(--homey-text-color-orange, #ff9500); }
+    .bad  { color: var(--homey-text-color-red, #ff3b30); }
+
+    /* ── Empty / loading states ── */
+    .no-data {
+      color: var(--homey-text-color-light, #999);
+      padding: var(--homey-su-4, 16px) 0;
+      font-size: 13px;
+      text-align: center;
+    }
+    .empty-state {
+      color: var(--homey-text-color-light, #999);
+      font-size: 12px;
+      text-align: center;
+      padding: var(--homey-su-2, 8px) 0;
+      grid-column: 1 / -1;
+    }
+
+    /* ── Room list ── */
+    .room-list { list-style: none; padding: 0; margin: 0; }
+    .room-list li {
+      padding: 7px 10px;
+      background: var(--homey-background-color, #f8f8f8);
+      border-radius: var(--homey-border-radius-small, 8px);
+      margin-bottom: 3px;
+      border: var(--homey-line-light, 1px solid #e8e8e8);
+      font-size: 13px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .room-id {
+      color: var(--homey-text-color-light, #aaa);
+      font-size: 11px;
+      font-weight: var(--homey-font-weight-medium, 500);
+    }
+
+    /* ── Consumables ── */
     .cons-row { margin-bottom: 8px; }
-    .cons-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
-    .cons-bar { height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }
+    .cons-header {
+      display: flex; justify-content: space-between;
+      font-size: 12px;
+      font-weight: var(--homey-font-weight-medium, 500);
+      margin-bottom: 3px;
+      color: var(--homey-text-color, inherit);
+    }
+    .cons-bar {
+      height: 5px;
+      background: var(--homey-color-mono-200, #e0e0e0);
+      border-radius: 3px; overflow: hidden;
+    }
     .cons-fill { height: 100%; border-radius: 3px; }
-    .zone-list { list-style: none; padding: 0; margin: 0 0 8px; }
-    .zone-list li { padding: 7px 10px; background: var(--homey-background-color, #fff); border-radius: 6px; margin-bottom: 3px; border: 1px solid var(--homey-border-color, #eee); font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
-    .zone-name { font-weight: 500; }
-    .zone-actions { display: flex; gap: 6px; }
-    .zone-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; }
-    .zone-btn:hover { background: rgba(0,0,0,0.05); }
-    .zone-btn.delete { color: #ff3b30; }
-    .add-zone-bar { display: flex; gap: 6px; align-items: center; }
-    .add-zone-bar input { flex: 1; padding: 6px 8px; border: 1px solid var(--homey-border-color, #ddd); border-radius: 6px; font-size: 13px; }
-    .add-zone-bar button { padding: 6px 12px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
-    .btn-draw { background: #007aff; color: #fff; }
-    .btn-draw:hover { background: #005ecb; }
-    .btn-draw:disabled { background: #ccc; cursor: default; }
-    .btn-cancel { background: #eee; color: #333; }
-    .btn-save { background: #34c759; color: #fff; }
-    .zone-hint { font-size: 11px; color: #999; margin-top: 4px; }
-    .drawing-active { outline: 2px solid #007aff; outline-offset: 2px; }
+
+    /* ── Zone cards ── */
+    .zone-card {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .zone-card-name {
+      font-size: 13px;
+      font-weight: var(--homey-font-weight-medium, 500);
+      color: var(--homey-text-color, inherit);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .zone-card-delete {
+      background: none; border: none; cursor: pointer;
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: var(--homey-border-radius-small, 6px);
+      color: var(--homey-text-color-red, #ff3b30);
+      flex-shrink: 0;
+    }
+    .zone-card-delete:hover { background: var(--homey-color-red-050, rgba(255,59,48,0.08)); }
+
+    /* ── Zone add bar ── */
+    .zone-add {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .zone-hint {
+      font-size: 11px;
+      color: var(--homey-text-color-light, #888);
+      margin-top: 4px;
+      padding-inline-start: 2px;
+    }
+    .drawing-active {
+      outline: 2px solid var(--homey-color-blue, #007aff);
+      outline-offset: 2px;
+      border-radius: var(--homey-border-radius-small, 8px);
+    }
   </style>
 </head>
 <body>
   <form class="homey-form">
-    <fieldset class="homey-form-fieldset">
-      <legend class="homey-form-legend">Diagnostics</legend>
-      <label class="homey-form-checkbox">
-        <input class="homey-form-checkbox-input" type="checkbox" id="diagnosticToggle" onchange="toggleDiagnostic()" />
-        <span class="homey-form-checkbox-checkmark"></span>
-        <span class="homey-form-checkbox-text">Share diagnostic logs to help improve app stability. No personal data is collected.</span>
-      </label>
-    </fieldset>
-
     <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend">Device</legend>
       <div class="homey-form-group">
@@ -79,24 +172,42 @@
     </fieldset>
   </form>
 
-  <div id="content" style="display:none;">
-    <div class="map-wrap" id="mapWrap"><canvas id="mapCanvas" class="default-cursor" style="display:none;"></canvas><div class="no-data" id="noMap">No map data</div></div>
+  <div id="content" style="display:none;padding-top:15px;">
+    <div class="map-wrap" id="mapWrap">
+      <canvas id="mapCanvas" class="default-cursor" style="display:none;"></canvas>
+      <div class="no-data" id="noMap">No map data</div>
+    </div>
 
     <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend">Zones</legend>
-      <ul class="zone-list" id="zoneList"><li class="no-data">No zones configured</li></ul>
-      <div class="add-zone-bar" id="zoneBar">
-        <input type="text" id="zoneNameInput" placeholder="Zone name (e.g. Under table)" />
-        <button type="button" class="btn-draw" id="btnDraw" onclick="startDrawZone()">+ Draw</button>
-        <button type="button" class="btn-save" id="btnSave" onclick="saveDrawnZone()" style="display:none;">Save</button>
-        <button type="button" class="btn-cancel" id="btnCancel" onclick="cancelDrawZone()" style="display:none;">Cancel</button>
+      <div class="card-grid" id="zoneGrid"><div class="empty-state">No zones configured</div></div>
+      <div class="zone-add" id="zoneBar">
+        <input class="homey-form-input" type="text" id="zoneNameInput" placeholder="Zone name (e.g. Under table)" />
+        <span id="zoneButtons">
+          <button type="button" class="homey-button-primary-shadow" id="btnDraw" onclick="startDrawZone()">+ Draw zone</button>
+          <button type="button" class="homey-button-primary-shadow" id="btnSave" onclick="saveDrawnZone()" style="display:none;">Save</button>
+          <button type="button" class="homey-button-secondary-shadow" id="btnCancel" onclick="cancelDrawZone()" style="display:none;">Cancel</button>
+        </span>
       </div>
       <div class="zone-hint" id="zoneHint"></div>
     </fieldset>
 
     <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Waypoints</legend>
+      <div class="card-grid" id="waypointGrid"><div class="empty-state">No waypoints configured</div></div>
+      <div class="zone-add" id="waypointBar">
+        <input class="homey-form-input" type="text" id="waypointNameInput" placeholder="Waypoint name (e.g. Kitchen corner)" />
+        <span id="waypointButtons">
+          <button type="button" class="homey-button-primary-shadow" id="btnPlaceWp" onclick="startPlaceWaypoint()">+ Place on map</button>
+          <button type="button" class="homey-button-secondary-shadow" id="btnCancelWp" onclick="cancelPlaceWaypoint()" style="display:none;">Cancel</button>
+        </span>
+      </div>
+      <div class="zone-hint" id="waypointHint"></div>
+    </fieldset>
+
+    <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend">Status</legend>
-      <div class="grid" id="statusGrid"></div>
+      <div class="card-grid" id="statusGrid"></div>
     </fieldset>
 
     <fieldset class="homey-form-fieldset">
@@ -108,6 +219,15 @@
       <legend class="homey-form-legend">Consumables</legend>
       <div id="consumables"></div>
     </fieldset>
+
+    <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Diagnostics</legend>
+      <label class="homey-form-checkbox">
+        <input class="homey-form-checkbox-input" type="checkbox" id="diagnosticToggle" onchange="toggleDiagnostic()" />
+        <span class="homey-form-checkbox-checkmark"></span>
+        <span class="homey-form-checkbox-text">Share diagnostic logs to help improve app stability. No personal data is collected.</span>
+      </label>
+    </fieldset>
   </div>
   <div class="no-data" id="loading">Loading...</div>
 
@@ -116,21 +236,14 @@ var _homey, _devices = [], _did = null;
 var _mapState = { canvas: null, ctx: null, scale: 1, baseImage: null, mapMeta: null, mapWidth: 0, mapHeight: 0, lastRobotPos: null };
 var _settingsPollTimer = null;
 var _zones = [];
+var _waypoints = [];
 var _drawState = { active: false, startX: 0, startY: 0, endX: 0, endY: 0 };
-var _redrawZoneId = null;
-var _currentFloorId = null;
-var _rotation = 0;
+var _wpPlaceState = { active: false };
 
 function onHomeyReady(Homey) {
   _homey = Homey;
   Homey.get('diagnosticLogging', function(err, val) {
     document.getElementById('diagnosticToggle').checked = val === true;
-  });
-  Homey.get('mapRotation', function(err, val) {
-    if (val) { _rotation = parseInt(val, 10) || 0; document.getElementById('rotationSelect').value = String(_rotation); }
-  });
-  Homey.get('settingsFloorId', function(err, val) {
-    if (val) _currentFloorId = val;
   });
   loadAll();
 
@@ -150,7 +263,6 @@ function loadAll() {
     }
     _devices = data;
     var sel = document.getElementById('deviceSelect');
-    // Preserve current selection if reloading
     var prevDid = _did;
     sel.innerHTML = data.map(function(d) { return '<option value="' + d.id + '">' + d.name + '</option>'; }).join('');
     if (prevDid && data.find(function(d) { return d.id === prevDid; })) {
@@ -172,42 +284,25 @@ function selectDevice() {
 }
 
 function show(d) {
-  // Use persisted floor selection if available, otherwise device's active floor
-  if (!_currentFloorId) _currentFloorId = d.selectedFloorId || null;
-  status(d); consumables(d); floors(d); loadZones();
-  // Apply rotation
-  var canvas = document.getElementById('mapCanvas');
-  canvas.style.transform = _rotation ? 'rotate(' + _rotation + 'deg)' : '';
-  // Fetch rooms for selected floor
-  if (_currentFloorId) {
-    _homey.api('GET', '/rooms?did=' + encodeURIComponent(d.id) + '&floorId=' + encodeURIComponent(_currentFloorId), null, function(err, data) {
-      renderRoomList(!err && data ? data : d.rooms);
-    });
-  } else {
-    renderRoomList(d.rooms);
-  }
-  map(d);
-  // Refresh floor list
-  if (d.multiFloor || (d.floors && d.floors.length > 0)) {
-    _homey.api('GET', '/floors?did=' + encodeURIComponent(d.id), null, function(err, freshFloors) {
-      if (!err && freshFloors && freshFloors.length > 0) {
-        d.floors = freshFloors;
-        d.multiFloor = freshFloors.length > 1;
-        floors(d);
-      }
-    });
-  }
+  status(d); rooms(d); consumables(d); map(d); loadZones(); loadWaypoints();
 }
 
-function floors(d) {
-  var fieldset = document.getElementById('floorFieldset');
-  var sel = document.getElementById('floorSelect');
-  if (!d.floors || d.floors.length <= 1) { fieldset.style.display = 'none'; return; }
-  fieldset.style.display = 'block';
-  var activeId = _currentFloorId || d.selectedFloorId;
-  sel.innerHTML = d.floors.map(function(f) {
-    var selected = activeId && String(f.id) === String(activeId) ? ' selected' : '';
-    return '<option value="' + f.id + '"' + selected + '>' + f.name + '</option>';
+function status(d) {
+  var c = d.capabilities;
+  var s = c.vacuumcleaner_state || 'unknown';
+  var b = c.measure_battery;
+  var items = [
+    ['State', cap(s), s === 'cleaning' ? 'good' : ''],
+    ['Battery', b != null ? b + '%' : '-', b > 50 ? 'good' : b > 20 ? 'warn' : 'bad'],
+    ['Suction', cap(c.dreame_suction_level || '-'), ''],
+    ['Mode', cap((c.dreame_cleaning_mode || '-').replace(/_/g, ' ')), ''],
+    ['Progress', c.dreame_cleaning_progress != null ? c.dreame_cleaning_progress + '%' : '-', ''],
+    ['Area', c.dreame_cleaned_area != null ? c.dreame_cleaned_area + ' m\u00B2' : '-', ''],
+    ['Time', c.dreame_cleaning_time != null ? c.dreame_cleaning_time + ' min' : '-', ''],
+    ['Error', c.dreame_error || 'None', (c.dreame_error && c.dreame_error !== 'None') ? 'bad' : 'good'],
+  ];
+  document.getElementById('statusGrid').innerHTML = items.map(function(i) {
+    return '<div class="card"><div class="card-label">' + i[0] + '</div><div class="card-value ' + i[2] + '">' + i[1] + '</div></div>';
   }).join('');
 }
 
@@ -268,6 +363,27 @@ function renderZoneList() {
   drawZonesOverlay();
 }
 
+// ---- Zone Drawing ----
+
+function loadZones() {
+  _homey.api('GET', '/zones?did=' + encodeURIComponent(_did), null, function(err, data) {
+    _zones = (!err && Array.isArray(data)) ? data : [];
+    renderZoneList();
+    drawZonesOverlay();
+  });
+}
+
+function renderZoneList() {
+  var el = document.getElementById('zoneGrid');
+  if (_zones.length === 0) { el.innerHTML = '<div class="empty-state">No zones configured</div>'; return; }
+  el.innerHTML = _zones.map(function(z) {
+    var eid = z.id.replace(/'/g, "\\'");
+    return '<div class="card zone-card"><span class="zone-card-name">' + z.name + '</span>'
+      + '<button class="zone-card-delete" onclick="deleteZone(\'' + eid + '\')" title="Delete">\u2715</button></div>';
+  }).join('');
+  drawZonesOverlay();
+}
+
 function startDrawZone() {
   var name = document.getElementById('zoneNameInput').value.trim();
   if (!name) { _homey.alert('Enter a zone name first'); return; }
@@ -278,13 +394,11 @@ function startDrawZone() {
   document.getElementById('btnCancel').style.display = 'inline-block';
   document.getElementById('zoneHint').textContent = 'Draw a rectangle on the map by clicking and dragging.';
   document.getElementById('mapCanvas').classList.remove('default-cursor');
-  var wrap = document.getElementById('mapWrap');
-  wrap.classList.add('drawing-active');
+  document.getElementById('mapWrap').classList.add('drawing-active');
 }
 
 function cancelDrawZone() {
   _drawState.active = false;
-  _redrawZoneId = null;
   document.getElementById('btnDraw').style.display = 'inline-block';
   document.getElementById('btnSave').style.display = 'none';
   document.getElementById('btnCancel').style.display = 'none';
@@ -318,36 +432,21 @@ function saveDrawnZone() {
   var newCoords = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)];
   var newPixelCoords = [Math.round(px0), Math.round(py0), Math.round(px1), Math.round(py1)];
 
-  if (_redrawZoneId) {
-    // Update existing zone's coordinates
-    _homey.api('POST', '/zones/update', { did: _did, zoneId: _redrawZoneId, coords: newCoords }, function(err, result) {
-      if (err) { _homey.alert('Failed to update zone: ' + (err.message || err)); return; }
-      var zone = _zones.find(function(z) { return z.id === _redrawZoneId; });
-      if (zone) { zone.coords = newCoords; zone.pixelCoords = newPixelCoords; }
-      _redrawZoneId = null;
-      document.getElementById('zoneNameInput').value = '';
-      cancelDrawZone();
-      renderZoneList();
-    });
-  } else {
-    var zone = {
-      name: name,
-      coords: newCoords,
-      pixelCoords: newPixelCoords,
-      floorId: _currentFloorId ? parseInt(_currentFloorId, 10) : null,
-    };
+  var zone = {
+    name: name,
+    coords: newCoords,
+    pixelCoords: newPixelCoords,
+  };
 
-    _homey.api('PUT', '/zones', { did: _did, zone: zone }, function(err, saved) {
-      if (err) { _homey.alert('Failed to save zone: ' + (err.message || err)); return; }
-      document.getElementById('zoneNameInput').value = '';
-      cancelDrawZone();
-      loadZones();
-    });
-  }
+  _homey.api('PUT', '/zones', { did: _did, zone: zone }, function(err, saved) {
+    if (err) { _homey.alert('Failed to save zone: ' + (err.message || err)); return; }
+    document.getElementById('zoneNameInput').value = '';
+    cancelDrawZone();
+    loadZones();
+  });
 }
 
 function deleteZone(zoneId) {
-  // Delete immediately (skip confirm — it was causing callback issues on some Homey versions)
   _homey.api('GET', '/deleteZone?did=' + encodeURIComponent(_did) + '&zoneId=' + encodeURIComponent(zoneId), null, function(err2, result) {
     if (err2) {
       _homey.alert('Failed to delete zone: ' + (err2.message || JSON.stringify(err2)));
@@ -355,42 +454,118 @@ function deleteZone(zoneId) {
     }
     _zones = _zones.filter(function(z) { return z.id !== zoneId; });
     renderZoneList();
+    redrawMap();
     drawZonesOverlay();
   });
 }
 
-function renameZone(zoneId) {
-  var zone = _zones.find(function(z) { return z.id === zoneId; });
-  if (!zone) return;
-  var newName = prompt('Rename zone:', zone.name);
-  if (!newName || newName.trim() === '' || newName.trim() === zone.name) return;
-  _homey.api('POST', '/zones/update', { did: _did, zoneId: zoneId, name: newName.trim() }, function(err, result) {
-    if (err) { _homey.alert('Failed to rename zone: ' + (err.message || err)); return; }
-    zone.name = newName.trim();
-    renderZoneList();
+// ---- Waypoint Management ----
+
+function loadWaypoints() {
+  _homey.api('GET', '/waypoints?did=' + encodeURIComponent(_did), null, function(err, data) {
+    _waypoints = (!err && Array.isArray(data)) ? data : [];
+    renderWaypointList();
   });
 }
 
-function redrawZone(zoneId) {
-  var zone = _zones.find(function(z) { return z.id === zoneId; });
-  if (!zone) return;
-  if (!_mapState.mapMeta) { _homey.alert('Map not loaded yet.'); return; }
-  _redrawZoneId = zoneId;
-  _drawState = { active: true, startX: 0, startY: 0, endX: 0, endY: 0 };
-  document.getElementById('btnDraw').style.display = 'none';
-  document.getElementById('btnSave').style.display = 'inline-block';
-  document.getElementById('btnCancel').style.display = 'inline-block';
-  document.getElementById('zoneHint').textContent = 'Draw the new area for "' + zone.name + '" on the map.';
-  document.getElementById('zoneNameInput').value = zone.name;
+function renderWaypointList() {
+  var el = document.getElementById('waypointGrid');
+  if (_waypoints.length === 0) { el.innerHTML = '<div class="empty-state">No waypoints configured</div>'; return; }
+  el.innerHTML = _waypoints.map(function(w) {
+    var eid = w.id.replace(/'/g, "\\'");
+    return '<div class="card zone-card"><span class="zone-card-name">' + w.name + '</span>'
+      + '<button class="zone-card-delete" onclick="deleteWaypoint(\'' + eid + '\')" title="Delete">\u2715</button></div>';
+  }).join('');
+}
+
+function startPlaceWaypoint() {
+  var name = document.getElementById('waypointNameInput').value.trim();
+  if (!name) { _homey.alert('Enter a waypoint name first'); return; }
+  if (!_mapState.mapMeta) { _homey.alert('Map not loaded yet. Wait for the map to appear.'); return; }
+  _wpPlaceState.active = true;
+  document.getElementById('btnPlaceWp').style.display = 'none';
+  document.getElementById('btnCancelWp').style.display = 'inline-block';
+  document.getElementById('waypointHint').textContent = 'Click on the map to place the waypoint.';
   document.getElementById('mapCanvas').classList.remove('default-cursor');
   document.getElementById('mapWrap').classList.add('drawing-active');
+}
+
+function cancelPlaceWaypoint() {
+  _wpPlaceState.active = false;
+  document.getElementById('btnPlaceWp').style.display = 'inline-block';
+  document.getElementById('btnCancelWp').style.display = 'none';
+  document.getElementById('waypointHint').textContent = '';
+  document.getElementById('mapCanvas').classList.add('default-cursor');
+  document.getElementById('mapWrap').classList.remove('drawing-active');
+  redrawMap();
+  drawZonesOverlay();
+  drawWaypointsOverlay();
+}
+
+function placeWaypointAt(canvasX, canvasY) {
+  var name = document.getElementById('waypointNameInput').value.trim();
+  if (!name) return;
+  var scale = _mapState.scale;
+  var meta = _mapState.mapMeta;
+  var h = _mapState.mapHeight;
+
+  // Convert canvas coords to device coords
+  var px = canvasX / scale;
+  var py = canvasY / scale;
+  var x = Math.round(px * meta.gridSize + meta.left);
+  var y = Math.round((h - 1 - py) * meta.gridSize + meta.top);
+
+  var wp = { name: name, coords: [x, y], pixelCoords: [Math.round(px), Math.round(py)] };
+  _homey.api('PUT', '/waypoints', { did: _did, waypoint: wp }, function(err, saved) {
+    if (err) { _homey.alert('Failed to save waypoint: ' + (err.message || err)); return; }
+    document.getElementById('waypointNameInput').value = '';
+    cancelPlaceWaypoint();
+    loadWaypoints();
+  });
+}
+
+function deleteWaypoint(wpId) {
+  _homey.api('GET', '/deleteWaypoint?did=' + encodeURIComponent(_did) + '&wpId=' + encodeURIComponent(wpId), null, function(err) {
+    if (err) { _homey.alert('Failed to delete waypoint: ' + (err.message || JSON.stringify(err))); return; }
+    _waypoints = _waypoints.filter(function(w) { return w.id !== wpId; });
+    renderWaypointList();
+    redrawMap();
+    drawZonesOverlay();
+    drawWaypointsOverlay();
+  });
+}
+
+function drawWaypointsOverlay() {
+  if (!_mapState.ctx || !_mapState.baseImage) return;
+  var ctx = _mapState.ctx;
+  var scale = _mapState.scale;
+  for (var i = 0; i < _waypoints.length; i++) {
+    var w = _waypoints[i];
+    if (!w.pixelCoords) continue;
+    var x = w.pixelCoords[0] * scale;
+    var y = w.pixelCoords[1] * scale;
+    var r = Math.max(4, scale * 2.5);
+    // Draw marker dot
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 59, 48, 0.9)';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(1, scale * 0.5);
+    ctx.stroke();
+    // Label
+    ctx.font = '600 ' + Math.max(9, scale * 3.5) + 'px -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255, 59, 48, 0.9)';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(w.name, x + r + 2, y - 2);
+  }
 }
 
 function drawZonesOverlay() {
   if (!_mapState.ctx || !_mapState.baseImage) return;
   var ctx = _mapState.ctx;
   var scale = _mapState.scale;
-  var filtered = _zones.filter(function(z) { return z.pixelCoords && (!_currentFloorId || !z.floorId || String(z.floorId) === String(_currentFloorId)); });
+  var filtered = _zones.filter(function(z) { return z.pixelCoords; });
   ctx.lineWidth = 2;
   for (var i = 0; i < filtered.length; i++) {
     var pc = filtered[i].pixelCoords;
@@ -425,6 +600,13 @@ function redrawMap() {
     return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   }
   function onStart(e) {
+    // Waypoint placement: single click
+    if (_wpPlaceState.active) {
+      e.preventDefault();
+      var pos = getPos(e);
+      placeWaypointAt(pos.x, pos.y);
+      return;
+    }
     if (!_drawState.active) return;
     e.preventDefault();
     var pos = getPos(e);
@@ -439,6 +621,7 @@ function redrawMap() {
     // Draw preview rectangle
     redrawMap();
     drawZonesOverlay();
+    drawWaypointsOverlay();
     var ctx = _mapState.ctx;
     ctx.strokeStyle = 'rgba(255, 59, 48, 0.9)';
     ctx.fillStyle = 'rgba(255, 59, 48, 0.15)';
@@ -452,11 +635,10 @@ function redrawMap() {
   }
   function onEnd(e) {
     if (!_drawState.active) return;
-    // Keep the rectangle visible — user can save or cancel
+    // Keep the rectangle visible -- user can save or cancel
   }
   canvas.addEventListener('mousedown', onStart);
   canvas.addEventListener('mousemove', onMove);
-  // Listen on document for mouseup (catches release outside canvas — fixes web browser issue)
   document.addEventListener('mouseup', onEnd);
   canvas.addEventListener('touchstart', onStart, { passive: false });
   canvas.addEventListener('touchmove', onMove, { passive: false });
@@ -526,13 +708,13 @@ function renderMapToCanvas(canvas, data, options) {
 
 function drawSettingsRobotDot(robotPos) {
   if (!_mapState.ctx || !_mapState.baseImage) return;
-  // Cache live position for use during map refreshes
   if (robotPos && robotPos.x > 0) _mapState.lastRobotPos = robotPos;
   var pos = robotPos || _mapState.lastRobotPos;
   var ctx = _mapState.ctx; var scale = _mapState.scale;
-  // Draw order: base image → zones → robot dot (dot always on top)
+  // Draw order: base image -> zones -> waypoints -> robot dot (dot always on top)
   ctx.drawImage(_mapState.baseImage, 0, 0);
   drawZonesOverlay();
+  drawWaypointsOverlay();
   if (pos && pos.x > 0) {
     ctx.beginPath();
     ctx.arc(pos.x * scale, pos.y * scale, Math.max(4, scale * 2.5), 0, Math.PI * 2);
@@ -561,7 +743,6 @@ function startSettingsPolling() {
       if ((d.capabilities || {}).vacuumcleaner_state === 'charging') {
         clearInterval(_settingsPollTimer); _settingsPollTimer = null;
         _settingsPollCycle = 0;
-        // Final map refresh to show completed clean
         refreshMap();
       }
     });
@@ -569,20 +750,13 @@ function startSettingsPolling() {
 }
 
 function refreshMap() {
-  // Respect the currently selected floor — don't fall back to device's active floor
-  var url = '/renderedMap?did=' + encodeURIComponent(_did);
-  var d = _devices.find(function(x) { return x.id === _did; });
-  if (_currentFloorId && d && String(_currentFloorId) !== String(d.selectedFloorId)) {
-    url += '&floorId=' + encodeURIComponent(_currentFloorId);
-  }
-  _homey.api('GET', url, null, function(err, data) {
+  _homey.api('GET', '/renderedMap?did=' + encodeURIComponent(_did), null, function(err, data) {
     if (err || !data || !data.width) return;
     var canvas = document.getElementById('mapCanvas');
     var livePos = _mapState.lastRobotPos;
     renderMapToCanvas(canvas, data, { showRoomNames: true });
     if (livePos) drawSettingsRobotDot(livePos);
     canvas.style.display = 'block';
-    canvas.style.transform = _rotation ? 'rotate(' + _rotation + 'deg)' : '';
     document.getElementById('noMap').style.display = 'none';
   });
 }
@@ -607,23 +781,8 @@ function map(d) {
   });
 }
 
-function status(d) {
-  var c = d.capabilities;
-  var s = c.vacuumcleaner_state || 'unknown';
-  var b = c.measure_battery;
-  var items = [
-    ['State', cap(s), s === 'cleaning' ? 'good' : ''],
-    ['Battery', b != null ? b + '%' : '-', b > 50 ? 'good' : b > 20 ? 'warn' : 'bad'],
-    ['Suction', cap(c.dreame_suction_level || '-'), ''],
-    ['Mode', cap((c.dreame_cleaning_mode || '-').replace(/_/g, ' ')), ''],
-    ['Progress', c.dreame_cleaning_progress != null ? c.dreame_cleaning_progress + '%' : '-', ''],
-    ['Area', c.dreame_cleaned_area != null ? c.dreame_cleaned_area + ' m\u00B2' : '-', ''],
-    ['Time', c.dreame_cleaning_time != null ? c.dreame_cleaning_time + ' min' : '-', ''],
-    ['Error', c.dreame_error || 'None', (c.dreame_error && c.dreame_error !== 'None') ? 'bad' : 'good'],
-  ];
-  document.getElementById('statusGrid').innerHTML = items.map(function(i) {
-    return '<div class="stat"><div class="stat-label">' + i[0] + '</div><div class="stat-value ' + i[2] + '">' + i[1] + '</div></div>';
-  }).join('');
+function toggleDiagnostic() {
+  _homey.set('diagnosticLogging', document.getElementById('diagnosticToggle').checked);
 }
 
 function renderRoomList(roomData) {

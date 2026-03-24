@@ -8,7 +8,7 @@ module.exports = {
   async getRenderedMap({ homey, query }) {
     const did = query.did;
     if (!did) return null;
-    return homey.app.getRenderedMap(did, query.colorScheme, query.floorId);
+    return homey.app.getRenderedMap(did, query.colorScheme);
   },
 
   async getRobotPosition({ homey, query }) {
@@ -17,40 +17,17 @@ module.exports = {
     return homey.app.getRobotPosition(did);
   },
 
-  async getFloors({ homey, query }) {
-    const did = query.did;
-    const device = homey.app._findVacuumDevice(did);
-    if (!device) return [];
-    if (device._multiFloorEnabled && device.getFloors().length === 0) {
-      device._requestMapViaMqtt().catch(() => {});
-    }
-    return device.getFloors();
-  },
-
   async getRooms({ homey, query }) {
     const did = query.did;
     const device = homey.app._findVacuumDevice(did);
     if (!device) return [];
-    if (query.floorId) return device.getRoomsForFloor(query.floorId);
     return device.getRooms();
-  },
-
-  async selectFloor({ homey, body }) {
-    const did = body.did;
-    const mapId = parseInt(body.mapId, 10);
-    const device = homey.app._findVacuumDevice(did);
-    if (!device) throw new Error('Device not found');
-    if (isNaN(mapId)) throw new Error('Invalid mapId');
-    homey.app.log(`[API] selectFloor: did=${did} mapId=${mapId}`);
-    await device.selectFloor(mapId);
-    return { ok: true };
   },
 
   async getZones({ homey, query }) {
     const did = query.did;
     const device = homey.app._findVacuumDevice(did);
     if (!device) return [];
-    if (query.floorId) return device.getZonesForFloor(query.floorId);
     return device.getZones();
   },
 
@@ -68,21 +45,7 @@ module.exports = {
     }
   },
 
-  async updateZone({ homey, body }) {
-    const did = body.did;
-    const zoneId = body.zoneId;
-    const device = homey.app._findVacuumDevice(did);
-    if (!device) throw new Error('Device not found');
-    if (!zoneId) throw new Error('Missing zoneId');
-    const changes = {};
-    if (body.name != null) changes.name = body.name;
-    if (body.coords != null) changes.coords = body.coords;
-    if (Object.keys(changes).length === 0) throw new Error('No changes provided');
-    return await device.updateZone(zoneId, changes);
-  },
-
-  // Zone deletion uses query params (Homey DELETE doesn't reliably send body from settings page)
-  async deleteZone({ homey, query }) {
+async deleteZone({ homey, query }) {
     const did = query.did;
     const zoneId = query.zoneId;
     const device = homey.app._findVacuumDevice(did);
@@ -106,5 +69,31 @@ module.exports = {
       homey.app.log(`[API] deleteZone error: ${e.message}`);
       throw e;
     }
+  },
+
+  async getWaypoints({ homey, query }) {
+    const did = query.did;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) return [];
+    return device.getWaypoints();
+  },
+
+  async saveWaypoint({ homey, body }) {
+    const did = body.did;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) throw new Error('Device not found');
+    const wp = body.waypoint;
+    if (!wp || !wp.name || !wp.coords) throw new Error('Invalid waypoint data');
+    return await device.saveWaypoint(wp);
+  },
+
+  async deleteWaypointGet({ homey, query }) {
+    const did = query.did;
+    const wpId = query.wpId;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) throw new Error('Device not found');
+    if (!wpId) throw new Error('Missing wpId');
+    await device.deleteWaypoint(wpId);
+    return { ok: true };
   },
 };

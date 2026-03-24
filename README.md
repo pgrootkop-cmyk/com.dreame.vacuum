@@ -44,46 +44,22 @@ If you signed up using Google, Apple, or another third-party login, you need to 
 | **Dock Features** | Auto Empty, Self Clean, Drying, Draining |
 | **Consumables** | Main Brush, Side Brush, Filter, Mop Pad, Sensor (with reset) |
 | **Sensors** | Battery, Cleaned Area, Cleaning Time, Total Cleaned Area, Error Status, Current Room |
-| **Room Cleaning** | Room discovery via MQTT + cloud map download. Simple room cleaning (uses current device settings) or advanced with per-room suction/water/repeats. Single/multi-room with autocomplete or manual room ID. Per-room trigger cards (start/finish) |
-| **Zone Cleaning** | Draw custom cleaning zones on the map in App Settings. Name each zone and use them in Flow cards. Zones are stored per floor and support the Dreame zone cleaning protocol |
-| **Multi-Floor** | Automatic detection of multi-floor/multi-map setups. View different floor maps in App Settings and the widget. Switch floors via Flow card for cleaning automations. Current floor shown as device capability |
-| **Shortcuts** | Trigger shortcuts configured in the Dreame Home app via a Flow card. Shortcuts are auto-discovered from the device |
+| **Room Cleaning** | Room discovery via MQTT + cloud map download. Single/multi-room cleaning with autocomplete selection or manual room ID entry, per-room suction/water/repeats. Simple room cleaning cards that use the vacuum's current settings. Per-room trigger cards (start/finish) |
+| **Zone Cleaning** | Draw custom zones on the map in app settings. Clean zones via flow cards with configurable repeats. Zone cleaning finished trigger with optional zone name filter |
+| **Dreame Shortcuts** | Run shortcuts configured in the Dreame Home app directly from Homey flow cards |
+| **Cleaning Finished** | Trigger fires when the vacuum finishes cleaning and returns to the dock. Works with zone cleaning too |
 | **Live Tracking** | Real-time robot position on map widget and settings page during cleaning (~5s updates) |
 | **Current Room** | Shows which room the robot is in — live during cleaning, dock room when charging |
-| **Current Floor** | Shows which floor the robot is currently on (multi-floor devices) |
-| **Dashboard Widget** | Live vacuum map widget with 5 color schemes (Dreame Light/Dark, Mijia Light/Dark, Grayscale), configurable room label size, floor selection, room labels, robot & charger position, battery status, and cleaning progress |
+| **Dashboard Widget** | Live vacuum map with 5 color schemes (Dreame Light/Dark, Mijia Light/Dark, Grayscale), configurable label sizes, robot & charger position |
 | **Consumables Widget** | Dashboard widget with color-coded health bars for Main Brush, Side Brush, Filter, Mop Pad, and Sensor |
-| **App Settings** | Device overview with rendered map, floor selector, visual zone editor, status grid, room list, and consumable health bars |
+| **App Settings** | Device overview with rendered map, zone editor, status grid, room list, and consumable health bars |
 | **Carpet** | Carpet Boost toggle, Carpet Sensitivity (Low/Medium/High), Carpet Cleaning mode (Avoidance/Adaptation/Remove Mop/Vacuum & Mop/Ignore) |
 | **Dock Settings** | Mop Wash Level, Water Temperature, Auto Empty Frequency, Mop Pressure, Drying Time, Volume |
 | **Toggles** | Child Lock, Resume Cleaning, Tight Mopping, Silent Drying, DND |
 | **Status** | Charging Status, Dock Cleaning Status, Drying Progress, Drainage Status, Detergent Status, Hot Water Status, Water Tank, Dirty Water Tank, Dust Bag, Dust Collection |
 | **Real-time MQTT** | Persistent connection to Dreame MQTT broker for instant property updates and room discovery. All 35+ properties pushed via MQTT — ~80% fewer API calls |
 | **Adaptive Polling** | Automatic poll interval adjustment: 60s idle / 15s cleaning with MQTT, 5s fallback without. MQTT health monitoring with automatic fast-poll recovery |
-| **Flow Cards** | 35 action cards, 19 condition cards, 14 trigger cards |
-
-### Flow Tips
-
-**Run actions after cleaning finishes:** Use the **"Cleaning finished"** trigger card (fires when any cleaning task completes and the robot docks — includes cleaned area and time as tokens). You can also use **"Room cleaning finished"** or **"Zone cleaning finished"** for more specific triggers.
-
-**Simple room cleaning:** The **"Clean a room"** and **"Clean multiple rooms"** cards use whatever suction/water settings are currently active on the vacuum — no need to specify them in every flow. For fine-grained control, use the advanced cards that let you set suction, water volume, and repeats per room.
-
-**Zone cleaning:** Draw zones on the map in App Settings first (see below), then use the **"Clean a zone"** Flow card to clean them. Zones use the vacuum's current suction/water settings.
-
-**Multi-floor cleaning:** Use the **"Select floor"** action card to switch the vacuum's active floor before starting room or zone cleaning. Room and trigger cards show rooms from all floors with floor labels.
-
-### Setting Up Zones
-
-1. Open the Dreame app settings in Homey
-2. Select your device (and floor, if multi-floor)
-3. Scroll to the **Zones** section
-4. Enter a name for the zone (e.g. "Under dining table")
-5. Click **+ Draw** — the map enters drawing mode
-6. Click and drag on the map to draw a rectangle over the area you want to clean
-7. Click **Save** to store the zone
-8. The zone appears in the list and is available in the **"Clean a zone"** Flow card
-
-You can create multiple zones per floor. Delete zones with the X button.
+| **Flow Cards** | 31 action cards, 23 condition cards, 14 trigger cards |
 
 ## Not Supported
 
@@ -93,8 +69,7 @@ Some features available in the Dreame Home app or in [Tasshack/dreame-vacuum](ht
 |---------|--------|
 | **Interactive map / room selection** | The dashboard widget shows a rendered map with rooms, but tapping rooms to start cleaning is not possible. Use Flow cards for room cleaning. |
 | **Live camera feed** | Homey does not support real-time video streams from devices. |
-| **Map editing** | Virtual walls and no-go zones must be configured in the Dreame Home app. Custom cleaning zones can be drawn in Homey's App Settings. |
-| **Virtual walls / no-go zones** | Must be configured in the Dreame Home app. |
+| **Virtual walls / no-go zones** | Requires interactive map editing — not possible on Homey. Configure these in the Dreame Home app. |
 | **Furniture / obstacle detection** | Visual AI detection results require an image/map overlay. |
 | **Cleaning history / statistics** | Homey has no UI for historical charts or session logs. Current session data (area, time) is available. |
 | **Custom room schedules** | Dreame schedules are managed in the Dreame Home app. Use Homey Flows for time-based automations instead. |
@@ -117,6 +92,16 @@ Found a bug or have a feature request? Please open an [issue](https://github.com
 1. **Your exact vacuum model** (e.g. Dreame X40 Ultra, L20 Ultra, L10 Pro)
 2. **A description of the problem** — what happened and what you expected
 3. **Enable diagnostic logging** — go to the app settings in Homey, enable **Diagnostic Logging**, and reproduce the issue. This sends anonymous logs to the developer to help debug your problem. You can disable it again afterwards.
+
+## Roadmap
+
+Features under consideration for future releases:
+
+- **Multi-floor support** — previously available in test versions but removed due to stability issues. We plan to re-implement it with a more robust architecture.
+- **Map rotation** — rotate the map view in settings and widgets.
+- **Go-to-point** — send the robot to a specific location without cleaning.
+
+No timeline or guarantees — these depend on demand and Homey platform capabilities.
 
 ## Credits
 

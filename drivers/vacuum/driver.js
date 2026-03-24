@@ -414,6 +414,112 @@ class DreameVacuumDriver extends Homey.Driver {
       if (!args.room_id || args.room_id.trim() === '') return true;
       return String(state.room_id) === String(args.room_id).trim();
     });
+
+    // --- Simple room cleaning cards (use current device settings) ---
+    const simpleRoomCard = this.homey.flow.getActionCard('start_room_cleaning_simple');
+    simpleRoomCard.registerRunListener(async (args) => {
+      const roomId = parseInt(args.room.id, 10);
+      if (isNaN(roomId) || roomId <= 0) throw new Error('Invalid room selected');
+      await args.device.startRoomCleaningSimple(roomId);
+    });
+    simpleRoomCard.registerArgumentAutocompleteListener('room', async (query, args) => {
+      return this._getRoomAutocomplete(query, args);
+    });
+
+    const simpleMultiRoomCard = this.homey.flow.getActionCard('start_multi_room_cleaning_simple');
+    simpleMultiRoomCard.registerRunListener(async (args) => {
+      const roomIds = String(args.rooms.id).split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
+      if (roomIds.length === 0) throw new Error('No valid rooms selected');
+      await args.device.startMultiRoomCleaningSimple(roomIds);
+    });
+    simpleMultiRoomCard.registerArgumentAutocompleteListener('rooms', async (query, args) => {
+      return this._getMultiRoomAutocomplete(query, args);
+    });
+
+    // --- Shortcut card ---
+    const shortcutCard = this.homey.flow.getActionCard('start_shortcut');
+    shortcutCard.registerRunListener(async (args) => {
+      const shortcutData = args.shortcut;
+      if (!shortcutData || !shortcutData.id || shortcutData.id === '_none') throw new Error('No shortcut selected');
+      await args.device.startShortcut(shortcutData.id);
+    });
+    shortcutCard.registerArgumentAutocompleteListener('shortcut', async (query, args) => {
+      return this._getShortcutAutocomplete(query, args);
+    });
+
+    // --- Zone cleaning card ---
+    const zoneCleanCard = this.homey.flow.getActionCard('start_zone_cleaning');
+    zoneCleanCard.registerRunListener(async (args) => {
+      const zoneData = args.zone;
+      if (!zoneData || !zoneData.id || zoneData.id === '_none') throw new Error('No zone selected');
+      const zones = args.device.getZones();
+      const zoneIds = String(zoneData.id).split(',');
+      const coords = [];
+      for (const zid of zoneIds) {
+        const zone = zones.find(z => z.id === zid);
+        if (zone && zone.coords) coords.push(zone.coords);
+      }
+      if (coords.length === 0) throw new Error('Zone not found. Reconfigure zones in app settings.');
+      const stopAfter = args.after_clean === 'stop';
+      await args.device.startZoneCleaning(coords, args.repeats, null, null, zoneData.name, zoneData.id, stopAfter);
+    });
+    zoneCleanCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
+      return this._getZoneAutocomplete(query, args);
+    });
+
+    // --- Zone cleaning finished trigger (with optional zone filter) ---
+    const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
+    zoneFinishedCard.registerRunListener(async (args, state) => {
+      if (!args.zone || !args.zone.id || args.zone.id === '') return true;
+      // Match by zone ID (stable) with name fallback (for older saved flows)
+      if (state.zone_id) return state.zone_id === args.zone.id;
+      return state.zone_name === args.zone.name;
+    });
+    zoneFinishedCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
+      const zones = args.device ? args.device.getZones() : [];
+      const results = [
+        { name: 'Any zone', description: 'Triggers for all zones', id: '' },
+        ...zones.map(z => ({ name: z.name, description: 'Custom zone', id: z.id })),
+      ];
+      if (!query) return results;
+      const q = query.toLowerCase();
+      return results.filter(r => r.name.toLowerCase().includes(q));
+    });
+
+    // --- Waypoint navigation card ---
+    const waypointCard = this.homey.flow.getActionCard('navigate_to_waypoint');
+    waypointCard.registerRunListener(async (args) => {
+      const wpData = args.waypoint;
+      if (!wpData || !wpData.id || wpData.id === '_none') throw new Error('No waypoint selected');
+      const waypoints = args.device.getWaypoints();
+      const wp = waypoints.find(w => w.id === wpData.id);
+      if (!wp || !wp.coords) throw new Error('Waypoint not found. Reconfigure waypoints in app settings.');
+      const stopAfter = args.after_arrival === 'stop';
+      await args.device.navigateToWaypoint(wp.coords[0], wp.coords[1], wpData.name, wpData.id, stopAfter);
+    });
+    waypointCard.registerArgumentAutocompleteListener('waypoint', async (query, args) => {
+      return this._getWaypointAutocomplete(query, args);
+    });
+
+    // --- Waypoint arrived trigger (with optional waypoint filter) ---
+    const waypointArrivedCard = this.homey.flow.getDeviceTriggerCard('waypoint_arrived');
+    waypointArrivedCard.registerRunListener(async (args, state) => {
+      if (!args.waypoint || !args.waypoint.id || args.waypoint.id === '') return true;
+      if (state.waypoint_id) return state.waypoint_id === args.waypoint.id;
+      return state.waypoint_name === args.waypoint.name;
+    });
+    waypointArrivedCard.registerArgumentAutocompleteListener('waypoint', async (query, args) => {
+      const waypoints = args.device ? args.device.getWaypoints() : [];
+      const results = [
+        { name: 'Any waypoint', description: 'Triggers for all waypoints', id: '' },
+        ...waypoints.map(w => ({ name: w.name, description: 'Custom waypoint', id: w.id })),
+      ];
+      if (!query) return results;
+      const q = query.toLowerCase();
+      return results.filter(r => r.name.toLowerCase().includes(q));
+    });
+
+    // --- Cleaning finished trigger (no args to filter) ---
   }
 
   async onPair(session) {
@@ -678,6 +784,51 @@ class DreameVacuumDriver extends Homey.Driver {
       }
     }
 
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  _getShortcutAutocomplete(query, args) {
+    const shortcuts = args.device ? args.device.getShortcuts() : [];
+    if (shortcuts.length === 0) {
+      return [{ name: 'No shortcuts configured', description: 'Create shortcuts in the Dreame Home app', id: '_none' }];
+    }
+    const results = shortcuts.map(s => ({
+      name: s.name,
+      description: `Shortcut #${s.index}`,
+      id: String(s.id),
+    }));
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  _getZoneAutocomplete(query, args) {
+    const zones = args.device ? args.device.getZones() : [];
+    if (zones.length === 0) {
+      return [{ name: 'No zones configured', description: 'Draw zones on the map in app settings', id: '_none' }];
+    }
+    const results = zones.map(z => ({
+      name: z.name,
+      description: 'Custom zone',
+      id: z.id,
+    }));
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  _getWaypointAutocomplete(query, args) {
+    const waypoints = args.device ? args.device.getWaypoints() : [];
+    if (waypoints.length === 0) {
+      return [{ name: 'No waypoints configured', description: 'Click on the map in app settings to add waypoints', id: '_none' }];
+    }
+    const results = waypoints.map(w => ({
+      name: w.name,
+      description: 'Custom waypoint',
+      id: w.id,
+    }));
     if (!query) return results;
     const q = query.toLowerCase();
     return results.filter(r => r.name.toLowerCase().includes(q));

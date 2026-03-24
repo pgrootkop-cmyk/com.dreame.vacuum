@@ -157,9 +157,6 @@ function onHomeyReady(Homey) {
   var showRoomNames = settings.showRoomNames !== false;
   var colorScheme = settings.colorScheme || 'Dreame Light';
   var labelSize = settings.labelSize || 'medium';
-  var floorSetting = settings.floor;
-  var floorId = floorSetting ? floorSetting.id : null;
-  var rotation = parseInt(settings.rotation || '0', 10);
   var currentState = 'unknown';
 
   if (showStatus) {
@@ -181,7 +178,6 @@ function onHomeyReady(Homey) {
   }).catch(function() {});
 
   var mapUrl = '/map?colorScheme=' + encodeURIComponent(colorScheme);
-  if (floorId) mapUrl += '&floorId=' + encodeURIComponent(floorId);
   Homey.api('GET', mapUrl).then(function(data) {
     if (data && data.width) {
       renderMapToCanvas(document.getElementById('canvas'), data, { showRoomNames: showRoomNames, labelSize: labelSize });

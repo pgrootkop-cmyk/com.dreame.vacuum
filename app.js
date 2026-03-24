@@ -123,6 +123,37 @@ class DreameApp extends Homey.App {
     Sentry.setTag('homeyVersion', this.homey.version);
   }
 
+  _initSentry() {
+    const dsn = Homey.env.HOMEY_LOG_URL;
+    if (!dsn) {
+      this.log('[Sentry] No HOMEY_LOG_URL configured, Sentry disabled');
+      return;
+    }
+
+    const manifest = Homey.manifest || {};
+    Sentry.init({
+      dsn,
+      release: `${manifest.id}@${manifest.version}`,
+      environment: process.env.DEBUG === '1' ? 'development' : 'production',
+      beforeSend: (event) => {
+        if (!this.isDiagnosticEnabled()) return null;
+        return event;
+      },
+    });
+
+    // Set default context tags
+    Sentry.setTag('appId', manifest.id);
+    Sentry.setTag('appVersion', manifest.version);
+
+    // Async: get homey version and ID
+    this.homey.cloud.getHomeyId()
+      .then((homeyId) => {
+        Sentry.setTag('homeyId', homeyId);
+      })
+      .catch(() => {});
+    Sentry.setTag('homeyVersion', this.homey.version);
+  }
+
   /**
    * Check if diagnostic logging is enabled by the user.
    */
@@ -134,9 +165,9 @@ class DreameApp extends Homey.App {
    * Send a diagnostic message to Sentry with proper severity level.
    * Only sends when user has opted in (enforced by beforeSend).
    *
-   * debug/info  → breadcrumb (attached as context to the next error/warning event)
-   * warning     → captureMessage level:warning (visible in Issues, filterable)
-   * error/fatal → captureMessage level:error/fatal (visible in Errors & Outages)
+   * debug/info  -> breadcrumb (attached as context to the next error/warning event)
+   * warning     -> captureMessage level:warning (visible in Issues, filterable)
+   * error/fatal -> captureMessage level:error/fatal (visible in Errors & Outages)
    *
    * @param {string} message
    * @param {object} [extra]
@@ -334,7 +365,7 @@ class DreameApp extends Homey.App {
    * Get rendered map as RGBA pixel data + dimensions for a device.
    * Returns { width, height, pixels: base64-encoded RGBA, rooms: [...] } or null.
    */
-  getRenderedMap(did, colorScheme, floorId) {
+  getRenderedMap(did, colorScheme) {
     const device = this._findVacuumDevice(did);
     if (!device) return null;
 
@@ -590,9 +621,10 @@ class DreameApp extends Homey.App {
         }
       }
 
-      // Parse robot and charger positions from header
+      // Parse robot and charger positions + map metadata from header
       let robotPos = null;
       let chargerPos = null;
+      let mapMeta = null;
       const headerBuf = renderData.buf;
       if (headerBuf.length >= MAP_HEADER_SIZE) {
         const gridSize = headerBuf.readInt16LE(17);
@@ -602,6 +634,9 @@ class DreameApp extends Homey.App {
         const rY = headerBuf.readInt16LE(7);
         const cX = headerBuf.readInt16LE(11);
         const cY = headerBuf.readInt16LE(13);
+        if (gridSize > 0) {
+          mapMeta = { gridSize, left, top };
+        }
         if (rX !== 32767 && rY !== 32767 && gridSize > 0) {
           robotPos = {
             x: Math.round((rX - left) / gridSize),
@@ -632,8 +667,6 @@ class DreameApp extends Homey.App {
         roomLabels,
         robotPos,
         chargerPos,
-        dark: scheme.dark,
-        textColor: scheme.text,
         mapMeta,
       };
     } catch (_) {

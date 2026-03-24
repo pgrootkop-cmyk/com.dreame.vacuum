@@ -16,7 +16,7 @@ module.exports = {
     const device = homey.app._findVacuumDevice(did);
     if (!device) return null;
     const dreameId = device.getData().id;
-    return homey.app.getRenderedMap(dreameId, query.colorScheme, query.floorId);
+    return homey.app.getRenderedMap(dreameId, query.colorScheme);
   },
 
   async getRobotPosition({ homey, query }) {

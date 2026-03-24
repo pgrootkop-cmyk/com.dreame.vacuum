@@ -72,6 +72,9 @@ const PROP = {
   MOP_PAD_INSTALLED:    { siid: 4, piid: 53 },
   DUST_COLLECTION:      { siid: 15, piid: 3 },
 
+  // Shortcuts
+  QUICK_COMMAND: { siid: 4, piid: 48 },
+
   // Lifetime stats
   FIRST_CLEANING_DATE: { siid: 12, piid: 1 },
   TOTAL_CLEANED_AREA:  { siid: 12, piid: 4 },
@@ -284,9 +287,10 @@ const PROP_TO_CAPABILITY = {
 };
 
 // Grouped value encoding for self-wash-base cleaning mode (siid:4, piid:23)
-function splitGroupedMode(value) {
+// Devices with mop_pad_lifting use 2-bit mask (values 0-3), others use 1-bit (values 0-1)
+function splitGroupedMode(value, mopPadLifting) {
   return {
-    mode: value & 0xFF,
+    mode: mopPadLifting ? (value & 0x03) : (value & 0x01),
     washFreq: (value >> 8) & 0xFF,
     waterLevel: (value >> 16) & 0xFF,
   };
@@ -294,6 +298,15 @@ function splitGroupedMode(value) {
 
 function combineGroupedMode(mode, washFreq, waterLevel) {
   return ((waterLevel & 0xFF) << 16) | ((washFreq & 0xFF) << 8) | (mode & 0xFF);
+}
+
+// On mop_pad_lifting devices (combo dock), wire values 0 and 2 are swapped:
+// Wire 0 = Sweeping & Mopping (enum 2), Wire 2 = Sweeping (enum 0)
+// This matches Tasshack device.py lines 965-980 and 1952-1976
+function swapMopPadLiftingMode(wireValue) {
+  if (wireValue === 0) return 2;
+  if (wireValue === 2) return 0;
+  return wireValue;
 }
 
 // Dock status codes reported as error codes but not actual errors
@@ -704,12 +717,29 @@ class DreameVacuumDevice extends Homey.Device {
     this._robotCurrentRoomId = null;  // segment ID the robot is currently in
     this._hasDocWaterTank = this.getStoreValue('hasDocWaterTank') || false;
     this._rismCache = null;           // cached decoded rism buffer for fast room lookups
-    this._savedMaps = this.getStoreValue('savedMaps') || {};  // { [mapId]: { id, name, index, rooms, zones, rotation } }
-    this._savedMapData = {};  // In-memory only: { [mapId]: base64MapString } for rendering
-    this._selectedMapId = this.getStoreValue('selectedMapId') || null;
-    this._multiFloorEnabled = this.getStoreValue('multiFloorEnabled') || false;
+    this._mopPadLifting = this.getStoreValue('mopPadLifting') || false; // combo dock: swap cleaning mode 0↔2
     this._shortcuts = this.getStoreValue('shortcuts') || [];
-    this._mapListObjectName = null;
+    this._zones = this.getStoreValue('zones') || [];
+    this._wasCleaningSession = false; // track cleaning→charging for finished trigger
+    this._wasZoneCleaning = false;    // track zone cleaning for zone finished trigger
+    this._lastZoneName = null;        // zone name for trigger token
+    this._lastZoneId = null;          // zone id for trigger matching
+    this._waypoints = this.getStoreValue('waypoints') || [];
+    this._wasCruisingPoint = false;   // track waypoint navigation for trigger
+    this._lastWaypointName = null;    // waypoint name for trigger token
+    this._lastWaypointId = null;      // waypoint id for trigger matching
+    this._lastDreameState = null;     // raw dreame state value for transition detection
+    this._lastDreameStatus = null;    // raw STATUS (4-1) value for zone completion detection
+    this._stopAfterZone = false;      // stop in place after zone cleaning (set by flow card)
+    this._stopAfterWaypoint = false;  // stop in place after waypoint arrival (set by flow card)
+
+    // Remove orphaned capabilities from previous versions (v0.0.24-v0.0.29 multi-floor)
+    const orphanedCapabilities = ['dreame_current_floor'];
+    for (const cap of orphanedCapabilities) {
+      if (this.hasCapability(cap)) {
+        await this.removeCapability(cap).catch(this.error);
+      }
+    }
 
     // Ensure all capabilities are present (for devices paired before new capabilities were added)
     const requiredCapabilities = [
@@ -753,14 +783,13 @@ class DreameVacuumDevice extends Homey.Device {
     // Probe-once: detect which advanced properties the device supports
     // Re-probe when new probeable props are added (version bump resets probe)
     const probeVersion = this.getStoreValue('probeVersion') || 0;
-    if (probeVersion < 8) {
-      this._unsupportedProps = new Set();
+    if (probeVersion < 3) { // v3: detect mopPadLifting capability
+      // Keep previously discovered unsupported props to avoid re-adding + removing capabilities
+      // which causes transient UI crashes in the Homey mobile app
+      this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
       this._probeComplete = false;
-      await this.setStoreValue('probeVersion', 8);
+      await this.setStoreValue('probeVersion', 3);
       await this.setStoreValue('probeComplete', false);
-      await this.setStoreValue('unsupportedProps', []);
-      // Migrate old floor/zone data to savedMaps
-      await this._migrateToSavedMaps();
     } else {
       this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
       this._probeComplete = this.getStoreValue('probeComplete') || false;
@@ -870,11 +899,10 @@ class DreameVacuumDevice extends Homey.Device {
    * @param {'debug'|'info'|'warning'|'error'|'fatal'} level
    */
   _diag(message, extra, level = 'info') {
-    if (level === 'error' || level === 'fatal') {
-      this.error(message);
-    } else {
-      this.log(message);
-    }
+    // Always log to console so --remote captures it
+    if (level === 'error' || level === 'fatal') this.error(`[DIAG] ${message}`);
+    else if (level === 'warning') this.log(`[DIAG:WARN] ${message}`);
+    else this.log(`[DIAG] ${message}`);
     this.homey.app.sendDiagnostic(message, {
       ...extra,
       did: this._did,
@@ -1315,49 +1343,63 @@ class DreameVacuumDevice extends Homey.Device {
   async _applyProperty(key, value) {
     switch (key) {
       case '2-1': { // STATE
+
         if (STATE_MAP[value]) {
           const homeyState = STATE_MAP[value];
-          const prevState = this.getCapabilityValue('vacuumcleaner_state');
-          const prevDreameState = this._lastDreameState || 0;
-          this._lastDreameState = value;
-          // Track zone cleaning across state transitions (ZONE_CLEANING→RETURNING→CHARGING)
-          if (value === 34) this._wasZoneCleaning = true;
+          const prevHomeyState = this.getCapabilityValue('vacuumcleaner_state');
           await this.setCapabilityValue('vacuumcleaner_state', homeyState).catch(this.error);
           await this.setCapabilityValue('onoff', homeyState === 'cleaning').catch(this.error);
-          // Start/stop periodic map refresh during cleaning
-          if (homeyState === 'cleaning') {
-            this._startCleaningMapRefresh();
-          } else {
-            this._stopCleaningMapRefresh();
-          }
-          if (homeyState !== 'cleaning') {
+
+          // Detect cleaning→non-cleaning transition: mark session for deferred trigger
+          if (prevHomeyState === 'cleaning' && homeyState !== 'cleaning') {
+            this._wasCleaningSession = true;
             if (this._cleaningRoomIds.length > 0) this._fireRoomFinishedTriggers();
             this._robotCurrentRoomId = null;
             this._robotPositionRaw = null;
-            // Track that a cleaning session ended (triggers deferred until robot reaches charging)
-            if (prevState === 'cleaning') {
-              this._wasCleaningSession = true;
+          }
+
+          // Fire cleaning_finished + zone_cleaning_finished when robot reaches CHARGING
+          if (homeyState === 'charging' && this._wasCleaningSession) {
+            this._wasCleaningSession = false;
+            const area = this.getCapabilityValue('dreame_cleaned_area') || 0;
+            const time = this.getCapabilityValue('dreame_cleaning_time') || 0;
+
+            const finishedCard = this.homey.flow.getDeviceTriggerCard('cleaning_finished');
+            finishedCard.trigger(this, { cleaned_area: area, cleaning_time: time })
+              .catch(e => this.error('Cleaning finished trigger:', e));
+
+            if (this._wasZoneCleaning) {
+              const zoneName = this._lastZoneName || '';
+              const zoneId = this._lastZoneId || '';
+              const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
+              zoneFinishedCard.trigger(this,
+                { cleaned_area: area, cleaning_time: time, zone_name: zoneName },
+                { zone_name: zoneName, zone_id: zoneId }
+              ).catch(e => this.error('Zone cleaning finished trigger:', e));
+              this._wasZoneCleaning = false;
+              this._lastZoneName = null;
+              this._lastZoneId = null;
             }
-            // Fire cleaning_finished / zone_cleaning_finished when robot reaches charging
-            // (not at RETURNING/docked, so "Then" actions like Stop actually work)
-            if (homeyState === 'charging' && this._wasCleaningSession) {
-              this._wasCleaningSession = false;
-              const area = this.getCapabilityValue('dreame_cleaned_area') || 0;
-              const time = this.getCapabilityValue('dreame_cleaning_time') || 0;
-              const finishedCard = this.homey.flow.getDeviceTriggerCard('cleaning_finished');
-              finishedCard.trigger(this, { cleaned_area: area, cleaning_time: time })
-                .catch(e => this.error('Cleaning finished trigger:', e));
-              // Fire zone_cleaning_finished if this session included zone cleaning
-              if (this._wasZoneCleaning) {
-                const zoneName = this._lastZoneName || '';
-                const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
-                zoneFinishedCard.trigger(this, { cleaned_area: area, cleaning_time: time, zone_name: zoneName }, { zone_name: zoneName })
-                  .catch(e => this.error('Zone cleaning finished trigger:', e));
-                this._wasZoneCleaning = false;
-                this._lastZoneName = null;
-              }
+
+            if (this._wasCruisingPoint) {
+              this._fireWaypointArrivedTrigger();
             }
-            // When docked/charging, show the dock's room instead of clearing
+          }
+
+          // Waypoint navigation can also end at idle/stopped (robot stays at destination)
+          if ((homeyState === 'stopped' || homeyState === 'docked') && this._wasCruisingPoint) {
+            this._fireWaypointArrivedTrigger();
+          }
+
+          // If stopped/error (not transitioning through to dock), reset session flag
+          if (homeyState === 'stopped' && this._wasCleaningSession) {
+            this._wasCleaningSession = false;
+            this._wasZoneCleaning = false;
+            this._lastZoneName = null;
+            this._lastZoneId = null;
+          }
+
+          if (homeyState !== 'cleaning') {
             if (homeyState === 'docked' || homeyState === 'charging') {
               this._detectChargerRoom();
             } else {
@@ -1375,6 +1417,7 @@ class DreameVacuumDevice extends Homey.Device {
           const card = this.homey.flow.getDeviceTriggerCard('operational_state_changed');
           card.trigger(this, { state: label }, { state: newOpState }).catch(e => this.error('State trigger:', e));
         }
+        this._lastDreameState = value;
         break;
       }
 
@@ -1455,12 +1498,14 @@ class DreameVacuumDevice extends Homey.Device {
         const currentState = this.getCapabilityValue('vacuumcleaner_state');
         const isCleaning = currentState === 'cleaning';
         if (value > 255) {
-          const grouped = splitGroupedMode(value);
+          const grouped = splitGroupedMode(value, this._mopPadLifting);
           this._isGroupedMode = true;
           this._groupedModeRaw = value;
-          if (CLEANING_MODE_REVERSE[grouped.mode] !== undefined) {
+          // On mop_pad_lifting devices, wire values 0↔2 are swapped
+          const modeEnum = this._mopPadLifting ? swapMopPadLiftingMode(grouped.mode) : grouped.mode;
+          if (CLEANING_MODE_REVERSE[modeEnum] !== undefined) {
             if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
-              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[grouped.mode]).catch(this.error);
+              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[modeEnum]).catch(this.error);
             }
           }
           if (this.hasCapability('dreame_mop_wash_frequency')) {
@@ -1471,9 +1516,11 @@ class DreameVacuumDevice extends Homey.Device {
           }
         } else {
           this._isGroupedMode = false;
-          if (CLEANING_MODE_REVERSE[value] !== undefined) {
+          // On mop_pad_lifting devices, wire values 0↔2 are swapped
+          const modeEnum = this._mopPadLifting ? swapMopPadLiftingMode(value) : value;
+          if (CLEANING_MODE_REVERSE[modeEnum] !== undefined) {
             if (isCleaning || !this.getCapabilityValue('dreame_cleaning_mode')) {
-              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[value]).catch(this.error);
+              await this.setCapabilityValue('dreame_cleaning_mode', CLEANING_MODE_REVERSE[modeEnum]).catch(this.error);
             }
           }
         }
@@ -1611,37 +1658,21 @@ class DreameVacuumDevice extends Homey.Device {
         this._taskType = value;
         break;
 
-      case '4-48': { // SHORTCUTS (Tasshack: DreameVacuumProperty.SHORTCUTS)
-        // Property value is JSON array: [{id, name (base64), state}, ...]
-        if (value && typeof value === 'string' && value !== '') {
-          try {
-            const raw = JSON.parse(value);
-            const list = Array.isArray(raw) ? raw : [];
-            const shortcuts = [];
-            for (let i = 0; i < list.length; i++) {
-              const entry = list[i];
-              if (!entry || !entry.id) continue;
-              // Name is base64-encoded (per Tasshack)
-              let name = `Shortcut ${i + 1}`;
-              if (entry.name) {
-                try {
-                  const decoded = Buffer.from(entry.name, 'base64').toString('utf8');
-                  if (Buffer.from(decoded, 'utf8').toString('base64') === entry.name) {
-                    name = decoded;
-                  } else {
-                    name = entry.name; // plain text fallback
-                  }
-                } catch { name = entry.name; }
+      case '4-48': { // QUICK_COMMAND (shortcuts)
+        try {
+          if (typeof value === 'string' && value.trim().startsWith('[')) {
+            const list = JSON.parse(value);
+            this._shortcuts = list.map((s, i) => {
+              let name = `Shortcut ${s.id || i + 1}`;
+              if (s.name) {
+                try { name = Buffer.from(s.name, 'base64').toString('utf-8'); } catch { name = s.name; }
               }
-              const running = entry.state === '0' || entry.state === '1' || entry.state === 0 || entry.state === 1;
-              shortcuts.push({ id: entry.id, name, index: i + 1, running });
-            }
-            this._shortcuts = shortcuts;
-            this.setStoreValue('shortcuts', shortcuts).catch(this.error);
-            this._diag(`[SHORTCUT] Discovered ${shortcuts.length} shortcuts: ${shortcuts.map(s => s.name).join(', ')}`, null, 'info');
-          } catch (e) {
-            this._diag(`[SHORTCUT] Parse error: ${e.message}, raw: ${String(value).slice(0, 200)}`, null, 'warning');
+              return { id: s.id, name, index: i + 1, running: s.state === 0 || s.state === 1 };
+            });
+            await this.setStoreValue('shortcuts', this._shortcuts);
           }
+        } catch (e) {
+          this.error('Failed to parse shortcuts:', e.message);
         }
         break;
       }
@@ -1740,11 +1771,50 @@ class DreameVacuumDevice extends Homey.Device {
         }
         break;
 
-      case '4-1': // STATUS (cleaning substatus)
+      case '4-1': { // STATUS (cleaning substatus)
+        // Track zone cleaning: STATUS 19 = Zone Cleaning (Tasshack DreameVacuumStatus.ZONE_CLEANING)
+        if (value === 19 && !this._wasCruisingPoint) this._wasZoneCleaning = true;
+        // Detect zone/waypoint completion: transition FROM zone cleaning (19) to returning (3)
+        // Fire triggers here so user can react BEFORE robot reaches dock
+        if (this._lastDreameStatus === 19 && value === 3) {
+          this._diag(`[STATUS] Zone cleaning → Returning (firing early triggers)`, null, 'info');
+          if (this._wasZoneCleaning) {
+            if (this._stopAfterZone) {
+              const api = this._getApi();
+              api.callAction(this._did, this._bindDomain, ACTION.STOP.siid, ACTION.STOP.aiid)
+                .then(() => this._diag('[ZONE] Sent STOP — stop in place enabled', null, 'info'))
+                .catch(e => this.error('Failed to stop after zone clean:', e));
+            }
+
+            const area = this.getCapabilityValue('dreame_cleaned_area') || 0;
+            const time = this.getCapabilityValue('dreame_cleaning_time') || 0;
+            const zoneName = this._lastZoneName || '';
+            const zoneId = this._lastZoneId || '';
+            const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
+            zoneFinishedCard.trigger(this,
+              { cleaned_area: area, cleaning_time: time, zone_name: zoneName },
+              { zone_name: zoneName, zone_id: zoneId }
+            ).catch(e => this.error('Zone cleaning finished trigger:', e));
+            this._wasZoneCleaning = false;
+            this._lastZoneName = null;
+            this._lastZoneId = null;
+          }
+          if (this._wasCruisingPoint) {
+            if (this._stopAfterWaypoint) {
+              const api = this._getApi();
+              api.callAction(this._did, this._bindDomain, ACTION.STOP.siid, ACTION.STOP.aiid)
+                .then(() => this._diag('[WAYPOINT] Sent STOP — stop in place enabled', null, 'info'))
+                .catch(e => this.error('Failed to stop at waypoint:', e));
+            }
+            this._fireWaypointArrivedTrigger();
+          }
+        }
+        this._lastDreameStatus = value;
         if (STATUS_REVERSE[value] !== undefined) {
           await this.setCapabilityValue('dreame_status', STATUS_REVERSE[value]).catch(this.error);
         }
         break;
+      }
 
       case '4-7': // TASK_STATUS
         if (TASK_STATUS_REVERSE[value] !== undefined) {
@@ -1921,12 +1991,8 @@ class DreameVacuumDevice extends Homey.Device {
           PROP.LOW_WATER_WARNING,
         );
 
-        // Multi-floor map + shortcuts (skip if known unsupported)
-        const floorProps = [PROP.MULTI_FLOOR_MAP, PROP.MAP_LIST, PROP.QUICK_COMMAND];
-        for (const p of floorProps) {
-          const pk = `${p.siid}-${p.piid}`;
-          if (!this._unsupportedProps.has(pk)) props.push(p);
-        }
+        // Shortcuts (polled infrequently)
+        if (!this._unsupportedProps.has('4-48')) props.push(PROP.QUICK_COMMAND);
 
         // Probeable consumables + dock sensors (skip if known unsupported)
         const probeableInfrequent = [
@@ -1985,6 +2051,15 @@ class DreameVacuumDevice extends Homey.Device {
           // No CleanGenius mode support (handled via flow cards only)
         }
 
+        // Detect mop_pad_lifting: device has combo dock (self-wash base + auto-empty base)
+        // Self-wash: prop 4-25 supported; Auto-empty: prop 15-5 supported
+        // Matches Tasshack types.py: mop_pad_lifting = self_wash_base AND auto_empty_base
+        const hasSelfWash = !this._unsupportedProps.has('4-25');
+        const hasAutoEmpty = !this._unsupportedProps.has('15-5');
+        this._mopPadLifting = hasSelfWash && hasAutoEmpty;
+        await this.setStoreValue('mopPadLifting', this._mopPadLifting);
+        this._diag(`[PROBE] mopPadLifting=${this._mopPadLifting} (selfWash=${hasSelfWash}, autoEmpty=${hasAutoEmpty})`);
+
         // Remove probeable capabilities for unsupported props
         for (const [propKey, capName] of Object.entries(PROP_TO_CAPABILITY)) {
           if (this._unsupportedProps.has(propKey) && this.hasCapability(capName)) {
@@ -2034,9 +2109,11 @@ class DreameVacuumDevice extends Homey.Device {
     const water = this.getCapabilityValue('dreame_water_volume');
     const propsToSet = [];
     if (mode && CLEANING_MODE_MAP[mode] !== undefined) {
+      // On mop_pad_lifting devices, swap wire values 0↔2
       let modeValue = CLEANING_MODE_MAP[mode];
+      modeValue = this._mopPadLifting ? swapMopPadLiftingMode(modeValue) : modeValue;
       if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
-        const grouped = splitGroupedMode(this._groupedModeRaw);
+        const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
         modeValue = combineGroupedMode(modeValue, grouped.washFreq, grouped.waterLevel);
       }
       propsToSet.push({ siid: PROP.CLEANING_MODE.siid, piid: PROP.CLEANING_MODE.piid, value: modeValue });
@@ -2127,11 +2204,14 @@ class DreameVacuumDevice extends Homey.Device {
       throw new Error(`Invalid cleaning mode: ${mode}`);
     }
 
-    let valueToSend = dreameValue;
+    // On mop_pad_lifting devices, swap wire values 0↔2 (sweeping↔sweeping_and_mopping)
+    let wireValue = this._mopPadLifting ? swapMopPadLiftingMode(dreameValue) : dreameValue;
+
+    let valueToSend = wireValue;
     // If device uses grouped mode, preserve wash frequency and water level
     if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
-      const grouped = splitGroupedMode(this._groupedModeRaw);
-      valueToSend = combineGroupedMode(dreameValue, grouped.washFreq, grouped.waterLevel);
+      const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
+      valueToSend = combineGroupedMode(wireValue, grouped.washFreq, grouped.waterLevel);
     }
 
     await api.setProperties(this._did, this._bindDomain, [
@@ -2233,12 +2313,14 @@ class DreameVacuumDevice extends Homey.Device {
     // When idle, device reports 4-23=0 so _isGroupedMode may be false — construct from current caps
     let mode, waterLevel;
     if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
-      const grouped = splitGroupedMode(this._groupedModeRaw);
+      const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
       mode = grouped.mode;
       waterLevel = grouped.waterLevel;
     } else {
       const currentMode = this.getCapabilityValue('dreame_cleaning_mode');
-      mode = (currentMode && CLEANING_MODE_MAP[currentMode] !== undefined) ? CLEANING_MODE_MAP[currentMode] : 2;
+      // Convert enum to wire value: need swap for mop_pad_lifting devices
+      let modeEnum = (currentMode && CLEANING_MODE_MAP[currentMode] !== undefined) ? CLEANING_MODE_MAP[currentMode] : 2;
+      mode = this._mopPadLifting ? swapMopPadLiftingMode(modeEnum) : modeEnum;
       const currentWater = this.getCapabilityValue('dreame_water_volume');
       waterLevel = (currentWater && WATER_VOLUME_MAP[currentWater] !== undefined) ? WATER_VOLUME_MAP[currentWater] : 2;
     }
@@ -3201,6 +3283,186 @@ class DreameVacuumDevice extends Homey.Device {
     ]);
 
     this._fireRoomStartedTriggers(roomIds);
+  }
+
+  // Simple room cleaning (use current device settings)
+  async startRoomCleaningSimple(roomId) {
+    const suction = this.getCapabilityValue('dreame_suction_level') || 'standard';
+    const water = this.getCapabilityValue('dreame_water_volume') || 'medium';
+    await this.startRoomCleaning(roomId, 1, suction, water);
+  }
+
+  async startMultiRoomCleaningSimple(roomIds) {
+    const suction = this.getCapabilityValue('dreame_suction_level') || 'standard';
+    const water = this.getCapabilityValue('dreame_water_volume') || 'medium';
+    await this.startMultiRoomCleaning(roomIds, 1, suction, water);
+  }
+
+  // Shortcuts
+  getShortcuts() {
+    return this._shortcuts || [];
+  }
+
+  async startShortcut(shortcutId) {
+    this._lastCommandTime = Date.now();
+    const api = this._getApi();
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 25 },
+      { piid: 10, value: String(shortcutId) },
+    ]);
+    this._diag(`[SHORTCUT] Started shortcut ${shortcutId}`, null, 'info');
+  }
+
+  // Zone CRUD (single-floor, stored flat in device store)
+  getZones() {
+    return this._zones || [];
+  }
+
+  async saveZone(zone) {
+    if (!zone.id) {
+      zone.id = `zone_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    }
+    this._zones.push(zone);
+    await this.setStoreValue('zones', this._zones);
+    this._diag(`[ZONE] Saved zone: ${zone.name} (${zone.id})`, null, 'info');
+    return zone;
+  }
+
+async deleteZone(zoneId) {
+    this._zones = this._zones.filter(z => z.id !== zoneId);
+    await this.setStoreValue('zones', this._zones);
+    this._diag(`[ZONE] Deleted zone: ${zoneId}`, null, 'info');
+  }
+
+  // Zone cleaning
+  async startZoneCleaning(zones, repeats, suction, water, zoneName, zoneId, stopAfter) {
+    this._lastCommandTime = Date.now();
+    this._lastZoneName = zoneName || null;
+    this._lastZoneId = zoneId || null;
+    this._stopAfterZone = !!stopAfter;
+    const api = this._getApi();
+    const suctionValue = suction && SUCTION_MAP[suction] !== undefined
+      ? SUCTION_MAP[suction]
+      : (SUCTION_MAP[this.getCapabilityValue('dreame_suction_level')] || 1);
+    const waterValue = water && WATER_VOLUME_MAP[water] !== undefined
+      ? WATER_VOLUME_MAP[water]
+      : (WATER_VOLUME_MAP[this.getCapabilityValue('dreame_water_volume')] || 2);
+    const repeatCount = Math.max(1, Math.min(3, repeats || 1));
+
+    const cleanlist = zones.map(z => [
+      Math.round(z[0]), Math.round(z[1]), Math.round(z[2]), Math.round(z[3]),
+      repeatCount, suctionValue, waterValue,
+    ]);
+    const params = JSON.stringify({ areas: cleanlist }).replace(/ /g, '');
+
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 19 },
+      { piid: 10, value: params },
+    ]);
+    this._diag(`[ZONE] Zone cleaning started: ${zones.length} zones`, null, 'info');
+  }
+
+  // Waypoint CRUD (stored in device store)
+  getWaypoints() {
+    return this._waypoints || [];
+  }
+
+  async saveWaypoint(wp) {
+    if (!wp.id) {
+      wp.id = `wp_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    }
+    this._waypoints.push(wp);
+    await this.setStoreValue('waypoints', this._waypoints);
+    this._diag(`[WAYPOINT] Saved waypoint: ${wp.name} (${wp.id})`, null, 'info');
+    return wp;
+  }
+
+  async deleteWaypoint(wpId) {
+    this._waypoints = this._waypoints.filter(w => w.id !== wpId);
+    await this.setStoreValue('waypoints', this._waypoints);
+    this._diag(`[WAYPOINT] Deleted waypoint: ${wpId}`, null, 'info');
+  }
+
+  // Navigate to waypoint using tiny zone (avoids camera/monitoring mode entirely)
+  // Matches Tasshack's fallback: switch to sweeping+quiet, tiny zone, restore after
+  async navigateToWaypoint(x, y, waypointName, waypointId, stopAfter) {
+    this._lastCommandTime = Date.now();
+    this._lastWaypointName = waypointName || null;
+    this._lastWaypointId = waypointId || null;
+    this._wasCruisingPoint = true;
+    this._stopAfterWaypoint = !!stopAfter;
+    const api = this._getApi();
+    const rx = Math.round(x);
+    const ry = Math.round(y);
+    const size = 50; // ~1 grid cell
+
+    // Save current settings to restore after arrival
+    this._savedWaypointSettings = {
+      mode: this.getCapabilityValue('dreame_cleaning_mode'),
+      suction: this.getCapabilityValue('dreame_suction_level'),
+    };
+
+    // Switch to sweeping-only + quiet suction (no mopping, minimal noise)
+    const sweepingWire = this._mopPadLifting ? swapMopPadLiftingMode(0) : 0;
+    let modeValue = sweepingWire;
+    if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
+      const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
+      modeValue = combineGroupedMode(sweepingWire, grouped.washFreq, grouped.waterLevel);
+    }
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.CLEANING_MODE.siid, piid: PROP.CLEANING_MODE.piid, value: modeValue },
+      { siid: PROP.SUCTION_LEVEL.siid, piid: PROP.SUCTION_LEVEL.piid, value: 0 },
+    ]).catch(e => this._diag(`[WAYPOINT] Failed to set sweeping+quiet: ${e.message}`, null, 'warning'));
+
+    // Send tiny zone clean — suction 0 (quiet), water 1 (low)
+    const params = JSON.stringify({
+      areas: [[rx - size, ry - size, rx + size, ry + size, 1, 0, 1]],
+    }).replace(/ /g, '');
+
+    this._diag(`[WAYPOINT] Navigating to ${waypointName} (${rx}, ${ry}) via tiny zone (sweeping+quiet)`, null, 'info');
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 19 },
+      { piid: 10, value: params },
+    ]);
+  }
+
+  _fireWaypointArrivedTrigger() {
+    const wpName = this._lastWaypointName || '';
+    const wpId = this._lastWaypointId || '';
+    const card = this.homey.flow.getDeviceTriggerCard('waypoint_arrived');
+    card.trigger(this, { waypoint_name: wpName }, { waypoint_name: wpName, waypoint_id: wpId })
+      .catch(e => this.error('Waypoint arrived trigger:', e));
+    this._wasCruisingPoint = false;
+    this._lastWaypointName = null;
+    this._lastWaypointId = null;
+
+    // Restore cleaning mode + suction after waypoint navigation
+    this._restoreWaypointSettings();
+  }
+
+  _restoreWaypointSettings() {
+    const saved = this._savedWaypointSettings;
+    if (!saved) return;
+    this._savedWaypointSettings = null;
+    const api = this._getApi();
+    const propsToRestore = [];
+    if (saved.mode && CLEANING_MODE_MAP[saved.mode] !== undefined) {
+      let modeValue = CLEANING_MODE_MAP[saved.mode];
+      modeValue = this._mopPadLifting ? swapMopPadLiftingMode(modeValue) : modeValue;
+      if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
+        const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
+        modeValue = combineGroupedMode(modeValue, grouped.washFreq, grouped.waterLevel);
+      }
+      propsToRestore.push({ siid: PROP.CLEANING_MODE.siid, piid: PROP.CLEANING_MODE.piid, value: modeValue });
+    }
+    if (saved.suction && SUCTION_MAP[saved.suction] !== undefined) {
+      propsToRestore.push({ siid: PROP.SUCTION_LEVEL.siid, piid: PROP.SUCTION_LEVEL.piid, value: SUCTION_MAP[saved.suction] });
+    }
+    if (propsToRestore.length > 0) {
+      api.setProperties(this._did, this._bindDomain, propsToRestore)
+        .then(() => this._diag('[WAYPOINT] Restored cleaning mode + suction', null, 'info'))
+        .catch(e => this.error('Failed to restore settings after waypoint:', e));
+    }
   }
 
   // Warning/dock actions
