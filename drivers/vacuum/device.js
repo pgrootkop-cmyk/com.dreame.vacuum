@@ -1478,6 +1478,15 @@ class DreameVacuumDevice extends Homey.Device {
         const currentState = this.getCapabilityValue('vacuumcleaner_state');
         const isCleaning = currentState === 'cleaning';
         if (value > 255) {
+          // Runtime mop_pad_lifting detection: grouped values (>255) are only used by
+          // self_wash_base devices, which virtually all have mop_pad_lifting.
+          // Enable unconditionally on first grouped value — this avoids the chicken-and-egg
+          // problem where probe fails AND current mode byte is 0/1 so old detection never fired.
+          if (!this._mopPadLifting) {
+            this._mopPadLifting = true;
+            this.setStoreValue('mopPadLifting', true).catch(this.error);
+            this._diag(`[PROBE] mopPadLifting auto-detected from grouped mode value ${value} (0x${value.toString(16)})`, null, 'info');
+          }
           const grouped = splitGroupedMode(value, this._mopPadLifting);
           this._isGroupedMode = true;
           this._groupedModeRaw = value;
