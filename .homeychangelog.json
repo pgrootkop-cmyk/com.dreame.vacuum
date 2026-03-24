@@ -58,5 +58,8 @@
   },
   "0.0.30": {
     "en": "Critical bug fix: cleaning modes, zone cleaning, shortcuts, and more\n\n**Bug fixes:**\n- Fixed sweeping/mopping modes being swapped on combo-dock robots (L20 Ultra, X40 Ultra, and similar). Sweeping now correctly vacuums, Sweeping & Mopping correctly does both.\n- Auto-detection of mop pad lifting capability for correct mode mapping per device\n- Cleaning finished trigger now fires when robot reaches the dock (not mid-return), so Then-cards in flows work reliably\n\n**New features:**\n- Zone cleaning: draw custom zones on the map in app settings, clean them via flow cards\n- Zone cleaning finished trigger with optional zone name filter\n- Simple room cleaning cards (use current device settings without specifying suction/water)\n- Dreame shortcuts: run shortcuts configured in the Dreame Home app via flow cards\n- Widget color schemes: Dreame Light/Dark, Mijia Light/Dark, Grayscale\n- Configurable map label size in widget settings (S/M/L/XXL)\n- Redesigned settings page with native Homey styling\n\n**Under the hood:**\n- Replaced @sentry/node (43MB) with lightweight SentryLite (3KB) — 80% app size reduction\n- Replaced node-fetch with native Node 18 fetch\n- Grouped mode mask fix aligned with Tasshack reference implementation\n\n**Removed (for now):**\n- Multi-floor support has been removed to improve stability and reduce complexity. It was the source of most regressions in test versions 0.0.24-0.0.29. We plan to re-implement it properly in a future release.\n- Map rotation has been removed for the same reason."
+  },
+  "0.0.36": {
+    "en": "quick fixes"
   }
 }
