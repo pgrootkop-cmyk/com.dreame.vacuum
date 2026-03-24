@@ -313,54 +313,6 @@ class DreameVacuumDriver extends Homey.Driver {
         return args.device.isCleaningRoom(roomId);
       });
 
-    // --- Shortcut card ---
-    const shortcutCard = this.homey.flow.getActionCard('start_shortcut');
-    shortcutCard.registerRunListener(async (args) => {
-      const shortcutData = args.shortcut;
-      if (!shortcutData || !shortcutData.id || shortcutData.id === '_none') throw new Error('No shortcut selected');
-      await args.device.startShortcut(shortcutData.id);
-    });
-    shortcutCard.registerArgumentAutocompleteListener('shortcut', async (query, args) => {
-      return this._getShortcutAutocomplete(query, args);
-    });
-
-    // --- Zone cleaning card ---
-    const zoneCleanCard = this.homey.flow.getActionCard('start_zone_cleaning');
-    zoneCleanCard.registerRunListener(async (args) => {
-      const zoneData = args.zone;
-      if (!zoneData || !zoneData.id || zoneData.id === '_none') throw new Error('No zone selected');
-      const zones = args.device.getZones();
-      // Support multi-zone: id can be comma-separated zone IDs
-      const zoneIds = String(zoneData.id).split(',');
-      const coords = [];
-      for (const zid of zoneIds) {
-        const zone = zones.find(z => z.id === zid);
-        if (zone && zone.coords) coords.push(zone.coords);
-      }
-      if (coords.length === 0) throw new Error('Zone not found. Reconfigure zones in app settings.');
-      await args.device.startZoneCleaning(coords, args.repeats, null, null, zoneData.name);
-    });
-    zoneCleanCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
-      return this._getZoneAutocomplete(query, args);
-    });
-
-    // --- Zone cleaning finished trigger (with optional zone filter) ---
-    const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
-    zoneFinishedCard.registerRunListener(async (args, state) => {
-      if (!args.zone || !args.zone.id || args.zone.id === '') return true; // Any zone
-      return state.zone_name === args.zone.name;
-    });
-    zoneFinishedCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
-      const zones = args.device ? args.device.getZones() : [];
-      const results = [
-        { name: 'Any zone', description: 'Triggers for all zones', id: '' },
-        ...zones.map(z => ({ name: z.name, description: '', id: z.id })),
-      ];
-      if (!query) return results;
-      const q = query.toLowerCase();
-      return results.filter(r => r.name.toLowerCase().includes(q));
-    });
-
     // --- Select floor card ---
     const selectFloorCard = this.homey.flow.getActionCard('select_floor');
     selectFloorCard.registerRunListener(async (args) => {
@@ -413,27 +365,6 @@ class DreameVacuumDriver extends Homey.Driver {
     roomFinishedByIdCard.registerRunListener(async (args, state) => {
       if (!args.room_id || args.room_id.trim() === '') return true;
       return String(state.room_id) === String(args.room_id).trim();
-    });
-
-    // --- Simple room cleaning cards (use current device settings) ---
-    const simpleRoomCard = this.homey.flow.getActionCard('start_room_cleaning_simple');
-    simpleRoomCard.registerRunListener(async (args) => {
-      const roomId = parseInt(args.room.id, 10);
-      if (isNaN(roomId) || roomId <= 0) throw new Error('Invalid room selected');
-      await args.device.startRoomCleaningSimple(roomId);
-    });
-    simpleRoomCard.registerArgumentAutocompleteListener('room', async (query, args) => {
-      return this._getRoomAutocomplete(query, args);
-    });
-
-    const simpleMultiRoomCard = this.homey.flow.getActionCard('start_multi_room_cleaning_simple');
-    simpleMultiRoomCard.registerRunListener(async (args) => {
-      const roomIds = String(args.rooms.id).split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0);
-      if (roomIds.length === 0) throw new Error('No valid rooms selected');
-      await args.device.startMultiRoomCleaningSimple(roomIds);
-    });
-    simpleMultiRoomCard.registerArgumentAutocompleteListener('rooms', async (query, args) => {
-      return this._getMultiRoomAutocomplete(query, args);
     });
 
     // --- Shortcut card ---
