@@ -775,12 +775,12 @@ class DreameVacuumDevice extends Homey.Device {
     // Probe-once: detect which advanced properties the device supports
     // Re-probe when new probeable props are added (version bump resets probe)
     const probeVersion = this.getStoreValue('probeVersion') || 0;
-    if (probeVersion < 3) { // v3: detect mopPadLifting capability
+    if (probeVersion < 4) { // v4: improved mopPadLifting detection
       // Keep previously discovered unsupported props to avoid re-adding + removing capabilities
       // which causes transient UI crashes in the Homey mobile app
       this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
       this._probeComplete = false;
-      await this.setStoreValue('probeVersion', 3);
+      await this.setStoreValue('probeVersion', 4);
       await this.setStoreValue('probeComplete', false);
     } else {
       this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
