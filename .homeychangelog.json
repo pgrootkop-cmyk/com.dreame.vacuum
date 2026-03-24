@@ -1,4 +1,7 @@
 {
+  "0.0.33": {
+    "en": "Fix cleaning mode swap on L20 Ultra and similar combo-dock devices\n\n- Fixed: 'Set cleaning mode to Sweeping & Mopping' was setting the robot to Sweeping, and vice versa\n- Fixed: 'Start cleaning' flow card not applying the correct cleaning mode\n- Root cause: mop pad lifting detection had a chicken-and-egg problem where it never activated if the device was in Sweeping & Mopping or Mopping mode\n- Detection now triggers reliably on first property update from any combo-dock device"
+  },
   "0.0.28": {
     "en": "Multi-floor and zone trigger fixes\n- Fixed: multi-room autocomplete now shows rooms from all floors (was single floor only)\n- Fixed: 'Zone cleaning finished' trigger now fires correctly (was missed due to state transitions ZONE_CLEANING→RETURNING→CHARGING)\n- Fixed: settings map falling back to floor 1 after a few seconds when viewing floor 2 (periodic refresh now respects selected floor)\n- Fixed: map rotation re-applied after periodic map refreshes"
   },
@@ -79,6 +82,7 @@
   },
   "0.0.30": {
     "en": "Critical bug fix: cleaning modes, zone cleaning, shortcuts, and more\n\n**Bug fixes:**\n- Fixed sweeping/mopping modes being swapped on combo-dock robots (L20 Ultra, X40 Ultra, and similar). Sweeping now correctly vacuums, Sweeping & Mopping correctly does both.\n- Auto-detection of mop pad lifting capability for correct mode mapping per device\n- Cleaning finished trigger now fires when robot reaches the dock (not mid-return), so Then-cards in flows work reliably\n\n**New features:**\n- Zone cleaning: draw custom zones on the map in app settings, clean them via flow cards\n- Zone cleaning finished trigger with optional zone name filter\n- Simple room cleaning cards (use current device settings without specifying suction/water)\n- Dreame shortcuts: run shortcuts configured in the Dreame Home app via flow cards\n- Widget color schemes: Dreame Light/Dark, Mijia Light/Dark, Grayscale\n- Configurable map label size in widget settings (S/M/L/XXL)\n- Redesigned settings page with native Homey styling\n\n**Under the hood:**\n- Replaced @sentry/node (43MB) with lightweight SentryLite (3KB) — 80% app size reduction\n- Replaced node-fetch with native Node 18 fetch\n- Grouped mode mask fix aligned with Tasshack reference implementation\n\n**Removed (for now):**\n- Multi-floor support has been removed to improve stability and reduce complexity. It was the source of most regressions in test versions 0.0.24-0.0.29. We plan to re-implement it properly in a future release.\n- Map rotation has been removed for the same reason."
+  },
   "0.0.21": {
     "en": "Improved error reporting and map download reliability\n- Replaced legacy Sentry SDK (homey-log/raven) with modern @sentry/node\n- Proper severity levels: debug/info as breadcrumbs, warnings and errors as separate issue types\n- Map download now retries on expired tokens and logs actual API error responses\n- Map download error messages include per-endpoint failure details\n- HTTP map fallback now properly reports errors with stack traces\n- Consolidated logging: all diagnostic messages go through a single path"
   }

@@ -2,6 +2,9 @@
   "title": {
     "en": "Waypoint reached"
   },
+  "titleFormatted": {
+    "en": "Waypoint [[waypoint]] reached"
+  },
   "hint": {
     "en": "Triggered when the vacuum arrives at a waypoint."
   },
