@@ -1,6 +1,6 @@
 {
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.31",
+  "version": "0.0.32",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [

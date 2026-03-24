@@ -783,12 +783,12 @@ class DreameVacuumDevice extends Homey.Device {
     // Probe-once: detect which advanced properties the device supports
     // Re-probe when new probeable props are added (version bump resets probe)
     const probeVersion = this.getStoreValue('probeVersion') || 0;
-    if (probeVersion < 3) { // v3: detect mopPadLifting capability
+    if (probeVersion < 4) { // v4: improved mopPadLifting detection + zone cleaning fix
       // Keep previously discovered unsupported props to avoid re-adding + removing capabilities
       // which causes transient UI crashes in the Homey mobile app
       this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
       this._probeComplete = false;
-      await this.setStoreValue('probeVersion', 3);
+      await this.setStoreValue('probeVersion', 4);
       await this.setStoreValue('probeComplete', false);
     } else {
       this._unsupportedProps = new Set(this.getStoreValue('unsupportedProps') || []);
@@ -1498,6 +1498,13 @@ class DreameVacuumDevice extends Homey.Device {
         const currentState = this.getCapabilityValue('vacuumcleaner_state');
         const isCleaning = currentState === 'cleaning';
         if (value > 255) {
+          // Runtime mop_pad_lifting detection: grouped mode byte >= 2 means 2-bit mode encoding
+          // Non-mop_pad_lifting devices only use 1-bit (values 0-1), so byte 2/3 = mop_pad_lifting
+          if (!this._mopPadLifting && (value & 0xFF) >= 2) {
+            this._mopPadLifting = true;
+            this.setStoreValue('mopPadLifting', true).catch(this.error);
+            this._diag(`[PROBE] mopPadLifting auto-detected from grouped mode value ${value}`, null, 'info');
+          }
           const grouped = splitGroupedMode(value, this._mopPadLifting);
           this._isGroupedMode = true;
           this._groupedModeRaw = value;

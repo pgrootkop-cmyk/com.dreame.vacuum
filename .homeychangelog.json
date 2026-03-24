@@ -74,7 +74,7 @@
   "0.0.20": {
     "en": "Consumables widget and robot position fix\n- New Vacuum Consumables dashboard widget with color-coded health bars\n- Fixed robot position (blue dot) snapping to dock when not cleaning instead of showing incorrect position\n- Added missing robot position handler for map widget live tracking\n- Community forum link added to App Store listing"
   },
-  "0.0.31": {
+  "0.0.32": {
     "en": "Bug fixes and new features\n\n**Bug fixes:**\n- Fixed cleaning mode swap still occurring on some devices (L20 Ultra). Added runtime mop pad lifting detection from grouped mode values.\n- Fixed zone cleaning finished trigger never firing (was checking wrong property value).\n- Zone and waypoint triggers now fire immediately when cleaning completes, before the robot returns to dock.\n\n**New features:**\n- Waypoint navigation: click on the map in app settings to place waypoints, then navigate the robot to them via flow cards. Uses tiny zone approach (sweeping + quiet) to avoid camera mode.\n- Waypoint reached trigger card with optional waypoint filter.\n- Pause vacuum and Stop vacuum flow action cards.\n- Zone cleaning and waypoint cards now have an 'After cleaning' option: Return to dock (default) or Stop in place.\n\n**Improvements:**\n- Diagnostic logging now visible with homey app run --remote.\n- Probe version bumped to force re-detection of device capabilities on upgrade."
   },
   "0.0.30": {
