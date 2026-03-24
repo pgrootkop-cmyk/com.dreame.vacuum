@@ -413,6 +413,9 @@ function loadWaypoints() {
   _homey.api('GET', '/waypoints?did=' + encodeURIComponent(_did), null, function(err, data) {
     _waypoints = (!err && Array.isArray(data)) ? data : [];
     renderWaypointList();
+    redrawMap();
+    drawZonesOverlay();
+    drawWaypointsOverlay();
   });
 }
 
