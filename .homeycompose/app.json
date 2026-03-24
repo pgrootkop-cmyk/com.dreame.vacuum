@@ -49,6 +49,18 @@
     "deleteZoneGet": {
       "method": "GET",
       "path": "/deleteZone"
+    },
+    "getWaypoints": {
+      "method": "GET",
+      "path": "/waypoints"
+    },
+    "saveWaypoint": {
+      "method": "PUT",
+      "path": "/waypoints"
+    },
+    "deleteWaypointGet": {
+      "method": "GET",
+      "path": "/deleteWaypoint"
     }
   },
   "tags": {

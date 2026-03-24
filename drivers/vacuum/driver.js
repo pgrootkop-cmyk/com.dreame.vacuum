@@ -378,7 +378,7 @@ class DreameVacuumDriver extends Homey.Driver {
         if (zone && zone.coords) coords.push(zone.coords);
       }
       if (coords.length === 0) throw new Error('Zone not found. Reconfigure zones in app settings.');
-      await args.device.startZoneCleaning(coords, args.repeats, null, null, zoneData.name);
+      await args.device.startZoneCleaning(coords, args.repeats, null, null, zoneData.name, zoneData.id);
     });
     zoneCleanCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
       return this._getZoneAutocomplete(query, args);
@@ -388,6 +388,8 @@ class DreameVacuumDriver extends Homey.Driver {
     const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
     zoneFinishedCard.registerRunListener(async (args, state) => {
       if (!args.zone || !args.zone.id || args.zone.id === '') return true;
+      // Match by zone ID (stable) with name fallback (for older saved flows)
+      if (state.zone_id) return state.zone_id === args.zone.id;
       return state.zone_name === args.zone.name;
     });
     zoneFinishedCard.registerArgumentAutocompleteListener('zone', async (query, args) => {
@@ -395,6 +397,38 @@ class DreameVacuumDriver extends Homey.Driver {
       const results = [
         { name: 'Any zone', description: 'Triggers for all zones', id: '' },
         ...zones.map(z => ({ name: z.name, description: 'Custom zone', id: z.id })),
+      ];
+      if (!query) return results;
+      const q = query.toLowerCase();
+      return results.filter(r => r.name.toLowerCase().includes(q));
+    });
+
+    // --- Waypoint navigation card ---
+    const waypointCard = this.homey.flow.getActionCard('navigate_to_waypoint');
+    waypointCard.registerRunListener(async (args) => {
+      const wpData = args.waypoint;
+      if (!wpData || !wpData.id || wpData.id === '_none') throw new Error('No waypoint selected');
+      const waypoints = args.device.getWaypoints();
+      const wp = waypoints.find(w => w.id === wpData.id);
+      if (!wp || !wp.coords) throw new Error('Waypoint not found. Reconfigure waypoints in app settings.');
+      await args.device.navigateToWaypoint(wp.coords[0], wp.coords[1], wpData.name, wpData.id);
+    });
+    waypointCard.registerArgumentAutocompleteListener('waypoint', async (query, args) => {
+      return this._getWaypointAutocomplete(query, args);
+    });
+
+    // --- Waypoint arrived trigger (with optional waypoint filter) ---
+    const waypointArrivedCard = this.homey.flow.getDeviceTriggerCard('waypoint_arrived');
+    waypointArrivedCard.registerRunListener(async (args, state) => {
+      if (!args.waypoint || !args.waypoint.id || args.waypoint.id === '') return true;
+      if (state.waypoint_id) return state.waypoint_id === args.waypoint.id;
+      return state.waypoint_name === args.waypoint.name;
+    });
+    waypointArrivedCard.registerArgumentAutocompleteListener('waypoint', async (query, args) => {
+      const waypoints = args.device ? args.device.getWaypoints() : [];
+      const results = [
+        { name: 'Any waypoint', description: 'Triggers for all waypoints', id: '' },
+        ...waypoints.map(w => ({ name: w.name, description: 'Custom waypoint', id: w.id })),
       ];
       if (!query) return results;
       const q = query.toLowerCase();
@@ -572,6 +606,21 @@ class DreameVacuumDriver extends Homey.Driver {
       name: z.name,
       description: 'Custom zone',
       id: z.id,
+    }));
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return results.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  _getWaypointAutocomplete(query, args) {
+    const waypoints = args.device ? args.device.getWaypoints() : [];
+    if (waypoints.length === 0) {
+      return [{ name: 'No waypoints configured', description: 'Click on the map in app settings to add waypoints', id: '_none' }];
+    }
+    const results = waypoints.map(w => ({
+      name: w.name,
+      description: 'Custom waypoint',
+      id: w.id,
     }));
     if (!query) return results;
     const q = query.toLowerCase();

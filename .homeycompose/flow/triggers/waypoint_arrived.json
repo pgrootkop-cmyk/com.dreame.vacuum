@@ -1,0 +1,32 @@
+{
+  "title": {
+    "en": "Waypoint reached"
+  },
+  "hint": {
+    "en": "Triggered when the vacuum arrives at a waypoint."
+  },
+  "args": [
+    {
+      "type": "autocomplete",
+      "name": "waypoint",
+      "title": {
+        "en": "Waypoint"
+      },
+      "placeholder": {
+        "en": "Any waypoint"
+      }
+    }
+  ],
+  "tokens": [
+    {
+      "name": "waypoint_name",
+      "type": "string",
+      "title": {
+        "en": "Waypoint name"
+      },
+      "example": {
+        "en": "Kitchen corner"
+      }
+    }
+  ]
+}

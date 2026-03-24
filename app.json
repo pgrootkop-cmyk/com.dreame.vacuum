@@ -50,6 +50,18 @@
     "deleteZoneGet": {
       "method": "GET",
       "path": "/deleteZone"
+    },
+    "getWaypoints": {
+      "method": "GET",
+      "path": "/waypoints"
+    },
+    "saveWaypoint": {
+      "method": "PUT",
+      "path": "/waypoints"
+    },
+    "deleteWaypointGet": {
+      "method": "GET",
+      "path": "/deleteWaypoint"
     }
   },
   "tags": {
@@ -645,6 +657,39 @@
           }
         ],
         "id": "water_tank_changed"
+      },
+      {
+        "title": {
+          "en": "Waypoint reached"
+        },
+        "hint": {
+          "en": "Triggered when the vacuum arrives at a waypoint."
+        },
+        "args": [
+          {
+            "type": "autocomplete",
+            "name": "waypoint",
+            "title": {
+              "en": "Waypoint"
+            },
+            "placeholder": {
+              "en": "Any waypoint"
+            }
+          }
+        ],
+        "tokens": [
+          {
+            "name": "waypoint_name",
+            "type": "string",
+            "title": {
+              "en": "Waypoint name"
+            },
+            "example": {
+              "en": "Kitchen corner"
+            }
+          }
+        ],
+        "id": "waypoint_arrived"
       },
       {
         "title": {
@@ -1393,6 +1438,54 @@
           }
         ],
         "id": "clear_warning"
+      },
+      {
+        "title": {
+          "en": "Navigate to waypoint"
+        },
+        "titleFormatted": {
+          "en": "Navigate to [[waypoint]]"
+        },
+        "hint": {
+          "en": "Send the vacuum to a specific point on the map using a tiny zone clean. Configure waypoints in app settings."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          },
+          {
+            "type": "autocomplete",
+            "name": "waypoint",
+            "title": {
+              "en": "Waypoint"
+            },
+            "placeholder": {
+              "en": "Select a waypoint..."
+            }
+          }
+        ],
+        "id": "navigate_to_waypoint"
+      },
+      {
+        "title": {
+          "en": "Pause the vacuum"
+        },
+        "titleFormatted": {
+          "en": "Pause the vacuum"
+        },
+        "hint": {
+          "en": "Pause the current cleaning task. The vacuum stays in place and can be resumed."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "pause_vacuum"
       },
       {
         "title": {
@@ -2793,6 +2886,25 @@
           }
         ],
         "id": "start_zone_cleaning"
+      },
+      {
+        "title": {
+          "en": "Stop the vacuum"
+        },
+        "titleFormatted": {
+          "en": "Stop the vacuum and end the current task"
+        },
+        "hint": {
+          "en": "Stop the vacuum and end the current cleaning task completely. Use 'Pause' to temporarily halt instead."
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=vacuum"
+          }
+        ],
+        "id": "stop_vacuum"
       },
       {
         "title": {

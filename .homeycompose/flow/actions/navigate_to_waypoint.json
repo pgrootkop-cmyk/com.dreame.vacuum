@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Navigate to waypoint"
+  },
+  "titleFormatted": {
+    "en": "Navigate to [[waypoint]]"
+  },
+  "hint": {
+    "en": "Send the vacuum to a specific point on the map using a tiny zone clean. Configure waypoints in app settings."
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "waypoint",
+      "title": {
+        "en": "Waypoint"
+      },
+      "placeholder": {
+        "en": "Select a waypoint..."
+      }
+    }
+  ]
+}

@@ -716,6 +716,11 @@ class DreameVacuumDevice extends Homey.Device {
     this._wasCleaningSession = false; // track cleaning→charging for finished trigger
     this._wasZoneCleaning = false;    // track zone cleaning for zone finished trigger
     this._lastZoneName = null;        // zone name for trigger token
+    this._lastZoneId = null;          // zone id for trigger matching
+    this._waypoints = this.getStoreValue('waypoints') || [];
+    this._wasCruisingPoint = false;   // track waypoint navigation for trigger
+    this._lastWaypointName = null;    // waypoint name for trigger token
+    this._lastWaypointId = null;      // waypoint id for trigger matching
     this._lastDreameState = null;     // raw dreame state value for transition detection
 
     // Remove orphaned capabilities from previous versions (v0.0.24-v0.0.29 multi-floor)
@@ -1342,12 +1347,25 @@ class DreameVacuumDevice extends Homey.Device {
 
             if (this._wasZoneCleaning) {
               const zoneName = this._lastZoneName || '';
+              const zoneId = this._lastZoneId || '';
               const zoneFinishedCard = this.homey.flow.getDeviceTriggerCard('zone_cleaning_finished');
-              zoneFinishedCard.trigger(this, { cleaned_area: area, cleaning_time: time, zone_name: zoneName }, { zone_name: zoneName })
-                .catch(e => this.error('Zone cleaning finished trigger:', e));
+              zoneFinishedCard.trigger(this,
+                { cleaned_area: area, cleaning_time: time, zone_name: zoneName },
+                { zone_name: zoneName, zone_id: zoneId }
+              ).catch(e => this.error('Zone cleaning finished trigger:', e));
               this._wasZoneCleaning = false;
               this._lastZoneName = null;
+              this._lastZoneId = null;
             }
+
+            if (this._wasCruisingPoint) {
+              this._fireWaypointArrivedTrigger();
+            }
+          }
+
+          // Waypoint navigation can also end at idle/stopped (robot stays at destination)
+          if ((homeyState === 'stopped' || homeyState === 'docked') && this._wasCruisingPoint) {
+            this._fireWaypointArrivedTrigger();
           }
 
           // If stopped/error (not transitioning through to dock), reset session flag
@@ -1355,6 +1373,7 @@ class DreameVacuumDevice extends Homey.Device {
             this._wasCleaningSession = false;
             this._wasZoneCleaning = false;
             this._lastZoneName = null;
+            this._lastZoneId = null;
           }
 
           if (homeyState !== 'cleaning') {
@@ -2773,9 +2792,10 @@ async deleteZone(zoneId) {
   }
 
   // Zone cleaning
-  async startZoneCleaning(zones, repeats, suction, water, zoneName) {
+  async startZoneCleaning(zones, repeats, suction, water, zoneName, zoneId) {
     this._lastCommandTime = Date.now();
     this._lastZoneName = zoneName || null;
+    this._lastZoneId = zoneId || null;
     const api = this._getApi();
     const suctionValue = suction && SUCTION_MAP[suction] !== undefined
       ? SUCTION_MAP[suction]
@@ -2796,6 +2816,108 @@ async deleteZone(zoneId) {
       { piid: 10, value: params },
     ]);
     this._diag(`[ZONE] Zone cleaning started: ${zones.length} zones`, null, 'info');
+  }
+
+  // Waypoint CRUD (stored in device store)
+  getWaypoints() {
+    return this._waypoints || [];
+  }
+
+  async saveWaypoint(wp) {
+    if (!wp.id) {
+      wp.id = `wp_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    }
+    this._waypoints.push(wp);
+    await this.setStoreValue('waypoints', this._waypoints);
+    this._diag(`[WAYPOINT] Saved waypoint: ${wp.name} (${wp.id})`, null, 'info');
+    return wp;
+  }
+
+  async deleteWaypoint(wpId) {
+    this._waypoints = this._waypoints.filter(w => w.id !== wpId);
+    await this.setStoreValue('waypoints', this._waypoints);
+    this._diag(`[WAYPOINT] Deleted waypoint: ${wpId}`, null, 'info');
+  }
+
+  // Navigate to waypoint using tiny zone (avoids camera/monitoring mode entirely)
+  // Matches Tasshack's fallback: switch to sweeping+quiet, tiny zone, restore after
+  async navigateToWaypoint(x, y, waypointName, waypointId) {
+    this._lastCommandTime = Date.now();
+    this._lastWaypointName = waypointName || null;
+    this._lastWaypointId = waypointId || null;
+    this._wasCruisingPoint = true;
+    const api = this._getApi();
+    const rx = Math.round(x);
+    const ry = Math.round(y);
+    const size = 50; // ~1 grid cell
+
+    // Save current settings to restore after arrival
+    this._savedWaypointSettings = {
+      mode: this.getCapabilityValue('dreame_cleaning_mode'),
+      suction: this.getCapabilityValue('dreame_suction_level'),
+    };
+
+    // Switch to sweeping-only + quiet suction (no mopping, minimal noise)
+    const sweepingWire = this._mopPadLifting ? swapMopPadLiftingMode(0) : 0;
+    let modeValue = sweepingWire;
+    if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
+      const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
+      modeValue = combineGroupedMode(sweepingWire, grouped.washFreq, grouped.waterLevel);
+    }
+    await api.setProperties(this._did, this._bindDomain, [
+      { siid: PROP.CLEANING_MODE.siid, piid: PROP.CLEANING_MODE.piid, value: modeValue },
+      { siid: PROP.SUCTION_LEVEL.siid, piid: PROP.SUCTION_LEVEL.piid, value: 0 },
+    ]).catch(e => this._diag(`[WAYPOINT] Failed to set sweeping+quiet: ${e.message}`, null, 'warning'));
+
+    // Send tiny zone clean — suction 0 (quiet), water 1 (low)
+    const params = JSON.stringify({
+      areas: [[rx - size, ry - size, rx + size, ry + size, 1, 0, 1]],
+    }).replace(/ /g, '');
+
+    this._diag(`[WAYPOINT] Navigating to ${waypointName} (${rx}, ${ry}) via tiny zone (sweeping+quiet)`, null, 'info');
+    await api.callAction(this._did, this._bindDomain, ACTION.START_CUSTOM.siid, ACTION.START_CUSTOM.aiid, [
+      { piid: 1, value: 19 },
+      { piid: 10, value: params },
+    ]);
+  }
+
+  _fireWaypointArrivedTrigger() {
+    const wpName = this._lastWaypointName || '';
+    const wpId = this._lastWaypointId || '';
+    const card = this.homey.flow.getDeviceTriggerCard('waypoint_arrived');
+    card.trigger(this, { waypoint_name: wpName }, { waypoint_name: wpName, waypoint_id: wpId })
+      .catch(e => this.error('Waypoint arrived trigger:', e));
+    this._wasCruisingPoint = false;
+    this._lastWaypointName = null;
+    this._lastWaypointId = null;
+
+    // Restore cleaning mode + suction after waypoint navigation
+    this._restoreWaypointSettings();
+  }
+
+  _restoreWaypointSettings() {
+    const saved = this._savedWaypointSettings;
+    if (!saved) return;
+    this._savedWaypointSettings = null;
+    const api = this._getApi();
+    const propsToRestore = [];
+    if (saved.mode && CLEANING_MODE_MAP[saved.mode] !== undefined) {
+      let modeValue = CLEANING_MODE_MAP[saved.mode];
+      modeValue = this._mopPadLifting ? swapMopPadLiftingMode(modeValue) : modeValue;
+      if (this._isGroupedMode && this._groupedModeRaw !== undefined) {
+        const grouped = splitGroupedMode(this._groupedModeRaw, this._mopPadLifting);
+        modeValue = combineGroupedMode(modeValue, grouped.washFreq, grouped.waterLevel);
+      }
+      propsToRestore.push({ siid: PROP.CLEANING_MODE.siid, piid: PROP.CLEANING_MODE.piid, value: modeValue });
+    }
+    if (saved.suction && SUCTION_MAP[saved.suction] !== undefined) {
+      propsToRestore.push({ siid: PROP.SUCTION_LEVEL.siid, piid: PROP.SUCTION_LEVEL.piid, value: SUCTION_MAP[saved.suction] });
+    }
+    if (propsToRestore.length > 0) {
+      api.setProperties(this._did, this._bindDomain, propsToRestore)
+        .then(() => this._diag('[WAYPOINT] Restored cleaning mode + suction', null, 'info'))
+        .catch(e => this.error('Failed to restore settings after waypoint:', e));
+    }
   }
 
   // Warning/dock actions
