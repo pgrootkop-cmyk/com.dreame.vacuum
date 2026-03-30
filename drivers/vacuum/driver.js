@@ -173,7 +173,8 @@ class DreameVacuumDriver extends Homey.Driver {
     roomCleaningCard.registerRunListener(async (args) => {
       const roomId = parseInt(args.room.id, 10);
       if (isNaN(roomId) || roomId <= 0) throw new Error('Invalid room selected');
-      await args.device.startRoomCleaning(roomId, args.repeats, args.suction, args.water);
+      const mode = args.mode && args.mode !== 'current' ? args.mode : null;
+      await args.device.startRoomCleaning(roomId, args.repeats, args.suction, args.water, mode);
     });
     roomCleaningCard.registerArgumentAutocompleteListener('room', async (query, args) => {
       return this._getRoomAutocomplete(query, args);

@@ -310,56 +310,101 @@ function swapMopPadLiftingMode(wireValue) {
 const DOCK_INFO_CODES = new Set([30, 38, 54, 56, 57, 61, 70, 71, 74, 75]);
 
 // Error code descriptions
+// Error codes aligned with Tasshack DreameVacuumErrorCode enum (types.py)
 const ERROR_CODES = {
   0: 'No error',
-  1: 'LiDAR blocked',
-  2: 'Bumper stuck',
-  3: 'Wheel suspended',
-  4: 'Cliff sensor error',
-  5: 'Main brush stuck',
-  6: 'Side brush stuck',
-  7: 'Wheel stuck',
-  8: 'Robot stuck',
-  9: 'Filter blocked',
-  10: 'Charging base not found',
-  11: 'Battery error',
-  12: 'Wall sensor error',
-  13: 'Water tank missing',
-  14: 'Mop pad missing',
-  15: 'Dust bag full',
-  17: 'Magnetic strip detected',
-  18: 'Wall sensor dirty',
-  19: 'Charging contacts dirty',
-  21: 'Laser distance sensor blocked',
-  22: 'Bumper stuck',
-  23: 'Dock communication error',
-  24: 'Dust bag missing',
-  25: 'Mop not installed',
-  26: 'Mop dirty, please clean',
-  27: 'Self-clean failed',
-  28: 'Robot on carpet with mop',
-  29: 'Filter blocked or wet',
-  30: 'Drying timeout',
-  32: 'Station disconnected',
-  33: 'Station low water',
-  34: 'Station dirty water full',
-  35: 'Washboard not installed',
-  37: 'Dirty water tank not installed',
-  38: 'Clear water tank empty',
-  39: 'Dirty water tank full',
-  40: 'Washboard needs cleaning',
-  43: 'Dust bag full',
-  44: 'Camera blocked',
-  46: 'Camera dirty',
-  52: 'Robot tilted',
-  54: 'Clean water tank low',
-  56: 'Silver ion module exhausted',
-  57: 'Cleaning solution low',
-  61: 'Drying filter needs cleaning',
-  70: 'Drying filter not installed',
-  71: 'Cleaning solution empty',
-  74: 'Mop pads drying',
-  75: 'Mop pads need replacing',
+  1: 'Drop sensor error',
+  2: 'Cliff sensor error',
+  3: 'Bumper stuck',
+  4: 'Gesture sensor error',
+  5: 'Bumper stuck (repeat)',
+  6: 'Drop sensor error (repeat)',
+  7: 'Optical flow error',
+  8: 'Dust bin not installed',
+  9: 'Water tank not installed',
+  10: 'Water tank empty',
+  11: 'Dust bin full',
+  12: 'Main brush stuck',
+  13: 'Side brush stuck',
+  14: 'Fan error',
+  15: 'Left wheel motor error',
+  16: 'Right wheel motor error',
+  17: 'Turn suffocate',
+  18: 'Forward suffocate',
+  19: 'Charging base not found',
+  20: 'Battery low',
+  21: 'Charge fault',
+  22: 'Battery percentage error',
+  23: 'Heart error',
+  24: 'Camera blocked',
+  25: 'Move error',
+  26: 'Optical flow shielding',
+  27: 'Infrared shielding',
+  28: 'Charge no electric',
+  29: 'Battery fault',
+  30: 'Fan speed error',
+  31: 'Left wheel speed error',
+  32: 'Right wheel speed error',
+  33: 'Accelerometer error',
+  34: 'Gyro error',
+  35: 'XV7001 error',
+  36: 'Left magnet error',
+  37: 'Right magnet error',
+  38: 'Optical flow error',
+  39: 'Infrared fault',
+  40: 'Camera fault',
+  41: 'Strong magnet detected',
+  42: 'Water pump error',
+  43: 'RTC error',
+  44: 'Auto key trigger',
+  46: 'Camera idle',
+  47: 'Robot blocked',
+  48: 'LDS error',
+  49: 'LDS bumper error',
+  50: 'Water pump error',
+  51: 'Filter blocked',
+  54: 'Edge sensor error',
+  55: 'Carpet error',
+  56: 'Laser error',
+  57: 'Edge sensor error',
+  58: 'Ultrasonic error',
+  59: 'No-go zone',
+  61: 'Route error',
+  62: 'Route error',
+  63: 'Robot blocked',
+  64: 'Robot blocked',
+  65: 'Restricted area',
+  66: 'Restricted area',
+  67: 'Restricted area',
+  68: 'Remove mop pad',
+  69: 'Mop pad removed',
+  70: 'Mop pad removed',
+  71: 'Mop pad stopped rotating',
+  72: 'Mop pad stopped rotating',
+  74: 'Mop install failed',
+  75: 'Low battery, turning off',
+  76: 'Dirty tank not installed',
+  78: 'Robot in hidden room',
+  79: 'LDS failed to lift',
+  80: 'Robot stuck',
+  81: 'Robot stuck (repeat)',
+  82: 'Slippery floor',
+  90: 'Robot stuck',
+  91: 'Robot stuck on table legs',
+  92: 'Robot stuck in narrow passage',
+  93: 'Robot stuck on threshold',
+  94: 'Robot stuck in low-lying area',
+  95: 'Robot stuck on ramp',
+  96: 'Robot stuck on obstacle',
+  97: 'Robot stuck on pet',
+  98: 'Robot stuck on slippery surface',
+  99: 'Robot stuck on carpet',
+  101: 'Dust bin full',
+  102: 'Dust bin open',
+  103: 'Dust bin open',
+  104: 'Dust bin full',
+  121: 'Dust bag full',
+  200: 'Robot stuck on curtain',
 };
 
 // Detailed operational state names (for triggers/conditions) — Dreame STATE (2-1) values
@@ -382,8 +427,10 @@ const OPERATIONAL_STATE_LABELS = {
   dust_collection: 'Emptying dust bin', fast_mapping: 'Fast mapping',
 };
 
-// Error codes that indicate the robot is stuck/blocked
-const STUCK_ERROR_CODES = new Set([2, 3, 5, 6, 7, 8]);
+// Error codes that indicate the robot is stuck/blocked (Tasshack: 80-81, 90-99, 200)
+const STUCK_ERROR_CODES = new Set([47, 63, 64, 80, 81, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 200]);
+// Error codes that indicate the dust bin is full (Tasshack: 11, 101, 104, 121)
+const BIN_FULL_ERROR_CODES = new Set([11, 101, 104, 121]);
 
 const COMMAND_DEBOUNCE_MS = 10000;
 
@@ -1418,7 +1465,7 @@ class DreameVacuumDevice extends Homey.Device {
           resolvedCard.trigger(this).catch(e => this.error('Stuck resolved trigger:', e));
         }
         // Dust bin full detection (error codes 15 and 43)
-        if (value === 15 || value === 43) {
+        if (BIN_FULL_ERROR_CODES.has(value)) {
           const binFullCard = this.homey.flow.getDeviceTriggerCard('dust_bin_full');
           binFullCard.trigger(this).catch(e => this.error('Bin full trigger:', e));
         }
@@ -2561,12 +2608,17 @@ class DreameVacuumDevice extends Homey.Device {
     return this._cleaningRoomIds.includes(roomId);
   }
 
-  async startRoomCleaning(roomId, repeats, suction, water) {
+  async startRoomCleaning(roomId, repeats, suction, water, mode) {
     this._lastCommandTime = Date.now();
     const api = this._getApi();
     const suctionValue = SUCTION_MAP[suction] !== undefined ? SUCTION_MAP[suction] : 1;
     const waterValue = WATER_VOLUME_MAP[water] !== undefined ? WATER_VOLUME_MAP[water] : 2;
     const repeatCount = Math.max(1, Math.min(3, repeats || 1));
+
+    // Set cleaning mode before starting if specified
+    if (mode && CLEANING_MODE_MAP[mode] !== undefined) {
+      await this.setCleaningMode(mode);
+    }
 
     const cleanlist = [[roomId, repeatCount, suctionValue, waterValue, 1]];
     const params = JSON.stringify({ selects: cleanlist });

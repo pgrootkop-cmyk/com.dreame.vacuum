@@ -158,12 +158,20 @@ function onHomeyReady(Homey) {
   var colorScheme = settings.colorScheme || 'Dreame Light';
   var labelSize = settings.labelSize || 'medium';
   var currentState = 'unknown';
+  // Get the selected device ID from widget device picker
+  var deviceId = '';
+  try {
+    var deviceIds = Homey.getDeviceIds();
+    if (deviceIds && deviceIds.length > 0) deviceId = deviceIds[0];
+  } catch(e) {}
+  var didParam = deviceId ? '&did=' + encodeURIComponent(deviceId) : '';
+  var didFirst = deviceId ? '?did=' + encodeURIComponent(deviceId) : '';
 
   if (showStatus) {
     document.getElementById('statusBar').style.display = 'flex';
   }
 
-  Homey.api('GET', '/data').then(function(dev) {
+  Homey.api('GET', '/data' + didFirst).then(function(dev) {
     if (dev) {
       updateStatus(dev);
       currentState = (dev.capabilities || {}).vacuumcleaner_state || 'unknown';
@@ -171,7 +179,7 @@ function onHomeyReady(Homey) {
     }
   }).catch(function() {});
 
-  var mapUrl = '/map?colorScheme=' + encodeURIComponent(colorScheme);
+  var mapUrl = '/map?colorScheme=' + encodeURIComponent(colorScheme) + didParam;
   Homey.api('GET', mapUrl).then(function(data) {
     if (data && data.width) {
       renderMapToCanvas(document.getElementById('canvas'), data, { showRoomNames: showRoomNames, labelSize: labelSize });
@@ -179,7 +187,7 @@ function onHomeyReady(Homey) {
       document.getElementById('noMap').style.display = 'none';
 
       // Always fetch live position to override stale saved-map header position
-      Homey.api('GET', '/robot-pos').then(function(pos) {
+      Homey.api('GET', '/robot-pos' + didFirst).then(function(pos) {
         if (pos && pos.x !== undefined) drawRobotDot(pos);
       }).catch(function() {});
     } else {
@@ -199,15 +207,15 @@ function startPolling(Homey, colorScheme) {
   var settings = Homey.getSettings();
   var showRoomNames = settings.showRoomNames !== false;
   var labelSize = settings.labelSize || 'medium';
-  var mapUrl = '/map?colorScheme=' + encodeURIComponent(colorScheme);
+  var mapUrl = '/map?colorScheme=' + encodeURIComponent(colorScheme) + didParam;
 
   // Fetch position immediately
-  Homey.api('GET', '/robot-pos').then(function(pos) {
+  Homey.api('GET', '/robot-pos' + didFirst).then(function(pos) {
     if (pos && pos.x !== undefined) drawRobotDot(pos);
   }).catch(function() {});
   pollTimer = setInterval(function() {
     widgetPollCycle++;
-    Homey.api('GET', '/robot-pos').then(function(pos) {
+    Homey.api('GET', '/robot-pos' + didFirst).then(function(pos) {
       if (pos && pos.x !== undefined) {
         drawRobotDot(pos);
       }

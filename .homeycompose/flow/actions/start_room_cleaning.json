@@ -3,7 +3,7 @@
     "en": "Clean a specific room"
   },
   "titleFormatted": {
-    "en": "Clean room [[room]] at [[suction]] suction, [[water]] water, [[repeats]]x"
+    "en": "Clean room [[room]] in [[mode]] mode, [[suction]] suction, [[water]] water, [[repeats]]x"
   },
   "hint": {
     "en": "Start cleaning a specific room. Rooms are discovered automatically via MQTT."
@@ -23,6 +23,20 @@
       "placeholder": {
         "en": "Search rooms..."
       }
+    },
+    {
+      "type": "dropdown",
+      "name": "mode",
+      "title": {
+        "en": "Cleaning mode"
+      },
+      "values": [
+        { "id": "current", "title": { "en": "Current setting" } },
+        { "id": "sweeping", "title": { "en": "Sweeping" } },
+        { "id": "mopping", "title": { "en": "Mopping" } },
+        { "id": "sweeping_and_mopping", "title": { "en": "Sweeping & Mopping" } },
+        { "id": "mopping_after_sweeping", "title": { "en": "Vacuum then Mop" } }
+      ]
     },
     {
       "type": "dropdown",

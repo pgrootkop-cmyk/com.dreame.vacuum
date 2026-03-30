@@ -64,5 +64,8 @@
   },
   "0.0.37": {
     "en": "Remove Sentry remote logging\n\n- Removed SentryLite and all remote diagnostic logging\n- All diagnostics now go to local Homey log (visible via homey app run --remote)\n- Removed diagnostics toggle from app settings (no longer needed)\n- Smaller app footprint, no external dependencies for logging"
+  },
+  "0.0.38": {
+    "en": "Cleaning mode per room, multi-device widget fix, error code overhaul\n\n**New features:**\n- Room cleaning flow card now has a 'Cleaning mode' dropdown: Sweeping, Mopping, Sweeping & Mopping, Vacuum then Mop, or Current setting (default). Lets you vacuum a room without mopping.\n\n**Bug fixes:**\n- Fixed: multi-device users (e.g. 2 Dreame vacuums) always saw the first device's map and consumables in both widgets. Widgets now correctly show the selected device.\n- Fixed: error codes completely realigned with Tasshack/Dreame firmware. Previous mapping was wrong — e.g. error 8 was shown as 'Robot stuck' but actually means 'Dust bin not installed'. Stuck codes are now 80-99, 200. Bin full codes are 11, 101, 104, 121."
   }
 }

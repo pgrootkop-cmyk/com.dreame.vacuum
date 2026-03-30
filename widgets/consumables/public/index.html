@@ -21,7 +21,13 @@
 
 <script>
 function onHomeyReady(Homey) {
-  Homey.api('GET', '/data').then(function(dev) {
+  var deviceId = '';
+  try {
+    var deviceIds = Homey.getDeviceIds();
+    if (deviceIds && deviceIds.length > 0) deviceId = deviceIds[0];
+  } catch(e) {}
+  var didParam = deviceId ? '?did=' + encodeURIComponent(deviceId) : '';
+  Homey.api('GET', '/data' + didParam).then(function(dev) {
     document.getElementById('loading').style.display = 'none';
     if (!dev) {
       document.getElementById('loading').style.display = 'block';
