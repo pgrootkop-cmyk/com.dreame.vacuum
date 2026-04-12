@@ -2197,6 +2197,16 @@ class DreameVacuumDevice extends Homey.Device {
 
   // Public command methods (used by flow cards)
 
+  async _disableCleanGeniusIfActive() {
+    if (!this.hasCapability('dreame_cleangenius')) return;
+    const currentCG = this.getCapabilityValue('dreame_cleangenius');
+    if (currentCG && currentCG !== 'off') {
+      await this._setAutoSwitchProperty('SmartHost', 0);
+      await this.setCapabilityValue('dreame_cleangenius', 'off').catch(this.error);
+      this._diag('[CG] Auto-disabled CleanGenius — user set manual mode', null, 'info');
+    }
+  }
+
   async setSuctionLevel(level) {
     this._lastCommandTime = Date.now();
     const api = this._getApi();
@@ -2206,6 +2216,7 @@ class DreameVacuumDevice extends Homey.Device {
       throw new Error(`Invalid suction level: ${level}`);
     }
 
+    await this._disableCleanGeniusIfActive();
     await api.setProperties(this._did, this._bindDomain, [
       { siid: PROP.SUCTION_LEVEL.siid, piid: PROP.SUCTION_LEVEL.piid, value: dreameValue },
     ]);
@@ -2221,6 +2232,8 @@ class DreameVacuumDevice extends Homey.Device {
     if (dreameValue === undefined) {
       throw new Error(`Invalid cleaning mode: ${mode}`);
     }
+
+    await this._disableCleanGeniusIfActive();
 
     // On mop_pad_lifting devices, swap wire values 0↔2 (sweeping↔sweeping_and_mopping)
     let wireValue = this._mopPadLifting ? swapMopPadLiftingMode(dreameValue) : dreameValue;
@@ -2248,6 +2261,7 @@ class DreameVacuumDevice extends Homey.Device {
       throw new Error(`Invalid water volume: ${volume}`);
     }
 
+    await this._disableCleanGeniusIfActive();
     await api.setProperties(this._did, this._bindDomain, [
       { siid: PROP.WATER_VOLUME.siid, piid: PROP.WATER_VOLUME.piid, value: dreameValue },
     ]);

@@ -6,7 +6,7 @@
     "en": "Set cleaning mode to [[mode]]"
   },
   "hint": {
-    "en": "Change the cleaning mode of the vacuum"
+    "en": "Change the cleaning mode of the vacuum. Automatically disables CleanGenius if active."
   },
   "args": [
     {
