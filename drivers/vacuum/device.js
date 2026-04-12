@@ -107,6 +107,8 @@ const ACTION = {
 };
 
 // Dreame state → Homey vacuumcleaner_state mapping
+// State mapping aligned with Tasshack DreameVacuumState (new enum, used by X50 Ultra+)
+// Values 1-18 are identical in old/new enums; 19+ follow the new enum.
 const STATE_MAP = {
   1: 'cleaning',   // SWEEPING
   2: 'stopped',    // IDLE
@@ -127,25 +129,39 @@ const STATE_MAP = {
   17: 'docked',    // RETURNING_INSTALL_MOP
   18: 'docked',    // RETURNING_REMOVE_MOP
   19: 'cleaning',  // WATER_CHECK
-  20: 'docked',    // DUST_COLLECTION
-  21: 'docked',    // REMOTE_CONTROL
-  22: 'cleaning',  // SMART_CHARGING
-  23: 'cleaning',  // SECOND_CLEANING
-  24: 'cleaning',  // HUMAN_FOLLOWING
-  25: 'cleaning',  // SPOT_CLEANING
-  26: 'cleaning',  // RETURNING_AUTO_EMPTY
-  27: 'docked',    // SHORTCUT_WAITING
-  28: 'cleaning',  // SHORTCUT_CLEANING
-  29: 'docked',    // STATION_CLEANING
-  30: 'docked',    // DRAINING
-  31: 'docked',    // WATER_CHANGE
-  32: 'docked',    // STATION_DRYING
-  33: 'cleaning',  // SEGMENT_CLEANING
-  34: 'cleaning',  // ZONE_CLEANING
-  35: 'cleaning',  // CRUISING_PATH
-  36: 'cleaning',  // CRUISING_POINT
-  37: 'cleaning',  // FAST_MAPPING
-  38: 'docked',    // AUTO_WATER_REFILLING
+  20: 'docked',    // CLEAN_ADD_WATER
+  21: 'docked',    // WASHING_PAUSED
+  22: 'docked',    // AUTO_EMPTYING
+  23: 'stopped',   // REMOTE_CONTROL
+  24: 'charging',  // SMART_CHARGING
+  25: 'cleaning',  // SECOND_CLEANING
+  26: 'cleaning',  // HUMAN_FOLLOWING
+  27: 'cleaning',  // SPOT_CLEANING
+  28: 'docked',    // RETURNING_AUTO_EMPTY
+  29: 'docked',    // WAITING_FOR_TASK
+  30: 'docked',    // STATION_CLEANING
+  31: 'docked',    // RETURNING_TO_DRAIN
+  32: 'docked',    // DRAINING
+  33: 'docked',    // AUTO_WATER_DRAINING
+  34: 'docked',    // EMPTYING
+  35: 'docked',    // DUST_BAG_DRYING
+  36: 'docked',    // DUST_BAG_DRYING_PAUSED
+  37: 'cleaning',  // HEADING_TO_EXTRA_CLEANING
+  38: 'cleaning',  // EXTRA_CLEANING
+  // High-value states (X50 Ultra+)
+  95: 'stopped',   // FINDING_PET_PAUSED
+  96: 'cleaning',  // FINDING_PET
+  97: 'cleaning',  // SHORTCUT
+  98: 'cleaning',  // MONITORING
+  99: 'stopped',   // MONITORING_PAUSED
+  101: 'cleaning', // INITIAL_DEEP_CLEANING
+  102: 'stopped',  // INITIAL_DEEP_CLEANING_PAUSED
+  103: 'cleaning', // SANITIZING
+  104: 'cleaning', // SANITIZING_WITH_DRY
+  105: 'docked',   // CHANGING_MOP
+  106: 'docked',   // CHANGING_MOP_PAUSED
+  107: 'cleaning', // FLOOR_MAINTAINING
+  108: 'stopped',  // FLOOR_MAINTAINING_PAUSED
 };
 
 // Self-wash base status mapping
@@ -414,15 +430,46 @@ const ERROR_CODES = {
 };
 
 // Detailed operational state names (for triggers/conditions) — Dreame STATE (2-1) values
+// Operational state mapping aligned with Tasshack DreameVacuumState (new enum)
 const OPERATIONAL_STATE_MAP = {
   1: 'sweeping', 2: 'idle', 3: 'paused', 4: 'error', 5: 'returning',
   6: 'charging', 7: 'mopping', 8: 'drying', 9: 'washing', 10: 'returning',
   11: 'fast_mapping', 12: 'sweeping_and_mopping', 13: 'charging', 14: 'idle',
-  15: 'idle', 16: 'idle', 17: 'returning', 18: 'returning', 19: 'sweeping',
-  20: 'dust_collection', 21: 'idle', 22: 'charging', 23: 'sweeping', 24: 'sweeping',
-  25: 'sweeping', 26: 'returning', 27: 'idle', 28: 'sweeping', 29: 'washing',
-  30: 'idle', 31: 'idle', 32: 'drying', 33: 'sweeping', 34: 'sweeping',
-  35: 'sweeping', 36: 'sweeping', 37: 'fast_mapping', 38: 'idle',
+  15: 'idle', 16: 'idle', 17: 'returning', 18: 'returning',
+  19: 'sweeping',          // WATER_CHECK
+  20: 'washing',           // CLEAN_ADD_WATER
+  21: 'washing',           // WASHING_PAUSED
+  22: 'auto_emptying',     // AUTO_EMPTYING
+  23: 'remote_control',    // REMOTE_CONTROL
+  24: 'charging',          // SMART_CHARGING
+  25: 'sweeping',          // SECOND_CLEANING
+  26: 'sweeping',          // HUMAN_FOLLOWING
+  27: 'spot_cleaning',     // SPOT_CLEANING
+  28: 'returning',         // RETURNING_AUTO_EMPTY
+  29: 'idle',              // WAITING_FOR_TASK
+  30: 'washing',           // STATION_CLEANING
+  31: 'returning',         // RETURNING_TO_DRAIN
+  32: 'draining',          // DRAINING
+  33: 'draining',          // AUTO_WATER_DRAINING
+  34: 'auto_emptying',     // EMPTYING
+  35: 'drying',            // DUST_BAG_DRYING
+  36: 'drying',            // DUST_BAG_DRYING_PAUSED
+  37: 'sweeping',          // HEADING_TO_EXTRA_CLEANING
+  38: 'sweeping',          // EXTRA_CLEANING
+  // High-value states (X50 Ultra+)
+  95: 'paused',            // FINDING_PET_PAUSED
+  96: 'monitoring',        // FINDING_PET
+  97: 'shortcut',          // SHORTCUT
+  98: 'monitoring',        // MONITORING
+  99: 'paused',            // MONITORING_PAUSED
+  101: 'sweeping',         // INITIAL_DEEP_CLEANING
+  102: 'paused',           // INITIAL_DEEP_CLEANING_PAUSED
+  103: 'sanitizing',       // SANITIZING
+  104: 'sanitizing',       // SANITIZING_WITH_DRY
+  105: 'idle',             // CHANGING_MOP
+  106: 'idle',             // CHANGING_MOP_PAUSED
+  107: 'sweeping',         // FLOOR_MAINTAINING
+  108: 'paused',           // FLOOR_MAINTAINING_PAUSED
 };
 
 // Friendly operational state labels for trigger tokens
@@ -430,7 +477,9 @@ const OPERATIONAL_STATE_LABELS = {
   sweeping: 'Sweeping', idle: 'Idle', paused: 'Paused', error: 'Error',
   returning: 'Returning', charging: 'Charging', mopping: 'Mopping',
   drying: 'Drying', washing: 'Washing', sweeping_and_mopping: 'Sweeping & Mopping',
-  dust_collection: 'Emptying dust bin', fast_mapping: 'Fast mapping',
+  auto_emptying: 'Emptying dust bin', fast_mapping: 'Fast mapping',
+  spot_cleaning: 'Spot cleaning', shortcut: 'Shortcut', monitoring: 'Monitoring',
+  sanitizing: 'Sanitizing', remote_control: 'Remote control', draining: 'Draining',
 };
 
 // Error codes that indicate the robot is stuck/blocked (Tasshack: 80-81, 90-99, 200)

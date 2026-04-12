@@ -41,8 +41,14 @@
         { "id": "drying", "title": { "en": "Drying" } },
         { "id": "washing", "title": { "en": "Washing" } },
         { "id": "sweeping_and_mopping", "title": { "en": "Sweeping & Mopping" } },
-        { "id": "dust_collection", "title": { "en": "Emptying dust bin" } },
-        { "id": "fast_mapping", "title": { "en": "Fast mapping" } }
+        { "id": "auto_emptying", "title": { "en": "Emptying dust bin" } },
+        { "id": "fast_mapping", "title": { "en": "Fast mapping" } },
+        { "id": "spot_cleaning", "title": { "en": "Spot cleaning" } },
+        { "id": "shortcut", "title": { "en": "Shortcut" } },
+        { "id": "monitoring", "title": { "en": "Monitoring" } },
+        { "id": "sanitizing", "title": { "en": "Sanitizing" } },
+        { "id": "remote_control", "title": { "en": "Remote control" } },
+        { "id": "draining", "title": { "en": "Draining" } }
       ]
     }
   ]
