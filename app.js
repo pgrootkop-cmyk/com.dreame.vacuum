@@ -150,7 +150,7 @@ class DreameApp extends Homey.App {
       for (const cap of d.getCapabilities()) {
         caps[cap] = d.getCapabilityValue(cap);
       }
-      return {
+      const result = {
         id: d.getData().id,
         homeyId: d.id,
         name: d.getName(),
@@ -161,6 +161,17 @@ class DreameApp extends Homey.App {
           mapObjectName: d.getStoreValue('mapObjectName'),
         },
       };
+      // Multi-floor metadata (only included when device supports it)
+      if (d.isMultiFloor()) {
+        result.isMultiFloor = true;
+        result.currentMapId = d.getCurrentMapId();
+        // Include per-floor rooms for settings display
+        result.floors = d.getFloorList().map(f => ({
+          ...f,
+          rooms: d.getFloorRooms(f.mapId),
+        }));
+      }
+      return result;
     });
   }
 
@@ -185,15 +196,17 @@ class DreameApp extends Homey.App {
    * Get rendered map as RGBA pixel data + dimensions for a device.
    * Returns { width, height, pixels: base64-encoded RGBA, rooms: [...] } or null.
    */
-  getRenderedMap(did, colorScheme) {
+  getRenderedMap(did, colorScheme, mapId) {
     const device = this._findVacuumDevice(did);
     if (!device) return null;
 
+    // Always render from the active floor's cached map (flat store).
+    // Settings page switches floor via switchFloor API before requesting render.
     const raw = device.getStoreValue('mapRawBase64');
     if (!raw) return null;
 
-    const model = device.getStoreValue('model') || '';
     const rooms = device.getRooms() || [];
+    const model = device.getStoreValue('model') || '';
     return this._renderMapPixels(raw, rooms, model);
   }
 

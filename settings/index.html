@@ -58,6 +58,16 @@
       font-size: 13px;
       text-align: center;
     }
+    .spinner {
+      display: inline-block;
+      width: 24px; height: 24px;
+      border: 3px solid var(--homey-color-mono-200, #ddd);
+      border-top-color: var(--homey-color-primary, #2196F3);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 8px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .empty-state {
       color: var(--homey-text-color-light, #999);
       font-size: 12px;
@@ -82,6 +92,17 @@
       font-size: 11px;
       font-weight: var(--homey-font-weight-medium, 500);
     }
+    .floor-header {
+      background: var(--homey-color-primary, #2196F3) !important;
+      color: white !important;
+      font-weight: var(--homey-font-weight-medium, 600);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 5px 10px !important;
+      margin-top: 6px;
+    }
+    .floor-room { padding-left: 18px !important; }
 
     /* ── Consumables ── */
     .cons-row { margin-bottom: 8px; }
@@ -152,6 +173,18 @@
     </fieldset>
   </form>
 
+  <div id="floorSelector" style="display:none;">
+    <form class="homey-form">
+      <fieldset class="homey-form-fieldset">
+        <legend class="homey-form-legend">Floor</legend>
+        <div class="homey-form-group">
+          <select class="homey-form-select" id="floorSelect" onchange="selectFloor()">
+          </select>
+        </div>
+      </fieldset>
+    </form>
+  </div>
+
   <div id="content" style="display:none;padding-top:15px;">
     <div class="map-wrap" id="mapWrap">
       <canvas id="mapCanvas" class="default-cursor" style="display:none;"></canvas>
@@ -211,6 +244,7 @@ var _zones = [];
 var _waypoints = [];
 var _drawState = { active: false, startX: 0, startY: 0, endX: 0, endY: 0 };
 var _wpPlaceState = { active: false };
+var _selectedMapId = null; // multi-floor: currently selected floor mapId
 
 function onHomeyReady(Homey) {
   _homey = Homey;
@@ -253,13 +287,45 @@ function selectDevice() {
 }
 
 function show(d) {
+  // Multi-floor: show floor selector if device supports it
+  var floorSel = document.getElementById('floorSelector');
+  if (d.isMultiFloor && d.floors && d.floors.length > 1) {
+    floorSel.style.display = 'block';
+    var sel = document.getElementById('floorSelect');
+    sel.innerHTML = d.floors.map(function(f) { return '<option value="' + f.mapId + '">' + f.name + '</option>'; }).join('');
+    _selectedMapId = d.currentMapId || d.floors[0].mapId;
+    sel.value = String(_selectedMapId);
+  } else {
+    floorSel.style.display = 'none';
+    _selectedMapId = null;
+  }
   status(d); rooms(d); consumables(d); map(d); loadZones(); loadWaypoints();
+}
+
+function selectFloor() {
+  var mapId = document.getElementById('floorSelect').value;
+  _selectedMapId = parseInt(mapId, 10);
+  var noMap = document.getElementById('noMap');
+  var canvas = document.getElementById('mapCanvas');
+  canvas.style.display = 'none'; noMap.style.display = 'block';
+  noMap.innerHTML = '<div class="spinner"></div><div>Switching floor...</div>';
+  // Switch active floor on device (triggers map re-download) then reload UI
+  _homey.api('GET', '/switchFloor?did=' + encodeURIComponent(_did) + '&mapId=' + mapId, null, function(err) {
+    if (err) { noMap.innerHTML = 'Failed to switch floor'; _homey.alert('Failed to switch floor: ' + (err.message || err)); return; }
+    // Brief delay for map download to complete
+    setTimeout(function() {
+      var d = _devices.find(function(x) { return x.id === _did; });
+      if (d) { map(d); loadZones(); loadWaypoints(); }
+    }, 3000);
+  });
 }
 
 function status(d) {
   var c = d.capabilities;
   var s = c.vacuumcleaner_state || 'unknown';
   var b = c.measure_battery;
+  var cg = c.dreame_cleangenius;
+  var mf = d.isMultiFloor;
   var items = [
     ['State', cap(s), s === 'cleaning' ? 'good' : ''],
     ['Battery', b != null ? b + '%' : '-', b > 50 ? 'good' : b > 20 ? 'warn' : 'bad'],
@@ -269,6 +335,8 @@ function status(d) {
     ['Area', c.dreame_cleaned_area != null ? c.dreame_cleaned_area + ' m\u00B2' : '-', ''],
     ['Time', c.dreame_cleaning_time != null ? c.dreame_cleaning_time + ' min' : '-', ''],
     ['Error', c.dreame_error || 'None', (c.dreame_error && c.dreame_error !== 'None') ? 'bad' : 'good'],
+    ['CleanGenius', cg ? cap(cg) : 'N/A', cg === 'on' ? 'good' : ''],
+    ['Multi-floor', mf ? 'Enabled' : 'Disabled', mf ? 'good' : ''],
   ];
   document.getElementById('statusGrid').innerHTML = items.map(function(i) {
     return '<div class="card"><div class="card-label">' + i[0] + '</div><div class="card-value ' + i[2] + '">' + i[1] + '</div></div>';
@@ -277,6 +345,29 @@ function status(d) {
 
 function rooms(d) {
   var el = document.getElementById('roomList');
+  if (d.isMultiFloor && d.floors && d.floors.length > 0) {
+    // Multi-floor: show all floors and their rooms
+    var html = '';
+    _homey.api('GET', '/vacuumData', null, function(err, data) {
+      if (err || !data) return;
+      var dev = data.find(function(x) { return x.id === d.id; });
+      if (!dev || !dev.floors) return;
+      var allHtml = '';
+      dev.floors.forEach(function(f) {
+        allHtml += '<li class="floor-header">' + f.name + '</li>';
+        var floorRooms = f.rooms || [];
+        if (floorRooms.length === 0) {
+          allHtml += '<li class="floor-room"><span>No rooms discovered</span></li>';
+        } else {
+          floorRooms.forEach(function(r) {
+            allHtml += '<li class="floor-room"><span>' + r.name + '</span><span class="room-id">ID ' + r.id + '</span></li>';
+          });
+        }
+      });
+      el.innerHTML = allHtml || '<li>No rooms discovered</li>';
+    });
+    return;
+  }
   if (!d.rooms || !d.rooms.length) { el.innerHTML = '<li>No rooms discovered</li>'; return; }
   el.innerHTML = d.rooms.map(function(r) {
     return '<li><span>' + r.name + '</span><span class="room-id">ID ' + r.id + '</span></li>';
@@ -303,7 +394,9 @@ function consumables(d) {
 // ---- Zone Drawing ----
 
 function loadZones() {
-  _homey.api('GET', '/zones?did=' + encodeURIComponent(_did), null, function(err, data) {
+  var url = '/zones?did=' + encodeURIComponent(_did);
+  if (_selectedMapId != null) url += '&mapId=' + _selectedMapId;
+  _homey.api('GET', url, null, function(err, data) {
     _zones = (!err && Array.isArray(data)) ? data : [];
     renderZoneList();
     drawZonesOverlay();
@@ -399,7 +492,9 @@ function deleteZone(zoneId) {
 // ---- Waypoint Management ----
 
 function loadWaypoints() {
-  _homey.api('GET', '/waypoints?did=' + encodeURIComponent(_did), null, function(err, data) {
+  var url = '/waypoints?did=' + encodeURIComponent(_did);
+  if (_selectedMapId != null) url += '&mapId=' + _selectedMapId;
+  _homey.api('GET', url, null, function(err, data) {
     _waypoints = (!err && Array.isArray(data)) ? data : [];
     renderWaypointList();
     redrawMap();
@@ -710,9 +805,11 @@ function fetchRobotPosition() {
 function map(d) {
   var canvas = document.getElementById('mapCanvas');
   var noMap = document.getElementById('noMap');
-  canvas.style.display = 'none'; noMap.style.display = 'block'; noMap.textContent = 'Loading map...';
-  _homey.api('GET', '/renderedMap?did=' + encodeURIComponent(d.id), null, function(err, data) {
-    if (err || !data || !data.width) { noMap.textContent = 'No map data available'; return; }
+  canvas.style.display = 'none'; noMap.style.display = 'block';
+  noMap.innerHTML = '<div class="spinner"></div><div>Loading map...</div>';
+  var url = '/renderedMap?did=' + encodeURIComponent(d.id);
+  _homey.api('GET', url, null, function(err, data) {
+    if (err || !data || !data.width) { noMap.innerHTML = 'No map data available'; return; }
     renderMapToCanvas(canvas, data, { showRoomNames: true });
     canvas.style.display = 'block'; noMap.style.display = 'none';
     drawZonesOverlay();

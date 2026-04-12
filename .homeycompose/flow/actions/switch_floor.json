@@ -1,0 +1,28 @@
+{
+  "title": {
+    "en": "Switch to floor"
+  },
+  "titleFormatted": {
+    "en": "Switch to [[floor]]"
+  },
+  "hint": {
+    "en": "Switch the vacuum's active floor map. Only available on multi-floor devices."
+  },
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=vacuum"
+    },
+    {
+      "type": "autocomplete",
+      "name": "floor",
+      "title": {
+        "en": "Floor"
+      },
+      "placeholder": {
+        "en": "Select a floor..."
+      }
+    }
+  ]
+}

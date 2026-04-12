@@ -8,7 +8,8 @@ module.exports = {
   async getRenderedMap({ homey, query }) {
     const did = query.did;
     if (!did) return null;
-    return homey.app.getRenderedMap(did, query.colorScheme);
+    const mapId = query.mapId ? parseInt(query.mapId, 10) : null;
+    return homey.app.getRenderedMap(did, query.colorScheme, mapId);
   },
 
   async getRobotPosition({ homey, query }) {
@@ -28,6 +29,10 @@ module.exports = {
     const did = query.did;
     const device = homey.app._findVacuumDevice(did);
     if (!device) return [];
+    const mapId = query.mapId ? parseInt(query.mapId, 10) : null;
+    if (mapId != null && device.isMultiFloor()) {
+      return device.getFloorZones(mapId);
+    }
     return device.getZones();
   },
 
@@ -75,6 +80,10 @@ async deleteZone({ homey, query }) {
     const did = query.did;
     const device = homey.app._findVacuumDevice(did);
     if (!device) return [];
+    const mapId = query.mapId ? parseInt(query.mapId, 10) : null;
+    if (mapId != null && device.isMultiFloor()) {
+      return device.getFloorWaypoints(mapId);
+    }
     return device.getWaypoints();
   },
 
@@ -94,6 +103,23 @@ async deleteZone({ homey, query }) {
     if (!device) throw new Error('Device not found');
     if (!wpId) throw new Error('Missing wpId');
     await device.deleteWaypoint(wpId);
+    return { ok: true };
+  },
+
+  async getFloors({ homey, query }) {
+    const did = query.did;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device || !device.isMultiFloor()) return [];
+    return device.getFloorList();
+  },
+
+  async switchFloor({ homey, query }) {
+    const did = query.did;
+    const mapId = query.mapId ? parseInt(query.mapId, 10) : null;
+    const device = homey.app._findVacuumDevice(did);
+    if (!device) throw new Error('Device not found');
+    if (mapId == null) throw new Error('Missing mapId');
+    await device.switchFloor(mapId);
     return { ok: true };
   },
 };

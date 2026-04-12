@@ -1,6 +1,6 @@
 {
   "id": "com.dreame.vacuum.cloud",
-  "version": "0.0.40",
+  "version": "1.0.0",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -61,6 +61,14 @@
     "deleteWaypointGet": {
       "method": "GET",
       "path": "/deleteWaypoint"
+    },
+    "getFloors": {
+      "method": "GET",
+      "path": "/floors"
+    },
+    "switchFloor": {
+      "method": "GET",
+      "path": "/switchFloor"
     }
   },
   "tags": {

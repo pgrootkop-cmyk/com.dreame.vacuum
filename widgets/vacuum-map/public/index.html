@@ -11,6 +11,8 @@
     .map-area.dark { background: #1a1a1a; }
     .map-area canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
     .no-map { color: var(--homey-text-color-light); font-size: var(--homey-font-size-small); text-align: center; padding: 20px; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--homey-color-mono-200, #ddd); border-top-color: var(--homey-color-primary, #2196F3); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .status-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; gap: 8px; border-top: var(--homey-line-light); }
     .status-item { display: flex; align-items: center; gap: 4px; font-size: var(--homey-font-size-small); color: var(--homey-text-color); }
     .status-item .val { font-weight: var(--homey-font-weight-medium); }
@@ -28,7 +30,7 @@
   <div class="container">
     <div class="map-area" id="mapArea">
       <canvas id="canvas" style="display:none;"></canvas>
-      <div class="no-map" id="noMap">Loading...</div>
+      <div class="no-map" id="noMap"><div class="spinner"></div><div>Loading...</div></div>
     </div>
     <div class="status-bar" id="statusBar" style="display:none;">
       <div class="status-item"><span class="dot" id="stateDot"></span><span class="val" id="stateText">-</span></div>
