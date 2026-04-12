@@ -152,6 +152,7 @@ class DreameApp extends Homey.App {
       }
       return {
         id: d.getData().id,
+        homeyId: d.id,
         name: d.getName(),
         rooms: d.getRooms(),
         capabilities: caps,
