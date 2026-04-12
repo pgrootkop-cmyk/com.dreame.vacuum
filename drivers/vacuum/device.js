@@ -854,6 +854,12 @@ class DreameVacuumDevice extends Homey.Device {
     this._multiFloor = this.getStoreValue('multiFloor') || false;
     this._currentMapId = this.getStoreValue('currentMapId') || null;
     this._floorMaps = this.getStoreValue('floorMaps') || {};   // {[mapId]: {mapId, name, rooms[], mapObjectName}}
+    // Strip stale mapRawBase64 from floorMaps (moved to separate per-floor store keys)
+    let floorMapsClean = false;
+    for (const f of Object.values(this._floorMaps)) {
+      if (f.mapRawBase64) { delete f.mapRawBase64; floorMapsClean = true; }
+    }
+    if (floorMapsClean) this.setStoreValue('floorMaps', this._floorMaps).catch(this.error);
     this._floorZones = this.getStoreValue('floorZones') || {};  // {[mapId]: zone[]}
     this._floorWaypoints = this.getStoreValue('floorWaypoints') || {}; // {[mapId]: waypoint[]}
     this.log(`[INIT] multiFloor=${this._multiFloor}, floors=${Object.keys(this._floorMaps).length}, rooms=${this._rooms.length}`);
@@ -3139,10 +3145,10 @@ class DreameVacuumDevice extends Homey.Device {
     this._rismCache = null; // invalidate for _detectCurrentRoom
 
     // Load saved map base64 for this floor (stored per-floor by _fetchMapList)
-    const savedMapRaw = this.getStoreValue(`floorMapRaw_${mapId}`);
+    let savedMapRaw = this.getStoreValue(`floorMapRaw_${mapId}`);
     if (savedMapRaw) {
       await this.setStoreValue('mapRawBase64', savedMapRaw);
-      this._diag(`[FLOOR] Loaded saved map for floor ${mapId} (${savedMapRaw.length} chars)`, null, 'info');
+      savedMapRaw = null; // free for GC
     }
   }
 
@@ -3200,75 +3206,62 @@ class DreameVacuumDevice extends Homey.Device {
   async _fetchMapList(objectName) {
     const api = this._getApi();
     const model = this.getStoreValue('model') || '';
-    this._diag(`[FLOOR] Downloading map list: ${objectName}`, null, 'info');
     const buffer = await api.getMapData(this._did, objectName, model);
-    const rawStr = buffer.toString('utf8');
-    this._diag(`[FLOOR] Map list response: ${rawStr.substring(0, 300)}...`, null, 'info');
-    const json = JSON.parse(rawStr);
+    const json = JSON.parse(buffer.toString('utf8'));
 
     const savedMaps = json.mapstr || [];
     const currentId = json.curr_id;
     const modelIv = getMapIvForModel(model);
     const lang = this._getLanguage();
 
-    this._diag(`[FLOOR] Map list: ${savedMaps.length} floors, curr_id=${currentId}, keys=${Object.keys(json).join(',')}`, null, 'info');
-    for (const entry of savedMaps) {
-      this._diag(`[FLOOR] Entry: name=${entry.name}, hasMap=${!!entry.map}, mapobj=${entry.mapobj || 'none'}, rismobj=${entry.rismobj || 'none'}, keys=${Object.keys(entry).join(',')}`, null, 'info');
-    }
-
-    let changed = false;
-    for (const entry of savedMaps) {
-      const rawMap = entry.map;
-      if (!rawMap) continue;
-
-      const mapId = extractMapId(rawMap, null, modelIv);
-      if (mapId == null) continue;
-
-      const name = (entry.name && entry.name.trim()) || `Floor ${Object.keys(this._floorMaps).length + 1}`;
-
-      this._diag(`[FLOOR] Parsed entry: mapId=${mapId}, name=${name}`, null, 'info');
-
-      if (!this._floorMaps[mapId]) {
-        // Only parse rooms for newly discovered floors
-        const rooms = parseMapRooms(rawMap, null, null, modelIv, lang);
-        this._floorMaps[mapId] = { mapId, name, rooms, mapObjectName: entry.mapobj || '' };
-        // Store saved map base64 for this floor (for rendering when switching)
-        this.setStoreValue(`floorMapRaw_${mapId}`, rawMap).catch(this.error);
-        this._diag(`[FLOOR] New floor ${mapId}: "${name}", ${rooms.length} rooms, mapobj=${entry.mapobj || 'none'}`, null, 'info');
-        changed = true;
-      } else {
-        if (entry.name && this._floorMaps[mapId].name !== name) {
-          this._floorMaps[mapId].name = name;
-          changed = true;
-        }
-        // Re-parse rooms if floor has none cached
-        if (!this._floorMaps[mapId].rooms || this._floorMaps[mapId].rooms.length === 0) {
-          const rooms = parseMapRooms(rawMap, null, null, modelIv, lang);
-          if (rooms.length > 0) {
-            this._floorMaps[mapId].rooms = rooms;
-            changed = true;
-          }
-        }
-        if (entry.mapobj && !this._floorMaps[mapId].mapObjectName) {
-          this._floorMaps[mapId].mapObjectName = entry.mapobj;
-          changed = true;
-        }
-        // Update saved map base64 for rendering
-        this.setStoreValue(`floorMapRaw_${mapId}`, rawMap).catch(this.error);
-      }
-
-      // Initialize per-floor zones/waypoints if missing
-      if (!this._floorZones[mapId]) this._floorZones[mapId] = [];
-      if (!this._floorWaypoints[mapId]) this._floorWaypoints[mapId] = [];
-    }
-
-    // Remove floors that no longer exist in the map list
+    // Build discovered IDs first (before we null entry.map for GC)
     const discoveredIds = new Set();
     for (const entry of savedMaps) {
       if (entry.map) {
         const mid = extractMapId(entry.map, null, modelIv);
         if (mid != null) discoveredIds.add(mid);
       }
+    }
+
+    let changed = false;
+    for (let i = 0; i < savedMaps.length; i++) {
+      const entry = savedMaps[i];
+      const rawMap = entry.map;
+      if (!rawMap) continue;
+
+      const mapId = extractMapId(rawMap, null, modelIv);
+      if (mapId == null) { entry.map = null; continue; }
+
+      const name = (entry.name && entry.name.trim()) || `Floor ${Object.keys(this._floorMaps).length + 1}`;
+
+      if (!this._floorMaps[mapId]) {
+        const rooms = parseMapRooms(rawMap, null, null, modelIv, lang);
+        this._floorMaps[mapId] = { mapId, name, rooms, mapObjectName: entry.mapobj || '' };
+        this.setStoreValue(`floorMapRaw_${mapId}`, rawMap).catch(this.error);
+        changed = true;
+      } else {
+        if (entry.name && entry.name.trim() && this._floorMaps[mapId].name !== name) {
+          this._floorMaps[mapId].name = name;
+          changed = true;
+        }
+        if (!this._floorMaps[mapId].rooms || this._floorMaps[mapId].rooms.length === 0) {
+          const rooms = parseMapRooms(rawMap, null, null, modelIv, lang);
+          if (rooms.length > 0) { this._floorMaps[mapId].rooms = rooms; changed = true; }
+        }
+        if (entry.mapobj && !this._floorMaps[mapId].mapObjectName) {
+          this._floorMaps[mapId].mapObjectName = entry.mapobj;
+          changed = true;
+        }
+        // Only re-store map if not already persisted
+        if (!this.getStoreValue(`floorMapRaw_${mapId}`)) {
+          this.setStoreValue(`floorMapRaw_${mapId}`, rawMap).catch(this.error);
+        }
+      }
+
+      entry.map = null; // free large base64 string for GC
+
+      if (!this._floorZones[mapId]) this._floorZones[mapId] = [];
+      if (!this._floorWaypoints[mapId]) this._floorWaypoints[mapId] = [];
     }
     for (const existingId of Object.keys(this._floorMaps)) {
       const id = parseInt(existingId, 10);
